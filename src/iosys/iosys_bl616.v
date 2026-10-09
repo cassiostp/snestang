@@ -11,7 +11,23 @@ module iosys_bl616 #(
     parameter FREQ=21_477_000,
     parameter [14:0] COLOR_LOGO=15'b00000_10101_00000,
     parameter [15:0] CORE_ID=1,     // 1: nestang, 2: snestang
-    parameter [7:0] LOADING_STATE=0
+    parameter [7:0] LOADING_STATE=0,
+    // SAVE-RAM INTERFACE. A generic "save RAM as 512-byte blocks" channel between a
+    // core's battery-backed RAM and a file on the MCU's SD card, so saves survive a
+    // power-off. Kept core-agnostic (from pcetang's SAVE_IF): the MCU addresses blocks,
+    // the core only exposes a RAM port and a "written" strobe.
+    //   MCU -> FPGA 0x11 blk[15:0] <512 bytes>   write one block into save RAM (restore)
+    //   MCU -> FPGA 0x12 blk[15:0]               request one block back
+    //   FPGA -> MCU 0x0A blk[15:0] <512 bytes>   the requested block
+    //   FPGA -> MCU 0x0B 0x00                    save RAM written by the core since the last dump
+    // The response-type byte on the wire IS the TX state number (see SEND_HEADER), which
+    // is why 0x0A/0x0B are the next free states. SAVE_IF=0 elaborates none of this.
+    parameter SAVE_IF=0,
+    parameter SAVE_AW=11,               // save RAM address width in bytes (17 = 128 KB BSRAM)
+    parameter SAVE_RDY=0                // 1: byte accesses use the sv_req/sv_ack handshake
+                                        // (SDRAM-backed RAM; snestang). 0: the bridge acks
+                                        // immediately, dpram style (smstang) -- then sv_ack
+                                        // is ignored and completion takes one clock.
 )
 (
     input clk,                      // main logic clock
@@ -43,10 +59,26 @@ module iosys_bl616 #(
     input      [1:0]  fdd_request,      // [1]: write, [0]: read
 
     // Keyboard interface
-    input reg  [7:0] kbd_data,
+    output reg [7:0] kbd_data,        // strobed by kbd_data_valid (unused on snestang)
     output reg       kbd_data_valid,
     
     output reg [31:0] core_config,
+
+    // Save-RAM port (SAVE_IF=1 only; tie inputs to 0 and leave outputs open otherwise).
+    // The RAM lives off-chip (SDRAM behind a bridge), so byte accesses are handshakes:
+    // RX toggles sv_req to write sv_din at sv_addr and the bridge toggles sv_ack back
+    // when done; TX toggles sv_rreq to read one and sv_q is valid with the sv_rack
+    // toggle. Same clock as `clk`. With SAVE_RDY=0 both complete in the clock that
+    // starts them -- a dpram-style bridge (smstang) can then leave the acks open.
+    output     [SAVE_AW-1:0] sv_addr,
+    output reg [7:0]         sv_din,
+    output                   sv_we,
+    output reg               sv_req,        // toggle: a save-RAM write starts
+    input                    sv_ack,        // toggle: that write is done
+    output reg               sv_rreq,       // toggle: a save-RAM read starts
+    input                    sv_rack,       // toggle: that read is done
+    input      [7:0]         sv_q,          // read data, valid with sv_rack
+    input                    sv_core_we,    // the CORE wrote save RAM this cycle
 
     // UART interface
     input  uart_rx,
@@ -106,14 +138,15 @@ async_transmitter #(
 assign tx_ready = ~tx_busy;
 
 // Command processing state machine
-localparam RECV_IDLE         = 7'b0000001; // waiting for command
-localparam RECV_LEN1         = 7'b0000010; // receiving length msb
-localparam RECV_LEN2         = 7'b0000100; // receiving length lsb
-localparam RECV_CMD          = 7'b0001000; // receiving command
-localparam RECV_PARAM        = 7'b0010000; // receiving parameters
-localparam RECV_RESPONSE_REQ = 7'b0100000; // sending response
-localparam RECV_RESPONSE_ACK = 7'b1000000; // waiting for response sending to finish 
-reg [6:0] recv_state = RECV_IDLE;
+localparam RECV_IDLE         = 8'b00000001; // waiting for command
+localparam RECV_LEN1         = 8'b00000010; // receiving length msb
+localparam RECV_LEN2         = 8'b00000100; // receiving length lsb
+localparam RECV_CMD          = 8'b00001000; // receiving command
+localparam RECV_PARAM        = 8'b00010000; // receiving parameters
+localparam RECV_RESPONSE_REQ = 8'b00100000; // sending response
+localparam RECV_RESPONSE_ACK = 8'b01000000; // waiting for response sending to finish
+localparam RECV_SAVE_WAIT    = 8'b10000000; // waiting for a save-RAM byte access to finish
+reg [7:0] recv_state = RECV_IDLE;
 
 // UART command buffer
 reg [7:0] cmd_reg;
@@ -136,6 +169,28 @@ reg [7:0] cursor_y;
 reg [7:0] response_type;
 reg response_req;
 reg response_ack;
+
+// save-RAM interface state (SAVE_IF=1)
+reg [SAVE_AW-1:0] sv_waddr;         // RX side: restore write address
+reg [SAVE_AW-1:0] sv_raddr;         // TX side: dump read address
+reg [15:0]        sv_req_blk;       // block the MCU asked for (latched in RX)
+reg               sv_rd_req = 0, sv_rd_ack = 0;   // RX->TX toggle handshake
+reg               sv_dirty = 0;     // core wrote save RAM since the last dump of block 0
+reg               sv_notify = 0;    // a 0x0B notice is owed
+reg [9:0]         sv_idx;           // TX byte index within a block frame
+// Byte-access handshakes. The RX FSM toggles sv_req for a write (sv_addr/sv_din/sv_we
+// held until sv_ack toggles back) and the TX FSM toggles sv_rreq for a read (sv_q is
+// valid with sv_rack). Each is driven by exactly one FSM; the bridge serializes them
+// against the SNES's own save-RAM accesses. With SAVE_RDY=0 both finish in the clock
+// that starts them.
+reg               sv_req_d = 0;     // sv_req delayed one clock: the issue pulse for SAVE_RDY=0
+wire sv_w_pulse = (sv_req ^ sv_req_d);
+wire sv_w_busy  = SAVE_RDY ? (sv_req != sv_ack) : sv_w_pulse;
+wire sv_w_done  = SAVE_RDY ? (sv_req == sv_ack) : 1'b1;
+wire sv_r_done  = SAVE_RDY ? (sv_rreq == sv_rack) : 1'b1;
+// Write wins the shared address: the MCU never restores while it is dumping.
+assign sv_addr = sv_we ? sv_waddr : sv_raddr;
+assign sv_we   = sv_w_busy;
 
 // mgmt_* multiplex
 reg mgmt_rx;
@@ -170,6 +225,8 @@ reg fdd_read_start, fdd_read_finish, fdd_write_finish;
 // 0x0b addr[15:0] data[15:0] write to disk management interface (mgmt_address and mgmt_writedata)
 // 0x0c <scancode>            send PS/2 scancode (len specified by frame header)
 // 0x0d <string>              debug printf. core ignores this.
+// 0x11 blk[15:0] <512 bytes> write one block into save RAM (SAVE_IF only)
+// 0x12 blk[15:0]             request one save-RAM block (SAVE_IF only)
 //
 // Response payloads from FPGA to BL616:
 // 0x01 core_id[7:0]          core ID
@@ -177,6 +234,8 @@ reg fdd_read_start, fdd_read_finish, fdd_write_finish;
 // 0x03 joy1[15:0] joy2[15:0] every 20ms, send DS2/SNES joypad state to BL616
 // 0x04 lba[15:0] <data_512>  write a sector to disk
 // 0x05 lba[15:0]             read a sector from disk (followed by command 0x0a)
+// 0x0a blk[15:0] <512 bytes> the requested save-RAM block (SAVE_IF only)
+// 0x0b 0x00                  save RAM changed by the core since the last dump (SAVE_IF only)
 
 // UART RX: command processing
 always @(posedge clk) begin
@@ -194,6 +253,10 @@ always @(posedge clk) begin
         we <= 0;
         cursor_x <= 0;
         cursor_y <= 0;
+        sv_req <= 0;
+        sv_req_d <= 0;
+        sv_rd_req <= 0;
+        sv_req_blk <= 0;
     end else begin
         rom_do_valid <= 0;
         we <= 0;
@@ -201,6 +264,7 @@ always @(posedge clk) begin
         fdd_read_finish <= 0;
         mgmt_rx <= 0;
         kbd_data_valid <= 0;
+        sv_req_d <= sv_req;         // keeps sv_w_pulse a single clock when SAVE_RDY=0
 
         case (recv_state)
 
@@ -305,6 +369,28 @@ always @(posedge clk) begin
                         kbd_data <= rx_data;
                         kbd_data_valid <= 1;
                     end
+                    'h11: if (SAVE_IF) begin       // write one save-RAM block
+                        // data_cnt 0 is blk[15:8]: unused, SAVE_AW-9 bits of blk suffice
+                        if (data_cnt == 1)
+                            sv_waddr <= {rx_data, 9'd0};   // blk * 512 (truncated to SAVE_AW)
+                        else if (data_cnt >= 2 && data_cnt < 2 + 512) begin
+                            // >= 2 matters: byte 0 (blk[15:8]) must NOT fall through to a
+                            // write -- it would land at the previous frame's last address.
+                            sv_din <= rx_data;
+                            if (data_cnt > 2)
+                                sv_waddr <= sv_waddr + 1'd1;
+                            sv_req <= ~sv_req;              // the bridge writes the byte...
+                            recv_state <= RECV_SAVE_WAIT;   // ...and it must ack before the next
+                        end
+                    end
+                    'h12: if (SAVE_IF) begin       // request one save-RAM block back
+                        if (data_cnt == 0)
+                            sv_req_blk[15:8] <= rx_data;
+                        else if (data_cnt == 1) begin
+                            sv_req_blk[7:0] <= rx_data;
+                            sv_rd_req <= ~sv_rd_req;
+                        end
+                    end
                     default: begin
                         // unknown command: consume all data and return
                     end
@@ -326,6 +412,12 @@ always @(posedge clk) begin
                 if (response_req == response_ack) begin
                     recv_state <= RECV_IDLE;
                 end
+
+            RECV_SAVE_WAIT:                         // wait for one save-RAM byte access
+                if (sv_w_done) begin                // (instant with SAVE_RDY=0)
+                    // the last byte of the block ends the frame
+                    recv_state <= (data_cnt + 1 == len_reg) ? RECV_IDLE : RECV_PARAM;
+                end
         endcase
         
     end
@@ -341,8 +433,11 @@ localparam SEND_FDD_READ = 5;
 
 localparam SEND_HEADER = 6;
 localparam SEND_DONE = 7;
+localparam SEND_SAVE_BLK = 10;      // save-RAM block (response type 0x0A on the wire)
+localparam SEND_SAVE_DIRTY = 11;    // save-RAM changed notice (0x0B)
+localparam SEND_SAVE_RDY = 12;      // internal: one save-RAM read in flight (never sent)
 
-reg [2:0] send_state, send_state_next;
+reg [3:0] send_state, send_state_next;
 reg [$clog2(STR_LEN+1)-1:0] send_idx;
 localparam JOY_UPDATE_INTERVAL = 50_000_000 / 50; // 20ms interval for 50Hz
 reg [$clog2(JOY_UPDATE_INTERVAL+1)-1:0] joy_timer;
@@ -355,6 +450,7 @@ always @(posedge clk) begin
     if (!resetn) begin
         joy_timer <= 0;
         send_state <= 0;
+        sv_rreq <= 0;
     end else begin
         tx_valid <= 0;
         mgmt_read <= 0;
@@ -363,6 +459,15 @@ always @(posedge clk) begin
         
         // Joypad state transmission logic
         joy_timer <= joy_timer == 0 ? 0 : joy_timer - 1;
+
+        // Save-RAM change tracking. A core write marks the RAM dirty and owes the MCU one
+        // 0x0B notice; the MCU then dumps it after the game goes quiet. Dirty is cleared
+        // when a dump of block 0 starts, so a write landing mid-dump re-dirties it and
+        // earns a fresh notice -- a save can lag, but it can never be silently lost.
+        if (SAVE_IF && sv_core_we) begin
+            if (!sv_dirty) sv_notify <= 1;
+            sv_dirty <= 1;
+        end
 
         // UART transmission state machine
         case (send_state)
@@ -385,6 +490,18 @@ always @(posedge clk) begin
                     send_state <= SEND_HEADER;
                     mgmt_address_tx <= 16'hf200;    // read {drive, sector}
                     resp_frame_len <= 3;
+                end else if (SAVE_IF && sv_rd_req != sv_rd_ack) begin
+                    send_state_next <= SEND_SAVE_BLK;
+                    send_state <= SEND_HEADER;
+                    resp_frame_len <= 1 + 2 + 512;          // type + blk16 + data
+                    sv_raddr <= {sv_req_blk[7:0], 9'd0};    // the read address settles during the header
+                    sv_idx <= 0;
+                    if (sv_req_blk == 0 && !sv_core_we)
+                        sv_dirty <= 0;                      // dump starting: clean again
+                end else if (SAVE_IF && sv_notify) begin
+                    send_state_next <= SEND_SAVE_DIRTY;
+                    send_state <= SEND_HEADER;
+                    resp_frame_len <= 2;                    // type + one pad byte
                 end else if (response_req != response_ack) begin
                     if (response_type == 2) begin
                         send_state_next <= SEND_CONFIG_STRING;
@@ -491,6 +608,50 @@ always @(posedge clk) begin
                         send_state <= SEND_DONE;
                         fdd_read_start <= 1;                // notify FDD state machine
                     end
+                end
+            end
+
+            // Save-RAM block: blk[15:8], blk[7:0], then 512 bytes. Each data byte is one
+            // read through the handshake; a dpram answers it at once (SAVE_RDY=0) and the
+            // SDRAM bridge takes ~10 clocks -- either way the UART needs ~100 clocks per
+            // byte, so the wait never stretches the frame.
+            SEND_SAVE_BLK: begin
+                if (SAVE_IF && tx_ready && ~tx_valid) begin
+                    if (sv_idx == 0) begin
+                        tx_data <= sv_req_blk[15:8];
+                        tx_valid <= 1;
+                        sv_idx <= sv_idx + 1'd1;
+                    end else if (sv_idx == 1) begin
+                        tx_data <= sv_req_blk[7:0];
+                        tx_valid <= 1;
+                        sv_idx <= sv_idx + 1'd1;
+                    end else begin
+                        sv_rreq <= ~sv_rreq;            // issue this byte's read...
+                        send_state <= SEND_SAVE_RDY;    // ...and collect sv_q when it acks
+                    end
+                end
+            end
+
+            SEND_SAVE_RDY: begin
+                if (SAVE_IF && sv_r_done && tx_ready && ~tx_valid) begin
+                    tx_data <= sv_q;
+                    tx_valid <= 1;
+                    sv_raddr <= sv_raddr + 1'd1;
+                    sv_idx <= sv_idx + 1'd1;
+                    if (sv_idx == 2 + 511) begin
+                        send_state <= SEND_IDLE;
+                        sv_rd_ack <= sv_rd_req;
+                    end else
+                        send_state <= SEND_SAVE_BLK;
+                end
+            end
+
+            SEND_SAVE_DIRTY: begin
+                if (SAVE_IF && tx_ready && ~tx_valid) begin
+                    tx_data <= 8'h00;
+                    tx_valid <= 1;
+                    sv_notify <= 0;
+                    send_state <= SEND_IDLE;
                 end
             end
 

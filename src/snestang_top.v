@@ -343,7 +343,7 @@ reg [22:0]  rom_addr_sd;
 reg [16:0]  wram_addr_sd;
 reg         wram_wr_r, wram_rd_r;
 
-reg         bsram_req, bsram_we;
+reg         bsram_we;
 reg [19:0]  bsram_addr;
 reg [7:0]   bsram_din;
 wire [7:0]  bsram_dout;
@@ -389,12 +389,14 @@ always @(posedge mclk) begin
             cpu_port <= 1;
         end 
 
-        // BSRAM read/write
+        // BSRAM read/write. The save-RAM bridge below serializes these with the
+        // save channel's accesses; snes_bs_tog just marks a new pending access.
         bsram_rd_r <= bsram_rd; bsram_wr_r <= bsram_wr;
         if (bsram_rd && BSRAM_ADDR != bsram_addr || (bsram_wr & ~bsram_wr_r) || (bsram_rd & ~bsram_rd_r)) begin
             bsram_addr <= BSRAM_ADDR;
-            bsram_req <= ~bsram_req;
+            snes_bs_tog <= ~snes_bs_tog;
             bsram_din <= BSRAM_D;
+            bsram_we <= bsram_wr;
         end
 
         // ARAM read/write
@@ -405,6 +407,83 @@ always @(posedge mclk) begin
         end
     end
 end
+
+// save channel <-> bridge (driven by iosys when MCU_BL616; quiet zeros otherwise)
+wire [16:0] sv_addr;
+wire [7:0]  sv_din;
+wire        sv_req, sv_rreq;
+
+// ---- Save-RAM <-> BSRAM bridge ----------------------------------------------
+// The SNES cartridge bus and the iosys save channel both need the sdram
+// controller's single BSRAM port (the 128 KB at the start of bank 1). The SNES
+// edge detector above toggles snes_bs_tog when it has a new access; the save
+// channel toggles sv_req (write) / sv_rreq (read). This arbiter owns the
+// controller's req/ack pair and serves one byte at a time, SNES first: save
+// accesses only slip into idle slots, so the SNES never queues behind one,
+// while a SNES access arriving mid-save-byte waits ~6 clocks -- the SNES
+// cartridge window is many times that. The controller toggles bs_req_ack once
+// per access (fclk domain, like the existing cpu/aram handshakes); it is
+// synchronized here and routed back to whichever source was served. Reads
+// capture the controller's sticky bsram_dout before the next access can
+// overwrite it, since the arbiter keeps the port until the byte is banked.
+reg         snes_bs_tog = 0, snes_bs_seen = 0;
+reg         sv_w_seen = 0, sv_r_seen = 0;
+reg         bs_req_tog = 0;                 // -> controller .bsram_req
+wire        bs_req_ack;                     // <- controller .bsram_req_ack
+reg  [2:0]  bs_ack_sync = 0;                // 2FF sync of bs_req_ack into mclk
+wire        bs_ack = bs_ack_sync[2];
+reg         bs_busy = 0;
+reg         bs_owner = 0;                   // 0: SNES access, 1: save access
+reg         bs_we_r = 0;
+reg  [16:0] bs_addr_r = 0;
+reg  [7:0]  bs_din_r = 0;
+reg         sv_ack_r = 0, sv_rack_r = 0;    // toggles back into iosys
+reg  [7:0]  sv_q_r = 0;
+wire        snes_bs_new = snes_bs_tog != snes_bs_seen;
+wire        sv_w_new    = sv_req != sv_w_seen;
+wire        sv_r_new    = sv_rreq != sv_r_seen;
+wire        bs_free     = bs_req_tog == bs_ack;
+wire        bs_issue_ok = ~bs_busy | bs_free;   // idle, or acked this very clock
+
+always @(posedge mclk) begin
+    bs_ack_sync <= {bs_ack_sync[1:0], bs_req_ack};
+    if (bs_busy && bs_free) begin               // the access just completed
+        bs_busy <= 0;
+        if (bs_owner) begin
+            if (bs_we_r) sv_ack_r <= ~sv_ack_r;
+            else begin
+                sv_q_r <= bsram_dout;           // the controller's sticky read reg
+                sv_rack_r <= ~sv_rack_r;
+            end
+        end
+    end
+    if (bs_issue_ok && snes_bs_new) begin
+        bs_addr_r <= bsram_addr[16:0];
+        bs_din_r  <= bsram_din;
+        bs_we_r   <= bsram_we;
+        bs_owner  <= 0;
+        bs_busy   <= 1;
+        bs_req_tog <= ~bs_req_tog;
+        snes_bs_seen <= snes_bs_tog;
+    end else if (bs_issue_ok && sv_w_new) begin
+        bs_addr_r <= sv_addr;
+        bs_din_r  <= sv_din;
+        bs_we_r   <= 1;
+        bs_owner  <= 1;
+        bs_busy   <= 1;
+        bs_req_tog <= ~bs_req_tog;
+        sv_w_seen <= sv_req;
+    end else if (bs_issue_ok && sv_r_new) begin
+        bs_addr_r <= sv_addr;
+        bs_din_r  <= 8'h0;
+        bs_we_r   <= 0;
+        bs_owner  <= 1;
+        bs_busy   <= 1;
+        bs_req_tog <= ~bs_req_tog;
+        sv_r_seen <= sv_rreq;
+    end
+end
+wire sv_core_we = bsram_wr & ~bsram_wr_r;       // the SNES wrote save RAM
 
 localparam RV_IDLE_REQ0 = 3'd0;
 localparam RV_WAIT0_REQ1 = 3'd1;
@@ -463,9 +542,9 @@ sdram_snes sdram(
     .cpu_port0(cpu_port0), .cpu_port1(cpu_port1), .cpu_req(cpu_req), .cpu_req_ack(),
     .cpu_we(cpu_we), .cpu_ds(cpu_ds),
 
-    // BSRAM accesses
-    .bsram_addr(bsram_addr), .bsram_dout(bsram_dout), .bsram_din(bsram_din),
-    .bsram_req(bsram_req), .bsram_req_ack(), .bsram_we(bsram_wr),
+    // BSRAM accesses: SNES cartridge bus and save channel, via the bridge above
+    .bsram_addr({3'b0, bs_addr_r}), .bsram_dout(bsram_dout), .bsram_din(bs_din_r),
+    .bsram_req(bs_req_tog), .bsram_req_ack(bs_req_ack), .bsram_we(bs_we_r),
 
     // ARAM accesses
     .aram_16(aram_16), .aram_addr(ARAM_ADDR), .aram_din({ARAM_D, ARAM_D}), 
@@ -623,14 +702,16 @@ snes2hdmi s2h(
     .tmds_d_n(tmds_d_n), .tmds_d_p(tmds_d_p)
 );
 
-iosys_bl616 #(.CORE_ID(2), .FREQ(21_484_000)) iosys (
+iosys_bl616 #(.CORE_ID(2), .FREQ(21_484_000), .SAVE_IF(1), .SAVE_AW(17), .SAVE_RDY(1)) iosys (
     .clk(mclk), .hclk(hclk), .resetn(resetn),
     .overlay(overlay), .overlay_x(overlay_x), .overlay_y(overlay_y),
     .overlay_color(overlay_color),
     .core_config(core_config),
     .joy1(joy1_btns_ds2 | joy1_btns_snes | joy1_usb), .joy2(joy2_btns_ds2 | joy2_btns_snes | joy2_usb), .hid1(hid1), .hid2(hid2),
     .uart_tx(UART_TXD), .uart_rx(UART_RXD),
-    .rom_loading(loading), .rom_do(loader_do), .rom_do_valid(loader_do_valid)
+    .rom_loading(loading), .rom_do(loader_do), .rom_do_valid(loader_do_valid),
+    .sv_addr(sv_addr), .sv_din(sv_din), .sv_we(), .sv_req(sv_req), .sv_ack(sv_ack_r),
+    .sv_rreq(sv_rreq), .sv_rack(sv_rack_r), .sv_q(sv_q_r), .sv_core_we(sv_core_we)
 );
 
 `else       // VERILATOR
