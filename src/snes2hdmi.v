@@ -29,6 +29,8 @@ module snes2hdmi (
     // frame-sync pause happens during snes_refresh
     input snes_refresh,
 
+    input scanlines,            // 1: darken the last output line of each source line (core_config[16])
+
 	// video clocks
 	input clk_pixel,
 	input clk_5x_pixel,
@@ -215,6 +217,13 @@ module snes2hdmi (
     reg [10:0] xcnt;
     reg [10:0] ycnt;            // fractional scaling counters
     reg [9:0] cy_r;
+    reg last_line;                  // this output line is the last one of its source line
+    reg scanlines_r, scanlines_rr;  // scanlines synchronized to the pixel clock domain
+
+    always @(posedge clk_pixel) begin
+        scanlines_r <= scanlines;
+        scanlines_rr <= scanlines_r;
+    end
     assign mem_portB_addr = {yy[BUF_WIDTH-1:0], xx};
     assign overlay_x = xx;
     assign overlay_y = yy;
@@ -255,6 +264,8 @@ module snes2hdmi (
                 ycnt <= ycnt_next - 720;
                 yy <= yy + 1;
             end
+            // scanlines: the next line is the last of its source line if one more step crosses 720
+            last_line <= (ycnt_next >= 720 ? ycnt_next - 11'd720 : ycnt_next) + (ycnt_next - ycnt) >= 11'd720;
         end
 
         if (cx == 0) begin
@@ -265,17 +276,22 @@ module snes2hdmi (
         if (cy == 0) begin
             yy <= 0;
             ycnt <= 0;
+            last_line <= 0;
         end 
 
     end
 
     // calc rgb value to hdmi
     always @(posedge clk_pixel) begin
+        reg [23:0] pixel;
         if (active) begin
             if (overlay)
-                rgb <= {overlay_color[4:0],3'b0,overlay_color[9:5],3'b0,overlay_color[14:10],3'b0};       // BGR5 to RGB8
+                pixel = {overlay_color[4:0],3'b0,overlay_color[9:5],3'b0,overlay_color[14:10],3'b0};      // BGR5 to RGB8
             else
-                rgb <= {mem_portB_rdata[4:0], 3'b0, mem_portB_rdata[9:5], 3'b0, mem_portB_rdata[14:10], 3'b0};                
+                pixel = {mem_portB_rdata[4:0], 3'b0, mem_portB_rdata[9:5], 3'b0, mem_portB_rdata[14:10], 3'b0};
+            if (~overlay & scanlines_rr & last_line)   // scanlines: darken the last output line of each source line to ~50%
+                pixel = {pixel[23:1], 1'b0, pixel[15:1], 1'b0, pixel[7:1], 1'b0};
+            rgb <= pixel;
         end else
             rgb <= 24'h303030;
     end

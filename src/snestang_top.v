@@ -605,6 +605,7 @@ assign snes_joy2_di[1] = 0;  // P4
 wire [14:0] overlay_color;
 wire [7:0] overlay_x;
 wire [7:0] overlay_y;
+wire [31:0] core_config;        // option bits from BL616, see iosys_bl616. bit 16: scanlines
 
 wire [7:0] dbg_dat_out_loader;
 
@@ -615,6 +616,7 @@ snes2hdmi s2h(
     .xs(x_out), .ys(y_out), 
     .overlay(overlay), .overlay_x(overlay_x), .overlay_y(overlay_y),
     .overlay_color(overlay_color), 
+    .scanlines(core_config[16]),
     .audio_l(audio_l), .audio_r(audio_r), .audio_ready(audio_ready), .audio_en(audio_en),
     .pause(pause),
     .clk_pixel(hclk),.clk_5x_pixel(hclk5),.locked(1'b1),
@@ -629,7 +631,8 @@ iosys_bl616 #(.CORE_ID(2), .FREQ(21_484_000)) iosys (
     .core_config(core_config),
     .joy1(joy1_btns_ds2 | joy1_btns_snes | joy1_usb), .joy2(joy2_btns_ds2 | joy2_btns_snes | joy2_usb), .hid1(hid1), .hid2(hid2),
     .uart_tx(UART_TXD), .uart_rx(UART_RXD),
-    .rom_loading(loading), .rom_do(loader_do), .rom_do_valid(loader_do_valid)
+    .rom_loading(loading), .rom_do(loader_do), .rom_do_valid(loader_do_valid),
+    .core_config(core_config)
 );
 
 `else       // VERILATOR
