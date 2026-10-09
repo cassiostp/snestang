@@ -708,7 +708,7 @@ snes2hdmi s2h(
     .xs(x_out), .ys(y_out), 
     .overlay(overlay), .overlay_x(overlay_x), .overlay_y(overlay_y),
     .overlay_color(overlay_color), 
-    .scanlines(core_config[16]),
+    .scanlines(core_config[16]), .sl_darkness(core_config[19:18]), .sl_thick(core_config[20]), .sl_out(core_config[21]),
     .audio_l(audio_l), .audio_r(audio_r), .audio_ready(audio_ready), .audio_en(audio_en),
     .pause(pause),
     .clk_pixel(hclk),.clk_5x_pixel(hclk5),.locked(1'b1),
