@@ -96,7 +96,9 @@ wire clk27;                     // 27Mhz for hdmi clock generation
 wire hclk5, hclk;               // 720p pixel clock at 74.25Mhz, and 5x high-speed
 
 reg resetn = 1'b0;              // reset is cleared after 4 cycles
-wire pause;
+wire pause;                     // core_config[17]: freeze the core while the game menu is open
+wire [31:0] core_config;        // from iosys
+assign pause = core_config[17];
 
 reg [15:0] resetcnt = 16'hffff;
 always @(posedge mclk) begin
@@ -252,11 +254,11 @@ wire [23:0] rom_mask, ram_mask;
 
 wire sdram_busy;
 wire refresh;
-reg enable; // && ~dbg_break && ~pause;
+reg enable; // && ~dbg_break;
 reg loaded;
 
 always @(posedge mclk) begin        // wait until memory initialize to start SNES
-    if (~sdram_busy && ~pause_snes_for_frame_sync && ~overlay && loaded)
+    if (~sdram_busy && ~pause_snes_for_frame_sync && ~pause && loaded)
         enable <= 1;
     else 
         enable <= 0;
@@ -614,6 +616,7 @@ snes2hdmi s2h(
     .overlay(overlay), .overlay_x(overlay_x), .overlay_y(overlay_y),
     .overlay_color(overlay_color), 
     .audio_l(audio_l), .audio_r(audio_r), .audio_ready(audio_ready), .audio_en(audio_en),
+    .pause(pause),
     .clk_pixel(hclk),.clk_5x_pixel(hclk5),.locked(1'b1),
     .tmds_clk_n(tmds_clk_n), .tmds_clk_p(tmds_clk_p),
     .tmds_d_n(tmds_d_n), .tmds_d_p(tmds_d_p)
@@ -623,6 +626,7 @@ iosys_bl616 #(.CORE_ID(2), .FREQ(21_484_000)) iosys (
     .clk(mclk), .hclk(hclk), .resetn(resetn),
     .overlay(overlay), .overlay_x(overlay_x), .overlay_y(overlay_y),
     .overlay_color(overlay_color),
+    .core_config(core_config),
     .joy1(joy1_btns_ds2 | joy1_btns_snes | joy1_usb), .joy2(joy2_btns_ds2 | joy2_btns_snes | joy2_usb), .hid1(hid1), .hid2(hid2),
     .uart_tx(UART_TXD), .uart_rx(UART_RXD),
     .rom_loading(loading), .rom_do(loader_do), .rom_do_valid(loader_do_valid)

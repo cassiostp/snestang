@@ -24,6 +24,7 @@ module snes2hdmi (
     input [15:0] audio_r,
     input audio_ready,
     output audio_en,
+    input pause,            // 1: emulator frozen (menu pause), output silence when the fifo drains
 
     // frame-sync pause happens during snes_refresh
     input snes_refresh,
@@ -188,7 +189,9 @@ module snes2hdmi (
                 if (!clk_audio && !audio_empty) begin
                     {audio_sample_word[0], audio_sample_word[1]} <= audio_sample;
                     audio_rinc <= 1'b1;                    
-                end
+                end else if (!clk_audio && pause)
+                    // menu pause drained the fifo: output silence, not the last held sample
+                    {audio_sample_word[0], audio_sample_word[1]} <= 32'd0;
             end
         end
     end
