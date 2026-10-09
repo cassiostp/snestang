@@ -193,7 +193,13 @@ wire        BSRAM_CE_N;
 wire        BSRAM_OE_N;
 wire        BSRAM_WE_N;
 wire        BSRAM_RD_N;
-wire  [7:0] BSRAM_Q = bsram_dout;
+// The SNES reads the controller's sticky read register directly. Once the save
+// channel uses the port, that register holds save-channel bytes, so the SNES
+// sees the value from its own last access until it makes a new one.
+wire  [7:0] bsram_dout;            // the sdram controller's BSRAM read register
+reg   [7:0] snes_bsram_hold = 0;
+reg         snes_bsram_shadow = 0;
+wire  [7:0] BSRAM_Q = snes_bsram_shadow ? snes_bsram_hold : bsram_dout;
 wire  [7:0] BSRAM_D;
 
 wire [15:0] VRAM1_ADDR;
@@ -346,7 +352,6 @@ reg         wram_wr_r, wram_rd_r;
 reg         bsram_we;
 reg [19:0]  bsram_addr;
 reg [7:0]   bsram_din;
-wire [7:0]  bsram_dout;
 wire        bsram_rd = ~BSRAM_CE_N & (~BSRAM_RD_N || rom_type[7:4] == 4'hC);
 wire        bsram_wr = ~BSRAM_CE_N & ~BSRAM_WE_N;
 reg         bsram_rd_r, bsram_wr_r;
@@ -458,6 +463,7 @@ always @(posedge mclk) begin
         end
     end
     if (bs_issue_ok && snes_bs_new) begin
+        snes_bsram_shadow <= 0;                 // the SNES gets the port's data again
         bs_addr_r <= bsram_addr[16:0];
         bs_din_r  <= bsram_din;
         bs_we_r   <= bsram_we;
@@ -466,6 +472,10 @@ always @(posedge mclk) begin
         bs_req_tog <= ~bs_req_tog;
         snes_bs_seen <= snes_bs_tog;
     end else if (bs_issue_ok && sv_w_new) begin
+        if (!snes_bsram_shadow) begin           // keep the SNES's last read data
+            snes_bsram_hold <= bsram_dout;
+            snes_bsram_shadow <= 1;
+        end
         bs_addr_r <= sv_addr;
         bs_din_r  <= sv_din;
         bs_we_r   <= 1;
@@ -474,6 +484,10 @@ always @(posedge mclk) begin
         bs_req_tog <= ~bs_req_tog;
         sv_w_seen <= sv_req;
     end else if (bs_issue_ok && sv_r_new) begin
+        if (!snes_bsram_shadow) begin           // keep the SNES's last read data
+            snes_bsram_hold <= bsram_dout;
+            snes_bsram_shadow <= 1;
+        end
         bs_addr_r <= sv_addr;
         bs_din_r  <= 8'h0;
         bs_we_r   <= 0;
