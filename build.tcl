@@ -36,6 +36,7 @@ if {$dev eq "nano20k"} {
         error "Unknown controller $controller"
     }
     add_file -type verilog "src/snes2hdmi.v"
+    add_file -type verilog "src/scanlines.v"
     add_file -type verilog "src/plla/gowin_pll_27.v"
     add_file -type verilog "src/plla/gowin_pll_hdmi.v"
     add_file -type verilog "src/plla/gowin_pll_snes.v"
@@ -55,6 +56,7 @@ if {$dev eq "nano20k"} {
         error "Unknown controller $controller"
     }
     add_file -type verilog "src/snes2hdmi.v"
+    add_file -type verilog "src/scanlines.v"
     add_file -type verilog "src/plla/gowin_pll_27.v"
     add_file -type verilog "src/plla/gowin_pll_hdmi.v"
     add_file -type verilog "src/plla/gowin_pll_snes.v"
@@ -72,6 +74,7 @@ if {$dev eq "nano20k"} {
         error "Unknown controller $controller"
     }
     add_file -type verilog "src/snes2hdmi.v"
+    add_file -type verilog "src/scanlines.v"
     add_file -type verilog "src/pll/gowin_pll_27.v"
     add_file -type verilog "src/pll/gowin_pll_hdmi.v"
     add_file -type verilog "src/pll/gowin_pll_snes.v"
@@ -91,6 +94,7 @@ if {$dev eq "nano20k"} {
         error "Unknown controller $controller"
     }
     add_file -type verilog "src/snes2hdmi.v"
+    add_file -type verilog "src/scanlines.v"
     add_file -type verilog "src/plla/gowin_pll_27.v"
     add_file -type verilog "src/plla/gowin_pll_hdmi.v"
     add_file -type verilog "src/plla/gowin_pll_snes.v"
@@ -103,6 +107,7 @@ if {$dev eq "nano20k"} {
     add_file src/boards/console138k.v
     add_file -type cst "src/boards/console.cst"
     add_file -type verilog "src/snes2hdmi.v"
+    add_file -type verilog "src/scanlines.v"
     add_file -type verilog "src/pll/gowin_pll_27.v"
     add_file -type verilog "src/pll/gowin_pll_hdmi.v"
     add_file -type verilog "src/pll/gowin_pll_snes.v"

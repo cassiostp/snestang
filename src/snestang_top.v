@@ -272,6 +272,9 @@ end
 
 wire sysclkf_ce, sysclkr_ce;
 wire overlay;
+// No buttons reach the console while the menu is up, or while core_config[22]
+// asks (the firmware's scanline preview runs the game with the menu hidden).
+wire pads_muted = overlay | core_config[22];
 
 `ifdef CHIP_DSPn
 parameter USE_DSPn=1;
@@ -319,7 +322,7 @@ main #(.USE_DSPn(USE_DSPn), .USE_GSU(USE_GSU)) main (
     .DOTCLK(dotclk), .RGB_OUT(rgb_out), .HBLANKn(hblankn),
     .VBLANKn(vblankn), .X_OUT(x_out), .Y_OUT(y_out),
 
-    .JOY1_DI(overlay?2'b11:snes_joy1_di), .JOY2_DI(overlay?2'b11:snes_joy2_di), .JOY_STRB(snes_joy_strb), 
+    .JOY1_DI(pads_muted?2'b11:snes_joy1_di), .JOY2_DI(pads_muted?2'b11:snes_joy2_di), .JOY_STRB(snes_joy_strb), 
     .JOY1_CLK(snes_joy1_clk), .JOY2_CLK(snes_joy2_clk), 
 
     .AUDIO_L(audio_l), .AUDIO_R(audio_r), .AUDIO_READY(audio_ready), .AUDIO_EN(audio_en),
@@ -708,7 +711,7 @@ snes2hdmi s2h(
     .xs(x_out), .ys(y_out), 
     .overlay(overlay), .overlay_x(overlay_x), .overlay_y(overlay_y),
     .overlay_color(overlay_color), 
-    .scanlines(core_config[16]),
+    .scanlines(core_config[16]), .sl_darkness(core_config[19:18]), .sl_thick(core_config[20]), .sl_out(core_config[21]),
     .audio_l(audio_l), .audio_r(audio_r), .audio_ready(audio_ready), .audio_en(audio_en),
     .pause(pause),
     .clk_pixel(hclk),.clk_5x_pixel(hclk5),.locked(1'b1),
