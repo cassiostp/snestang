@@ -259,7 +259,7 @@ module snes2hdmi (
     // than that, at XSTART - 1 - FX_LAT. The xx/xcnt counters, and so the line buffer read address
     // and the overlay lookup, run with it. The source line (yy_s) only changes at the start of an
     // output row, long before active.
-    localparam FX_LAT = 10;     // clocks from rgb_pre to rgb, see video_fx.v
+    localparam FX_LAT = 11;     // clocks from rgb_pre to rgb, see video_fx.v
     always @(posedge clk_pixel) begin
         reg active_t;
         reg [10:0] xcnt_next;
