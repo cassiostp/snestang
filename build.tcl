@@ -37,6 +37,7 @@ if {$dev eq "nano20k"} {
     }
     add_file -type verilog "src/snes2hdmi.v"
     add_file -type verilog "src/scanlines.v"
+    add_file -type verilog "src/video_fx.v"
     add_file -type verilog "src/plla/gowin_pll_27.v"
     add_file -type verilog "src/plla/gowin_pll_hdmi.v"
     add_file -type verilog "src/plla/gowin_pll_snes.v"
@@ -57,6 +58,7 @@ if {$dev eq "nano20k"} {
     }
     add_file -type verilog "src/snes2hdmi.v"
     add_file -type verilog "src/scanlines.v"
+    add_file -type verilog "src/video_fx.v"
     add_file -type verilog "src/plla/gowin_pll_27.v"
     add_file -type verilog "src/plla/gowin_pll_hdmi.v"
     add_file -type verilog "src/plla/gowin_pll_snes.v"
@@ -75,6 +77,7 @@ if {$dev eq "nano20k"} {
     }
     add_file -type verilog "src/snes2hdmi.v"
     add_file -type verilog "src/scanlines.v"
+    add_file -type verilog "src/video_fx.v"
     add_file -type verilog "src/pll/gowin_pll_27.v"
     add_file -type verilog "src/pll/gowin_pll_hdmi.v"
     add_file -type verilog "src/pll/gowin_pll_snes.v"
@@ -95,6 +98,7 @@ if {$dev eq "nano20k"} {
     }
     add_file -type verilog "src/snes2hdmi.v"
     add_file -type verilog "src/scanlines.v"
+    add_file -type verilog "src/video_fx.v"
     add_file -type verilog "src/plla/gowin_pll_27.v"
     add_file -type verilog "src/plla/gowin_pll_hdmi.v"
     add_file -type verilog "src/plla/gowin_pll_snes.v"
@@ -108,6 +112,7 @@ if {$dev eq "nano20k"} {
     add_file -type cst "src/boards/console.cst"
     add_file -type verilog "src/snes2hdmi.v"
     add_file -type verilog "src/scanlines.v"
+    add_file -type verilog "src/video_fx.v"
     add_file -type verilog "src/pll/gowin_pll_27.v"
     add_file -type verilog "src/pll/gowin_pll_hdmi.v"
     add_file -type verilog "src/pll/gowin_pll_snes.v"
