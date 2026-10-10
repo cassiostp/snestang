@@ -63,6 +63,7 @@ module iosys_bl616 #(
     output reg       kbd_data_valid,
     
     output reg [31:0] core_config,
+    output reg [31:0] video_config,     // see video_fx.v
 
     // Save-RAM port (SAVE_IF=1 only; tie inputs to 0 and leave outputs open otherwise).
     // The RAM lives off-chip (SDRAM behind a bridge), so byte accesses are handshakes:
@@ -226,6 +227,7 @@ reg fdd_read_start, fdd_read_finish, fdd_write_finish;
 // 0x0d <string>              debug printf. core ignores this.
 // 0x11 blk[15:0] <512 bytes> write one block into save RAM (SAVE_IF only)
 // 0x12 blk[15:0]             request one save-RAM block (SAVE_IF only)
+// 0x13 x[31:0]               set video config (video_fx.v)
 //
 // Response payloads from FPGA to BL616:
 // 0x01 core_id[7:0]          core ID
@@ -245,6 +247,7 @@ always @(posedge clk) begin
         rom_loading_reg <= 0;
         rom_remain <= 0;
         core_config <= 0;
+        video_config <= 0;
         data_cnt <= 0;
         x_wr <= 0;
         y_wr <= 0;
@@ -307,6 +310,11 @@ always @(posedge clk) begin
                     3: begin
                         if (data_cnt == 3) begin    // Received 4 bytes
                             core_config <= {data_reg[23:0], rx_data};
+                        end
+                    end
+                    'h13: begin
+                        if (data_cnt == 3) begin    // Received 4 bytes
+                            video_config <= {data_reg[23:0], rx_data};
                         end
                     end
                     4: case (data_cnt)              // cursor

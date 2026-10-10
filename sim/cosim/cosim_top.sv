@@ -45,9 +45,9 @@
 //   normal CPU traffic for its slot.
 //
 // OBSERVABILITY (all real unless noted)
-//   core_config/overlay: straight out of iosys (expect-config-bit reads the
-//   real register). rom_bytes: ROM payload bytes consumed (firmware streams
-//   the ROM; no loader parses it here). sdram_busy: controller init.
+//   core_config/video_config/overlay: straight out of iosys (expect-config-bit
+//   reads the real register). rom_bytes: ROM payload bytes consumed (firmware
+//   streams the ROM; no loader parses it here). sdram_busy: controller init.
 //   OSD text / save RAM: read by the C++ bridge DIRECTLY out of the
 //   behavioral arrays (gowin_dpb_menu.mem, sdram_chip.mem, both
 //   `verilator public`), no model clocking per cell. The char buffer lives
@@ -69,6 +69,7 @@ module cosim_top (
     input wire [15:0] cosim_core_id,
 
     output wire [31:0] core_config,
+    output wire [31:0] video_config,
     output wire overlay,
     output wire sdram_busy,
     output reg [31:0] rom_bytes,
@@ -162,6 +163,7 @@ iosys_bl616_cosim #(
     .kbd_data_valid(),
 
     .core_config(core_config),
+    .video_config(video_config),
 
     .sv_addr(sv_addr),
     .sv_din(sv_din),
