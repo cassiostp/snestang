@@ -98,6 +98,7 @@ wire hclk5, hclk;               // 720p pixel clock at 74.25Mhz, and 5x high-spe
 reg resetn = 1'b0;              // reset is cleared after 4 cycles
 wire pause;                     // core_config[17]: freeze the core while the game menu is open
 wire [31:0] core_config;        // from iosys
+wire [31:0] video_config;       // from iosys
 assign pause = core_config[17];
 
 reg [15:0] resetcnt = 16'hffff;
@@ -712,6 +713,7 @@ snes2hdmi s2h(
     .overlay(overlay), .overlay_x(overlay_x), .overlay_y(overlay_y),
     .overlay_color(overlay_color), 
     .scanlines(core_config[16]), .sl_darkness(core_config[19:18]), .sl_thick(core_config[20]), .sl_out(core_config[21]),
+    .video_config(video_config),
     .audio_l(audio_l), .audio_r(audio_r), .audio_ready(audio_ready), .audio_en(audio_en),
     .pause(pause),
     .clk_pixel(hclk),.clk_5x_pixel(hclk5),.locked(1'b1),
@@ -723,7 +725,7 @@ iosys_bl616 #(.CORE_ID(2), .FREQ(21_484_000), .SAVE_IF(1), .SAVE_AW(17), .SAVE_R
     .clk(mclk), .hclk(hclk), .resetn(resetn),
     .overlay(overlay), .overlay_x(overlay_x), .overlay_y(overlay_y),
     .overlay_color(overlay_color),
-    .core_config(core_config),
+    .core_config(core_config), .video_config(video_config),
     .joy1(joy1_btns_ds2 | joy1_btns_snes | joy1_usb), .joy2(joy2_btns_ds2 | joy2_btns_snes | joy2_usb), .hid1(hid1), .hid2(hid2),
     .uart_tx(UART_TXD), .uart_rx(UART_RXD),
     .rom_loading(loading), .rom_do(loader_do), .rom_do_valid(loader_do_valid),
