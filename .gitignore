@@ -7,4 +7,5 @@ gao
 gwsynthesis
 temp
 roms
+sim/cosim/build/
 *.user
