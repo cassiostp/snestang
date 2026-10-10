@@ -1,0 +1,6 @@
+*.out
+vec_*.hex
+snes_fx.log
+background.txt
+build/
+__pycache__/
