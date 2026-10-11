@@ -4,3 +4,5 @@ snes_fx.log
 background.txt
 build/
 __pycache__/
+snes_smooth.log
+snes_src.hex
