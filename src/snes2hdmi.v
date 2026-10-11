@@ -218,6 +218,11 @@ module snes2hdmi (
     // with scanlines on, 3 output rows per source line and 896x672, centred.
     // Nearest neighbour; smooth.v blends the source pixels (video_config[19:18]). For that the
     // line buffer is read twice per source column, the line to show and its neighbour line.
+    // The neighbour is the line before or after the shown one, and both are in the buffer: the
+    // frame sync halts the SNES half way through line 1 and releases it as the picture starts,
+    // and it is ahead of the picture from then on (it writes a line faster than the picture
+    // shows one), so a row only blends with the line after it once that has been written, and
+    // the lead stays under the 31 lines the buffer holds (sim/video_fx/tb_snes_linebuf.v).
     //
     localparam LINES = 224;     // lines of the picture
     wire [23:0] rgb;            // actual RGB output
