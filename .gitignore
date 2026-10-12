@@ -8,4 +8,5 @@ gwsynthesis
 temp
 roms
 sim/cosim/build/
+sim/dsp_rain/build/
 *.user
