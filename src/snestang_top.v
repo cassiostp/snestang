@@ -356,7 +356,7 @@ reg         wram_wr_r, wram_rd_r;
 reg         bsram_we;
 reg [19:0]  bsram_addr;
 reg [7:0]   bsram_din;
-wire        bsram_rd = ~BSRAM_CE_N & (~BSRAM_RD_N || rom_type[7:4] == 4'hC);
+wire        bsram_rd = ~BSRAM_CE_N & (~BSRAM_RD_N || rom_type[7:4] == 4'hC || rom_type[7:4] == 4'h7);	// OBC-1/GSU read BSRAM outside CPU read cycles
 wire        bsram_wr = ~BSRAM_CE_N & ~BSRAM_WE_N;
 reg         bsram_rd_r, bsram_wr_r;
 

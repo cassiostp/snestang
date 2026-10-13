@@ -126,6 +126,9 @@ if {$dev eq "nano20k"} {
     add_file -type verilog "src/vram_spb.v"
     add_file -type verilog "src/usb_hid_host.v"
     add_file -type verilog "src/pll/pll_12.v"
+    add_file -type verilog "src/chip/GSU/GSU_PKG.v"
+    add_file -type verilog "src/chip/GSU/GSU.v"
+    add_file -type verilog "src/chip/GSU/GSUMap.v"
     set_option -output_base_name snestang_${dev}_${controller}
 } else {
     error "Unknown device $dev"
