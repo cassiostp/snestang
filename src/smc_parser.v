@@ -95,6 +95,13 @@ always @(posedge clk) begin
         //CX4
         end else if (mapper_header == 8'h20 && rom_type_header == 8'hf3) begin
             rom_type[7:4] <= 4'h4;
+        //S-RTC (Daikaijuu Monogatari II only): map mode 0x35 + chipset 0x55,
+        // like Main_MiSTer's snes.cpp (hdr[1] |= 0x08). The low bits stay
+        // HiROM (0x35 & 3 == 1), which is where the firmware finds this
+        // game's header, so DSP_LHRomMap decodes SRTC_SEL in the HiROM
+        // branch as well as the (ExHiROM-only) MiSTer original.
+        end else if (mapper_header == 8'h35 && rom_type_header == 8'h55) begin
+            rom_type[3] <= 1'b1;
         end
     end
 end

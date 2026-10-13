@@ -99,6 +99,19 @@ reg resetn = 1'b0;              // reset is cleared after 4 cycles
 wire pause;                     // core_config[17]: freeze the core while the game menu is open
 wire [31:0] core_config;        // from iosys
 wire [31:0] video_config;       // from iosys
+// Wall clock (frame 0x14, via iosys), packed into the S-RTC's nibble map
+// by srtc_time_pack (the MiSTer hps_io RTC format SRTC.v reloads on).
+// The S-RTC free-runs at 1 Hz between frames. Same mclk domain as iosys
+// and the core. Like MiSTer, a game write to the S-RTC holds only until
+// the next resync (10 s).
+wire [31:0] time_unix;
+wire [55:0] time_bcd;
+wire [7:0]  time_solar, time_flags;
+wire        time_strobe;
+wire [64:0] ext_rtc;
+srtc_time_pack time_pack(
+    .time_bcd(time_bcd), .time_strobe(time_strobe), .ext_rtc(ext_rtc)
+);
 assign pause = core_config[17];
 
 reg [15:0] resetcnt = 16'hffff;
@@ -328,7 +341,7 @@ main #(.USE_DSPn(USE_DSPn), .USE_GSU(USE_GSU)) main (
 
     .AUDIO_L(audio_l), .AUDIO_R(audio_r), .AUDIO_READY(audio_ready), .AUDIO_EN(audio_en),
 
-    .JOY1_P6(), .JOY2_P6(), .JOY2_P6_in(), .DOT_CLK_CE(DOT_CLK_CE), .EXT_RTC(),
+    .JOY1_P6(), .JOY2_P6(), .JOY2_P6_in(), .DOT_CLK_CE(DOT_CLK_CE), .EXT_RTC(ext_rtc),
     .SPC_MODE(), .IO_ADDR(), .IO_DAT(), .IO_WR(), 
 
     .DBG_SEL(dbg_sel), .DBG_REG(dbg_reg), .DBG_REG_WR(dbg_reg_wr), .DBG_DAT_IN(dbg_dat_in), 
@@ -726,6 +739,8 @@ iosys_bl616 #(.CORE_ID(2), .FREQ(21_484_000), .SAVE_IF(1), .SAVE_AW(17), .SAVE_R
     .overlay(overlay), .overlay_x(overlay_x), .overlay_y(overlay_y),
     .overlay_color(overlay_color),
     .core_config(core_config), .video_config(video_config),
+    .time_unix(time_unix), .time_bcd(time_bcd),
+    .time_solar(time_solar), .time_flags(time_flags), .time_strobe(time_strobe),
     .joy1(joy1_btns_ds2 | joy1_btns_snes | joy1_usb), .joy2(joy2_btns_ds2 | joy2_btns_snes | joy2_usb), .hid1(hid1), .hid2(hid2),
     .uart_tx(UART_TXD), .uart_rx(UART_RXD),
     .rom_loading(loading), .rom_do(loader_do), .rom_do_valid(loader_do_valid),
