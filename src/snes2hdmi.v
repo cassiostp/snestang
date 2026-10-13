@@ -14,6 +14,7 @@ module snes2hdmi (
     input [14:0] rgb5,
     input [8:0] xs, // {x,dotclk}
     input [8:0] ys, // {field,y}
+    input hires,    // PPU HIGH_RES: the line holds 512 sub-pixels, sub then main per dotclk
 
     input overlay,
     output [7:0] overlay_x,
@@ -147,17 +148,33 @@ module snes2hdmi (
         end
     end
 
-    // 
-    // Data input
+    //
+    // Data input. The PPU sends two sub-pixels per OUT_X: the sub-screen colour
+    // while dotclk is high, the main-screen colour while it is low (ppu.v
+    // COLOR_OUT, X_OUT = {OUT_X, DOT_CLK}). On a normal line the two agree, so
+    // the latched sub pixel is written as before. On a hi-res line (BG mode
+    // 5/6, or pseudo-hi-res with BLEND off) they differ, and the pair is
+    // averaged per channel, round half up - what a CRT shows for the half-pixel
+    // shifted sub screen, and close enough for true hi-res text. hires sampled
+    // with the sub sub-pixel governs the pair, so a mid-pair change does not
+    // split it.
     //
     reg r_dotclk, r_vblank, r_hblank;
+    reg [14:0] sub_rgb;
+    reg sub_hires;
+    wire [5:0] blend_b = {1'b0, sub_rgb[14:10]} + {1'b0, rgb5[14:10]} + 6'd1;
+    wire [5:0] blend_g = {1'b0, sub_rgb[9:5]} + {1'b0, rgb5[9:5]} + 6'd1;
+    wire [5:0] blend_r = {1'b0, sub_rgb[4:0]} + {1'b0, rgb5[4:0]} + 6'd1;
     always @(posedge clk) begin
         r_dotclk <= dotclk;
         r_vblank <= vblank;
         mem_portA_we <= 1'b0;
-        if (dotclk && ~r_dotclk && ~hblank && ~vblank && ys[7:0] < 224) begin       // on posedge of dotclk, read a pixel
+        if (dotclk && ~r_dotclk) begin                             // sub sub-pixel: latch it
+            sub_rgb <= rgb5;
+            sub_hires <= hires;
+        end else if (~dotclk && r_dotclk && ~hblank && ~vblank && ys[7:0] < 224) begin  // main: write the pair
             mem_portA_addr <= {ys[BUF_WIDTH-1:0], xs[8:1]};
-            mem_portA_wdata <= rgb5;
+            mem_portA_wdata <= (sub_hires == 1'b1) ? {blend_b[5:1], blend_g[5:1], blend_r[5:1]} : sub_rgb;
             mem_portA_we <= 1'b1;
         end
     end

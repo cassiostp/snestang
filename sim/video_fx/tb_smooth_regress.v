@@ -41,6 +41,7 @@ module tb_smooth_regress;
     snes2hdmi dut (
         .clk(clk), .resetn(1'b1),
         .dotclk(1'b0), .hblank(1'b1), .vblank(1'b1), .rgb5(15'd0), .xs(9'd0), .ys(9'd0),
+        .hires(1'b0),
         .overlay(ov), .overlay_x(ovx_n), .overlay_y(ovy_n), .overlay_color(ovc_n),
         .audio_l(16'd0), .audio_r(16'd0), .audio_ready(1'b0), .audio_en(), .pause(1'b0),
         .snes_refresh(1'b0),
