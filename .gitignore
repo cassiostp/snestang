@@ -9,3 +9,6 @@ temp
 roms
 sim/cosim/build/
 *.user
+
+# usb_hid_host microcode listing
+src/usb_hid_host_firmware/ukp.lst
