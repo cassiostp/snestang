@@ -1,0 +1,34 @@
+-- Program cache RAM for CX4.vhd: 512 x 8, one write port, asynchronous read.
+-- srg320's cx4cache.vhd is an Altera altdpram wizard file (altera_mf, MLAB), which
+-- GowinSynthesis cannot read. This has the same entity and the same behaviour in plain VHDL.
+
+library ieee;
+use ieee.std_logic_1164.all;
+use ieee.numeric_std.all;
+
+entity cx4cache is
+	port (
+		clock     : in  std_logic;
+		data      : in  std_logic_vector(7 downto 0);
+		rdaddress : in  std_logic_vector(8 downto 0);
+		wraddress : in  std_logic_vector(8 downto 0);
+		wren      : in  std_logic := '0';
+		q         : out std_logic_vector(7 downto 0)
+	);
+end cx4cache;
+
+architecture rtl of cx4cache is
+	type ram_t is array (0 to 511) of std_logic_vector(7 downto 0);
+	signal ram : ram_t := (others => (others => '0'));
+begin
+	process(clock)
+	begin
+		if rising_edge(clock) then
+			if wren = '1' then
+				ram(to_integer(unsigned(wraddress))) <= data;
+			end if;
+		end if;
+	end process;
+
+	q <= ram(to_integer(unsigned(rdaddress)));
+end rtl;
