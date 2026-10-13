@@ -112,6 +112,11 @@ if {$dev eq "nano20k"} {
     set_option -output_base_name snestang_${dev}_${controller}
 } elseif {$dev eq "console138k"} {
     set_device GW5AST-LV138PG484AC1/I0 -device_version B
+    add_file -type vhdl "src/chip/SDD1/InputMgr.vhd"
+    add_file -type vhdl "src/chip/SDD1/Decoder.vhd"
+    add_file -type vhdl "src/chip/SDD1/SDD1.vhd"
+    add_file -type vhdl "src/chip/SDD1/SDD1Map.vhd"
+    set_option -vhdl_std vhd2008
     add_file src/boards/console138k.v
     add_file -type cst "src/boards/console.cst"
     add_file -type verilog "src/snes2hdmi.v"
