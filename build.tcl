@@ -112,6 +112,15 @@ if {$dev eq "nano20k"} {
     set_option -output_base_name snestang_${dev}_${controller}
 } elseif {$dev eq "console138k"} {
     set_device GW5AST-LV138PG484AC1/I0 -device_version B
+    # CX4 (Mega Man X2/X3): srg320's VHDL from SNES_MiSTer, with a few framework shims
+    add_file -type vhdl "src/chip/CX4/CEGen.vhd"
+    add_file -type vhdl "src/chip/CX4/cx4_drom_pkg.vhd"
+    add_file -type vhdl "src/chip/CX4/spram.vhd"
+    add_file -type vhdl "src/chip/CX4/dpram_difclk.vhd"
+    add_file -type vhdl "src/chip/CX4/cx4cache.vhd"
+    add_file -type vhdl "src/chip/CX4/CX4.vhd"
+    add_file -type vhdl "src/chip/CX4/CX4Map.vhd"
+    set_option -vhdl_std vhd2008
     add_file src/boards/console138k.v
     add_file -type cst "src/boards/console.cst"
     add_file -type verilog "src/snes2hdmi.v"
