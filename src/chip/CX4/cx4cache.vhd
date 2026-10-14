@@ -20,6 +20,8 @@ end cx4cache;
 architecture rtl of cx4cache is
 	type ram_t is array (0 to 511) of std_logic_vector(7 downto 0);
 	signal ram : ram_t := (others => (others => '0'));
+	attribute syn_ramstyle : string;
+	attribute syn_ramstyle of ram : signal is "distributed_ram";
 begin
 	process(clock)
 	begin
