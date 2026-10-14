@@ -36,6 +36,8 @@ entity CX4Map is
 		ROM_CE_N		: out std_logic;
 		ROM_OE_N		: out std_logic;
 		ROM_WORD		: out std_logic;
+		ROM_REQ		: out std_logic;							-- snestang: CX4 side wants the byte on ROM_ADDR
+		ROM_WAIT		: in std_logic := '0';				-- snestang: that byte is not in ROM_Q yet
 		
 		BSRAM_ADDR	: out std_logic_vector(19 downto 0);
 		BSRAM_D		: out std_logic_vector(7 downto 0);
@@ -102,7 +104,10 @@ begin
 		SRAM_CE_N	=> SRAM_CE_N,
 		
 		BUS_RD_N		=> ROM_OE_N,
-		
+
+		ROM_REQ		=> ROM_REQ,
+		ROM_WAIT		=> ROM_WAIT,
+
 		MAPPER		=> MAP_CTRL(0)
 	);
 	

@@ -1,3 +1,11 @@
+-- CX4 (srg320, SNES_MiSTer, GPL-3.0), with snestang changes:
+--   * new ROM_REQ/ROM_WAIT ports: ROM_WAIT holds the CX4-side ROM consumers
+--     (cache fill, DMA source read, external ROM read) until the byte on
+--     BUS_A has arrived over snestang's slower SDRAM port, like the SA-1's
+--     ROM_WAIT. While waiting the wait counter (CACHE_WAIT_CNT, DMA_WAIT_CNT
+--     or BUS_ACCESS_CNT) is held and the sample (CACHE_WE, DMA_DAT, MBR) is
+--     suppressed; SRAM accesses keep the old fixed timing. Everything else
+--     is byte-identical to upstream.
 library IEEE;
 use IEEE.STD_LOGIC_1164.ALL;
 library STD;
@@ -31,8 +39,11 @@ entity CX4 is
 		SRAM_CE_N	: out std_logic;
 		
 		BUS_RD_N		: out std_logic;
-		
-		MAPPER		: in std_logic
+
+		MAPPER		: in std_logic;
+
+		ROM_REQ		: out std_logic;						-- snestang: CX4 side wants the byte on BUS_A (ROM)
+		ROM_WAIT		: in std_logic := '0'				-- snestang: that byte is not in BUS_DI yet
 	);
 end CX4;
 
@@ -438,6 +449,13 @@ begin
 		
 	BUS_A <= INT_ADDR;
 
+	-- snestang: the CX4 owns the ROM bus while it is busy (cache fill, DMA,
+	-- external access); the S-CPU idles on vector RAM upstream. Ask the
+	-- SDRAM CPU2 lane (through the word cache) for every ROM byte, and wait.
+	-- SRAM accesses stay on the old BSRAM path with fixed timing.
+	ROM_REQ <= '1' when ROM_SEL = '1' and
+		(CACHE_RUN = '1' or (DMA_RUN = '1' and DMA_STATE = '0') or ROM_ACCESS = '1') else '0';
+
 	process(SUSPEND, SRAM_SEL, DMA_RUN, DMA_STATE, SRAM_ACCESS, SRAM_WR, ROM_SEL, INT_ADDR, MAPPER, ROM_MODE, WR_N, RD_N)
 	begin
 		if SUSPEND = '1' then
@@ -559,7 +577,7 @@ begin
 							end if;
 						end if;
 					end if;
-				elsif SUSPEND = '0' and EN = '1' then
+				elsif SUSPEND = '0' and EN = '1' and not (ROM_WAIT = '1' and ROM_SEL = '1' and CACHE_RUN = '1') then
 					CACHE_WAIT_CNT <= CACHE_WAIT_CNT + 1;
 					if (CACHE_WAIT_CNT = unsigned(WS1) and ROM_SEL = '1') or (CACHE_WAIT_CNT = unsigned(WS2) and SRAM_SEL = '1') then
 						CACHE_ADDR <= std_logic_vector(unsigned(CACHE_ADDR) + 1);
@@ -596,7 +614,7 @@ begin
 						DMA_CNT <= unsigned(DMA_LEN) - 1;
 						DMA_STATE <= '0';
 					end if;
-				elsif SUSPEND = '0' and EN = '1' then
+				elsif SUSPEND = '0' and EN = '1' and not (ROM_WAIT = '1' and ROM_SEL = '1' and DMA_RUN = '1' and DMA_STATE = '0') then
 					if DMA_STATE = '0' then
 						if DMA_WAIT_CNT = unsigned(WS1) then
 							DMA_WAIT_CNT <= (others => '0');
@@ -919,8 +937,10 @@ begin
 			SRAM_WR <= '0';
 		elsif rising_edge(CLK) then
 			if CPU_EN = '1' then
-				if ROM_ACCESS = '1' or SRAM_ACCESS = '1' then 
-					if BUS_ACCESS_CNT = 0 then
+				if ROM_ACCESS = '1' or SRAM_ACCESS = '1' then
+					if ROM_WAIT = '1' and ROM_ACCESS = '1' and ROM_SEL = '1' then
+						null; -- snestang: hold the ROM byte until it arrives
+					elsif BUS_ACCESS_CNT = 0 then
 						ROM_ACCESS <= '0';
 						SRAM_ACCESS <= '0';
 						SRAM_WR <= '0';
@@ -955,7 +975,7 @@ begin
 				elsif INST = I_INCEXT then
 					MAR <= std_logic_vector(unsigned(MAR) + 1);
 				elsif INST = I_FINEXT then
-					if BUS_ACCESS_CNT = 0 then
+					if BUS_ACCESS_CNT = 0 and not (ROM_WAIT = '1' and ROM_ACCESS = '1' and ROM_SEL = '1') then
 						MBR <= BUS_DI;
 					end if;
 				elsif INST = I_ST then
@@ -1104,7 +1124,7 @@ begin
 					end case;
 
 				elsif INST = I_FINEXT then
-					if BUS_ACCESS_CNT = 0 then
+					if BUS_ACCESS_CNT = 0 and not (ROM_WAIT = '1' and ROM_ACCESS = '1' and ROM_SEL = '1') then
 						PC <= NEXT_PC;
 					end if;
 				else
@@ -1292,7 +1312,8 @@ begin
 
 	CACHE_ADDR_RD <= BANK & PC;
 	CACHE_ADDR_WR <= CACHE_BANK & CACHE_ADDR;
-	CACHE_WE <= '1' when CACHE_RUN = '1' and EN = '1' and CACHE_WAIT_CNT = unsigned(WS1) else '0';
+	CACHE_WE <= '1' when CACHE_RUN = '1' and EN = '1' and CACHE_WAIT_CNT = unsigned(WS1)
+		and not (ROM_WAIT = '1' and ROM_SEL = '1') else '0';
 	CACHE_DI <= BUS_DI;
 	
 	CACHEL : entity work.cx4cache

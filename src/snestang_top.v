@@ -188,8 +188,16 @@ gowin_pll_hdmi pll_hdmi (
 wire [23:0] ROM_ADDR;
 wire ROM_CE_N, ROM_OE_N, ROM_WE_N, ROM_WORD;
 wire [15:0] ROM_D;
+// ROM_Q normally comes from the CPU lane's sticky word (byte-selected by
+// ROM_ADDR[0], since CX4/LoROM fetches are byte-wide). While the CX4 owns
+// the ROM bus its own fetches come from the CPU2 lane through the word
+// cache below instead, so a coinciding S-CPU WRAM request can no longer
+// cancel the ROM fetch (and the CX4 waits for the word anyway).
 wire [15:0] ROM_Q;
-assign      ROM_Q = (ROM_WORD || ~ROM_ADDR[0]) ? cpu_port0 : { cpu_port0[7:0], cpu_port0[15:8] };
+wire [15:0] rom_word_cpu2;
+wire        cx4_owns_rom;
+wire [15:0] rom_word = cx4_owns_rom ? rom_word_cpu2 : cpu_port0;
+assign      ROM_Q = (ROM_WORD || ~ROM_ADDR[0]) ? rom_word : { rom_word[7:0], rom_word[15:8] };
 
 wire [16:0] WRAM_ADDR;
 wire        WRAM_CE_N;
@@ -224,6 +232,19 @@ wire        sa1_mode = rom_type[7:4] == 4'h6;
 `else
 wire        sa1_mode = 1'b0;
 `endif
+// CX4: its own ROM fetches (cache fill, DMA source read, external ROM read)
+// ride the same CPU2 lane while the CX4 owns the ROM bus. SA-1 and CX4 never
+// share a cartridge (rom_type 6 vs 4), so the two caches mux the one lane.
+wire        cx4_rom_req;
+wire [15:0] cx4_rom_q;
+wire        cx4_rom_wait;
+`ifdef CHIP_CX4
+wire        cx4_mode = rom_type[7:4] == 4'h4;
+`else
+wire        cx4_mode = 1'b0;
+`endif
+assign      cx4_owns_rom = cx4_mode & cx4_rom_req;
+assign      rom_word_cpu2 = cx4_owns_rom ? cx4_rom_q : sa1_rom_q;
 wire  [7:0] bwram_q_a;             // SA-1 BW-RAM (block RAM) read data
 wire  [7:0] BSRAM_Q = sa1_mode ? bwram_q_a : (snes_bsram_shadow ? snes_bsram_hold : bsram_dout);
 wire  [7:0] BSRAM_D;
@@ -343,6 +364,8 @@ main #(.USE_DSPn(USE_DSPn), .USE_GSU(USE_GSU), .USE_CX4(USE_CX4), .USE_SA1(USE_S
     .SA1_ROM_ADDR(sa1_rom_addr), .SA1_ROM_REQ(sa1_rom_req),
     .SA1_ROM_Q(sa1_rom_q), .SA1_ROM_WAIT(sa1_rom_wait),
 
+    .CX4_ROM_REQ(cx4_rom_req), .CX4_ROM_WAIT(cx4_rom_wait),
+
     .BSRAM_ADDR(BSRAM_ADDR), .BSRAM_D(BSRAM_D),	.BSRAM_Q(BSRAM_Q),
     .BSRAM_CE_N(BSRAM_CE_N), .BSRAM_OE_N(BSRAM_OE_N), .BSRAM_WE_N(BSRAM_WE_N),
     .BSRAM_RD_N(BSRAM_RD_N),
@@ -390,9 +413,14 @@ wire [22:0] rom_addr = loading ? loader_addr : ROM_ADDR[22:0];
 reg [22:0]  rom_addr_sd;
 
 // Second ROM reader on the controller's CPU2 lane (the SA-1's ROM fetches,
-// served below the S-CPU; driven by the word cache below).
-wire [22:1] cpu2_addr;
-wire        cpu2_req;
+// served below the S-CPU; driven by the word cache below). The CX4's own
+// fetches share the lane while the CX4 owns the ROM bus (the two chips never
+// share a cartridge); the S-CPU lane stays for WRAM and for S-CPU ROM reads
+// while the CX4 is idle.
+wire [22:1] sa1_cpu2_addr, cx4_cpu2_addr, cpu2_addr;
+wire        sa1_cpu2_req, cx4_cpu2_req, cpu2_req;
+assign      cpu2_addr = sa1_mode ? sa1_cpu2_addr : cx4_cpu2_addr;
+assign      cpu2_req  = sa1_mode ? sa1_cpu2_req  : cx4_cpu2_req;
 wire        cpu2_req_ack;
 wire [15:0] cpu2_dout;
 
@@ -420,9 +448,13 @@ always @(posedge mclk) begin
     if (~resetn) begin
     end else begin
         
-        // ROM read and load
-        if (loading && loader_do_valid && header_finished && loader_addr[0] 
-            || ~loading && ~ROM_CE_N && rom_addr_sd != rom_addr) begin
+        // ROM read and load. While the CX4 owns the ROM bus its fetch address
+        // is on ROM_ADDR: the CPU lane skips it (the CX4 reads the same word
+        // through the CPU2 cache instead), so a coinciding S-CPU WRAM request
+        // can no longer cancel the ROM fetch. S-CPU ROM reads while the CX4
+        // is idle still use this lane exactly as before.
+        if (loading && loader_do_valid && header_finished && loader_addr[0]
+            || ~loading && ~ROM_CE_N && rom_addr_sd != rom_addr && ~cx4_owns_rom) begin
             rom_addr_sd <= rom_addr;
             cpu_addr <= rom_addr;
             cpu_req <= ~cpu_req;
@@ -576,7 +608,7 @@ sa1_rom_cache sa1_rom_cache (
     .mclk(mclk), .resetn(resetn), .active(sa1_mode & ~loading),
     .rom_addr(sa1_rom_addr), .rom_req(sa1_rom_req),
     .rom_q(sa1_rom_q), .rom_wait(sa1_rom_wait),
-    .cpu2_addr(cpu2_addr), .cpu2_req(cpu2_req),
+    .cpu2_addr(sa1_cpu2_addr), .cpu2_req(sa1_cpu2_req),
     .cpu2_req_ack(cpu2_req_ack), .cpu2_dout(cpu2_dout)
 );
 
@@ -634,8 +666,32 @@ assign bw_sv_q    = 8'h0;
 assign bwram_q_a  = 8'h0;
 assign sa1_rom_q  = 16'h0;
 assign sa1_rom_wait = 1'b0;
-assign cpu2_addr  = 22'h0;
-assign cpu2_req   = 1'b0;
+assign sa1_cpu2_addr = 22'h0;
+assign sa1_cpu2_req  = 1'b0;
+`endif
+
+// ---- CX4: own ROM word cache on the same CPU2 lane --------------------------
+// While the CX4 owns the ROM bus (cache fill, DMA source read, external ROM
+// read) its byte address is on ROM_ADDR; the cache fetches each new word once
+// over CPU2 and the CX4's wait counters hold until the word is valid. The
+// S-CPU lane keeps serving WRAM (and S-CPU ROM reads while the CX4 is idle)
+// exactly as before, so the two streams can no longer cancel each other.
+// The cache module is shared with the SA-1 (a second instance): the access
+// pattern is the same (mostly sequential words, second byte hits), and the
+// two chips never share a cartridge, so the lane is muxed by chip type above.
+`ifdef CHIP_CX4
+sa1_rom_cache cx4_rom_cache (
+    .mclk(mclk), .resetn(resetn), .active(cx4_mode & ~loading),
+    .rom_addr(rom_addr), .rom_req(cx4_rom_req),
+    .rom_q(cx4_rom_q), .rom_wait(cx4_rom_wait),
+    .cpu2_addr(cx4_cpu2_addr), .cpu2_req(cx4_cpu2_req),
+    .cpu2_req_ack(cpu2_req_ack), .cpu2_dout(cpu2_dout)
+);
+`else
+assign cx4_rom_q = 16'h0;
+assign cx4_rom_wait = 1'b0;
+assign cx4_cpu2_addr = 22'h0;
+assign cx4_cpu2_req = 1'b0;
 `endif
 
 localparam RV_IDLE_REQ0 = 3'd0;
