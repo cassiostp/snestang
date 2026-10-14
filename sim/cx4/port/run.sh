@@ -30,7 +30,7 @@ run() { vvp $B/tb_port.vvp "$@" | grep -v "^VCD\|^WARNING"; }
 if [ "$1" = quick ]; then
 	run +ws=3 +steps=2000
 else
-	for ws in 1 2 3 4; do
+	for ws in 0 1 2 3 4 7; do
 		for wram in 0 50; do
 			run +ws=$ws +steps=6000 +wram=$wram
 		done

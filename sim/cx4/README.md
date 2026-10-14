@@ -53,11 +53,11 @@ docker run --rm --name <prefix>_cx4port --user $(id -u):$(id -g) \
   -v <repo>:/w -w /w/sim/cx4/port tangcore-iv:1 sh run.sh
 ```
 
-Findings (6000 fetches per run): the CX4's own fetches ride CPU2 through
+Findings (6000 fetches per run, plus a few fully-checked drain fetches): the CX4's own fetches ride CPU2 through
 the cache while the S-CPU lane keeps WRAM (and S-CPU ROM while the CX4 is
 idle), so the two streams can no longer cancel each other, and the CX4
-waits for each word. All of WS1=1..4 are error-free with and without WRAM
-traffic (0 wrong of 6000, 0 lost requests, 0 wrong WRAM reads); half the
+waits for each word. All of WS1=0..4 and 7 are error-free with and without WRAM
+traffic (0 wrong, 0 lost requests, 0 wrong WRAM reads); half the
 byte fetches hit the cached word at once, the rest arrive after the
 cache fetch (about 1 mclk on hits, longer on misses, longer still at
 WS1=1 where the chip outruns the fetch). Before the fix this bench showed

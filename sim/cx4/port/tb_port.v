@@ -89,7 +89,7 @@ wire [22:1] cpu2_addr;
 wire        cpu2_req;
 wire        cpu2_req_ack;
 wire [15:0] cpu2_dout;
-sa1_rom_cache cx4_cache (
+sa1_rom_cache #(.QUALIFY_WAIT(1)) cx4_cache (
     .mclk(mclk), .resetn(resetn), .active(~loading),
     .rom_addr(rom_addr), .rom_req(cx4_rom_req),
     .rom_q(cx4_rom_q), .rom_wait(cx4_rom_wait),
@@ -256,6 +256,7 @@ end
 
 // ---- S-CPU model: SlowROM cycles of 8 master clocks, WRAM reads/writes at the given rate -------
 integer wram_pct = 0;
+reg sc_stop = 0;                            // set at run end: finish the cycle, then stay idle
 reg [7:0] shadow [0:31];
 reg       valid  [0:31];
 integer wram_reads = 0, wram_bad = 0, wram_writes = 0;
@@ -269,7 +270,7 @@ always @(posedge mclk) begin
         sc_cnt <= (sc_cnt == 7) ? 0 : sc_cnt + 1;
         case (sc_cnt)
         0: begin
-            sc_active = ($urandom % 100) < wram_pct;
+            sc_active = !sc_stop && (($urandom % 100) < wram_pct);
             sc_a = $urandom;
             sc_wr = ($urandom % 3) == 0 || !valid[sc_a];
             sc_d = $urandom;
@@ -329,6 +330,14 @@ initial begin
     ROM_CE_N = 0;
     cx4_run = 1;
     wait (fetched >= steps);
+    // Drain like a live S-CPU at bus handover: no new accesses, one full
+    // idle SlowROM cycle, lane acked, and only then release the bus
+    // (dropping cx4_run fires one CPU-lane ROM re-fetch). Halting the model
+    // mid-cycle here used to collide that re-fetch with the last WRAM
+    // toggle and count a lost request no running game could produce.
+    sc_stop = 1;
+    repeat (16) @(posedge mclk);
+    for (i = 0; i < 64 && cpu_req != sdram.cpu_req_ack; i = i + 1) @(posedge mclk);
     cx4_run = 0;
     repeat (20) @(posedge mclk);
 
