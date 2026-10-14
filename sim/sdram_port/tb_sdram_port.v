@@ -17,6 +17,10 @@
 //   1  S-CPU + CPU2 back-to-back random reads (saturation)
 //   2  S-CPU + CPU2 SA-1-like: mostly sequential words, random gaps
 // Build with -DBASELINE to run the unmodified controller (no CPU2 ports).
+// Build with -DSDCMC_STABLE to also prove the fclk->mclk multicycle-3
+// window: at every mclk-domain sample, no fclk launch in the SDRAM->SNES
+// cone may have changed in the previous 3 fclk (a change exactly on the
+// coincident sampling edge is benign and ignored).
 `timescale 1ns/1ps
 
 module tb_sdram_port;
@@ -202,6 +206,9 @@ always @(posedge mclk) if (running) begin
         // end of cycle: the CPU samples here
         s_cycles = s_cycles + 1;
         if (cyc_type == T_ROM || cyc_type == T_DMA) begin
+`ifdef SDCMC_STABLE
+            st_sample(0);
+`endif
             s_reads = s_reads + 1;
             if (port0_byte !== rom_byte(cur_rom)) begin
                 s_errs = s_errs + 1;
@@ -210,6 +217,9 @@ always @(posedge mclk) if (running) begin
                 s_hist[s_first >= 0 ? s_first : cyc_pos] = s_hist[s_first >= 0 ? s_first : cyc_pos] + 1;
         end
         if (cyc_type == T_WRD) begin
+`ifdef SDCMC_STABLE
+            st_sample(1);
+`endif
             w_reads = w_reads + 1;
             if (port1_byte !== wram_shadow[cur_wram]) begin
                 w_errs = w_errs + 1;
@@ -271,6 +281,9 @@ always @(posedge mclk) if (running && scen != 0) begin
         if (cpu2_req_ack == cpu2_req) begin
             m2_wait <= 0;
             m2_reads = m2_reads + 1;
+`ifdef SDCMC_STABLE
+            m2_st_dly <= 2;
+`endif
             if (cpu2_dout !== rom_word(m2_tag)) begin
                 m2_errs = m2_errs + 1;
                 if (m2_errs < 10) $display("%0t CPU2 %06x: got %04x want %04x", $time, {m2_tag, 1'b0}, cpu2_dout, rom_word(m2_tag));
@@ -308,6 +321,9 @@ always @(posedge mclk) if (running) begin
         if (b_ack_sync[2] == bs_req && b_lat > 2) begin
             b_wait <= 0;
             b_reads = b_reads + 1;
+`ifdef SDCMC_STABLE
+            st_sample(2);
+`endif
             if (bsram_dout !== (bs_addr[0] ? bs_addr[8:1] ^ 8'h33 : bs_addr[8:1] ^ 8'hcc)) begin
                 b_errs = b_errs + 1;
                 if (b_errs < 10) $display("%0t BSRAM %05x: got %02x", $time, bs_addr, bsram_dout);
@@ -325,6 +341,110 @@ always @(posedge mclk) if (running) begin
         b_lat <= 0;
     end
 end
+
+`ifdef SDCMC_STABLE
+// Multicycle-3 window proof. Each field below is an fclk launch that reaches
+// mclk logic through the top data mux: sticky data regs (sampled value) plus
+// the lane-select controls the STA paths launch from (ds/port/oe).
+// Handshake toggles (acks, busy) are excluded: a late arrival there only
+// costs a rotation, never corrupts. fh keeps each field's post-edge values
+// for the last 8 fclk edges; fwin counts quiet edges before a sample,
+// skipping the coincident one. Relevance is per lane (the mclk muxes select
+// one lane at a time): ROM reads need p0, WRAM reads p1, BSRAM reads the
+// byte mux (bs value + ds/port/oe selects), CPU2 reads cpu2_dout.
+// Tags: 0 S-CPU ROM, 1 S-CPU WRAM, 2 BSRAM, 3 CPU2.
+`ifndef BASELINE
+wire [15:0] mon_cpu2 = cpu2_dout;
+`else
+wire [15:0] mon_cpu2 = 16'h0;
+`endif
+integer fcnt = 0;
+// field order, MSB to LSB: p0[79:64] p1[63:48] cpu2[47:32] bs[31:24]
+// aram[23:8] ds[7:6] port[5:3] oe[2:0]
+wire [79:0] mon_vec = {cpu_port0, cpu_port1, mon_cpu2, bsram_dout, aram_dout,
+                       dut.ds[0], dut.port[0], dut.oe_latch[0]};
+reg [79:0] fh [0:7];
+integer fh_i_;
+initial for (fh_i_ = 0; fh_i_ < 8; fh_i_ = fh_i_ + 1) fh[fh_i_] = 0;
+always @(posedge fclk) begin
+    fcnt = fcnt + 1;
+    fh[7] <= fh[6]; fh[6] <= fh[5]; fh[5] <= fh[4]; fh[4] <= fh[3];
+    fh[3] <= fh[2]; fh[2] <= fh[1]; fh[1] <= fh[0]; fh[0] <= mon_vec;
+end
+function integer fwin;
+    input integer f;
+    integer b, w, done;
+    reg [79:0] x, y;
+    reg eq;
+    begin
+        w = 0; done = 0;
+        for (b = 1; b < 7; b = b + 1) begin
+            if (!done) begin
+                x = fh[b]; y = fh[b+1];
+                case (f)
+                0: eq = x[79:64] === y[79:64];
+                1: eq = x[63:48] === y[63:48];
+                2: eq = x[47:32] === y[47:32];
+                3: eq = x[31:24] === y[31:24];
+                4: eq = x[23:8] === y[23:8];
+                5: eq = x[7:6] === y[7:6];
+                6: eq = x[5:3] === y[5:3];
+                default: eq = x[2:0] === y[2:0];
+                endcase
+                if (eq) w = b;
+                else done = 1;
+            end
+        end
+        fwin = w;
+    end
+endfunction
+integer st_samples = 0, st_viol = 0;
+integer st_minwin = 99;
+integer st_tag_cnt [0:3];
+integer st_tag_min [0:3];
+initial begin
+    st_tag_cnt[0] = 0; st_tag_cnt[1] = 0; st_tag_cnt[2] = 0; st_tag_cnt[3] = 0;
+    st_tag_min[0] = 99; st_tag_min[1] = 99; st_tag_min[2] = 99; st_tag_min[3] = 99;
+end
+task st_sample;
+    input integer tag;
+    integer w0, w1, w2, w3, w4, w5, w6, w7, wmin;
+    begin
+        #1;
+        st_samples = st_samples + 1;
+        st_tag_cnt[tag] = st_tag_cnt[tag] + 1;
+        w0 = fwin(0); w1 = fwin(1);
+        w2 = fwin(2); w3 = fwin(3);
+        w4 = fwin(4); w5 = fwin(5);
+        w6 = fwin(6); w7 = fwin(7);
+        case (tag)
+        0: wmin = w0;
+        1: wmin = w1;
+        2: wmin = w3 < w5 ? (w3 < w6 ? (w3 < w7 ? w3 : w7) : (w6 < w7 ? w6 : w7))
+                          : (w5 < w6 ? (w5 < w7 ? w5 : w7) : (w6 < w7 ? w6 : w7));
+        3: wmin = w2;
+        default: wmin = 0;
+        endcase
+        if (wmin < st_minwin) st_minwin = wmin;
+        if (wmin < st_tag_min[tag]) st_tag_min[tag] = wmin;
+        if (wmin < 3) begin
+            st_viol = st_viol + 1;
+            if (st_viol <= 10)
+                $display("%0t STABLE-VIOL tag=%0d wmin=%0d wins=%0d/%0d/%0d/%0d/%0d/%0d/%0d/%0d fcnt=%0d",
+                         $time, tag, wmin, w0, w1, w2, w3, w4, w5, w6, w7, fcnt);
+        end
+    end
+endtask
+// CPU2 samples like the real consumer (sa1_rom_cache.v): 2 mclk after the
+// ack is first seen, matching its 2FF synchroniser.
+integer m2_st_dly = 0;
+always @(posedge mclk) if (running) begin
+    if (m2_st_dly > 0) begin
+        m2_st_dly <= m2_st_dly - 1;
+        if (m2_st_dly == 1) st_sample(3);
+    end
+end
+`endif
 
 // ---- trace for the identity check ------------------------------------------
 always @(posedge fclk) if (trace && running)
@@ -378,6 +498,12 @@ initial begin
     $display("  BSRAM reads %0d, errors %0d, latency max %0d avg %0d mclk", b_reads, b_errs, b_lat_max, b_lat_sum / (b_reads ? b_reads : 1));
     $display("RESULT scen=%0d s_errs=%0d w_errs=%0d wram_bad=%0d m2_errs=%0d b_errs=%0d s_max=%0d w_max=%0d m2_max=%0d m2_reads=%0d",
              scen, s_errs, w_errs, wbad, m2_errs, b_errs, i, t, m2_lat_max, m2_reads);
+`ifdef SDCMC_STABLE
+    $display("STABLE scen=%0d samples=%0d viol=%0d minwin=%0d tags=%0d/%0d/%0d/%0d tagmin=%0d/%0d/%0d/%0d",
+             scen, st_samples, st_viol, st_minwin,
+             st_tag_cnt[0], st_tag_cnt[1], st_tag_cnt[2], st_tag_cnt[3],
+             st_tag_min[0], st_tag_min[1], st_tag_min[2], st_tag_min[3]);
+`endif
     if (trace) $fclose(tf);
     $finish;
 end
