@@ -22,10 +22,10 @@ end cx4cache;
 architecture rtl of cx4cache is
 	component RAM16SDP4
 		generic (
-			INIT_0 : std_logic_vector(15 downto 0) := x"0000";
-			INIT_1 : std_logic_vector(15 downto 0) := x"0000";
-			INIT_2 : std_logic_vector(15 downto 0) := x"0000";
-			INIT_3 : std_logic_vector(15 downto 0) := x"0000"
+			INIT_0 : bit_vector := X"0000";
+			INIT_1 : bit_vector := X"0000";
+			INIT_2 : bit_vector := X"0000";
+			INIT_3 : bit_vector := X"0000"
 		);
 		port (
 			DO  : out std_logic_vector(3 downto 0);
