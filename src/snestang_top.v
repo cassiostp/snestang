@@ -350,6 +350,13 @@ reg         cpu_we;
 wire [22:0] rom_addr = loading ? loader_addr : ROM_ADDR[22:0];
 reg [22:0]  rom_addr_sd;
 
+// Second ROM reader on the controller's CPU2 lane (a coprocessor's own ROM
+// fetches, served below the S-CPU). Idle unless a chip drives it.
+reg  [22:1] cpu2_addr = 0;
+reg         cpu2_req = 0;
+wire        cpu2_req_ack;
+wire [15:0] cpu2_dout;
+
 reg [16:0]  wram_addr_sd;
 reg         wram_wr_r, wram_rd_r;
 
@@ -559,6 +566,11 @@ sdram_snes sdram(
     .cpu_addr(cpu_addr[22:1]), .cpu_din(cpu_din), .cpu_port(cpu_port), 
     .cpu_port0(cpu_port0), .cpu_port1(cpu_port1), .cpu_req(cpu_req), .cpu_req_ack(),
     .cpu_we(cpu_we), .cpu_ds(cpu_ds),
+
+`ifndef SDRAM_3CH
+    // Second ROM reader
+    .cpu2_addr(cpu2_addr), .cpu2_dout(cpu2_dout), .cpu2_req(cpu2_req), .cpu2_req_ack(cpu2_req_ack),
+`endif
 
     // BSRAM accesses: SNES cartridge bus and save channel, via the bridge above
     .bsram_addr({3'b0, bs_addr_r}), .bsram_dout(bsram_dout), .bsram_din(bs_din_r),

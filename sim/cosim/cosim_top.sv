@@ -302,6 +302,9 @@ sdram_snes sdram (
     .cpu_port0(cpu_port0), .cpu_port1(cpu_port1), .cpu_req(cpu_req),
     .cpu_req_ack(), .cpu_we(cpu_we), .cpu_ds(cpu_ds),
 
+    // second ROM reader: no coprocessor here (sim/sdram_port tests it)
+    .cpu2_addr(22'h0), .cpu2_dout(), .cpu2_req(1'b0), .cpu2_req_ack(),
+
     .bsram_addr({3'b0, bs_addr_r}), .bsram_dout(bsram_dout), .bsram_din(bs_din_r),
     .bsram_req(bs_req_tog), .bsram_req_ack(bs_req_ack), .bsram_we(bs_we_r),
 

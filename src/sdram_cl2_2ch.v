@@ -1,7 +1,7 @@
 // Double-channel CL2 SDRAM controller for SNES on Tang Mega 138K Pro
 // nand2mario 2024.2
 // 
-// This supports two parallel access streams (ROM/WRAM/BSRAM/RISC-V softcore and ARAM), 
+// This supports two parallel access streams (ROM/WRAM/CPU2/BSRAM/RISC-V softcore and ARAM), 
 // independent from each other. SNES ROM/WRAM uses bank 0 (8MB, largest game is 6MB, 
 // WRAM 1MB). RV and BSRAM uses bank 1. ARAM uses bank 2.
 //
@@ -25,6 +25,8 @@
 // sdram controller. Whenever a new request is needed, the host readies the addr/din/we lines,
 // then toggles the *_req line. After the controller accepts the request, it toggles the 
 // *_ack line to notify the host. Now the host is free to make new requests.
+// CPU2 (a second ROM reader, e.g. a coprocessor) is the exception: its ack
+// toggles when the word is in cpu2_dout, so the host knows when it is valid.
 //
 // A clkref signal, if supplied, allows finer control of the timings of the controller.
 // It needs to be 1/6 the speed of clk. The cycles will aligned as shown above.
@@ -85,6 +87,13 @@ module sdram_snes
     output reg        cpu_req_ack,
 	input             cpu_we,
 	input       [1:0] cpu_ds,       // which bytes to enable
+
+    // Second ROM reader (bank 0, reads only). Priority below the CPU, so the
+    // CPU still waits at most one rotation for its slot.
+    input      [22:1] cpu2_addr,
+    output reg [15:0] cpu2_dout,
+    input             cpu2_req,
+    output reg        cpu2_req_ack, // toggles once cpu2_dout holds the word
 
     input      [19:0] bsram_addr,   // only [16:0], max 128KB
     input       [7:0] bsram_din,    // byte access
@@ -157,14 +166,15 @@ reg  [1:0] ds[2];
 
 localparam PORT_NONE  = 2'd0;
 
-localparam PORT_CPU   = 2'd1;
-localparam PORT_BSRAM = 2'd2;
-localparam PORT_RV    = 2'd3;
+localparam PORT_CPU   = 3'd1;
+localparam PORT_BSRAM = 3'd2;
+localparam PORT_RV    = 3'd3;
+localparam PORT_CPU2  = 3'd4;
 
-localparam PORT_ARAM  = 2'd1;
+localparam PORT_ARAM  = 3'd1;
 
-reg  [1:0] port[2];
-reg  [1:0] next_port[2];
+reg  [2:0] port[2];
+reg  [2:0] next_port[2];
 reg [24:0] next_addr[2];        // 2-bit bank #, then 8MB byte address in bank
 reg [15:0] next_din[2];
 reg  [1:0] next_ds[2];
@@ -202,6 +212,11 @@ always @(*) begin
 		next_ds[0]   = cpu_ds;
 		next_we[0]   = cpu_we;
 		next_oe[0]   = ~cpu_we;
+	end else if (cpu2_req ^ cpu2_req_ack) begin
+		next_port[0] = PORT_CPU2;
+		next_addr[0] = { 2'b00, cpu2_addr, 1'b0 };
+		next_ds[0]   = 2'b11;
+		next_oe[0]   = 1'b1;
 	end else if (bsram_req ^ bsram_req_ack) begin
 		next_port[0] = PORT_BSRAM;
 		next_addr[0] = { 5'b01_111, bsram_addr };       // BSRAM at start of 7MB of bank 1 (also accessible from RV)
@@ -372,6 +387,7 @@ always @(posedge clk) begin
             if (cycle[4] && oe_latch[0]) begin
                 case (port[0])
                 PORT_CPU:   if (cpu_port) cpu_port1 <= dq_in; else cpu_port0 <= dq_in;
+                PORT_CPU2:  begin cpu2_dout <= dq_in; cpu2_req_ack <= ~cpu2_req_ack; end
                 PORT_BSRAM: bsram_dout_reg <= ds[0][0] ? dq_in[7:0] : dq_in[15:8];
                 PORT_RV:    rv_dout <= dq_in;
                 default: ;
