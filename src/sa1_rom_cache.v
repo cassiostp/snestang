@@ -28,8 +28,23 @@ wire [21:0] want = rom_addr[22:1];
 wire [3:0]  hits = { valid[3] && tag[3] == want, valid[2] && tag[2] == want,
                      valid[1] && tag[1] == want, valid[0] && tag[0] == want };
 wire        hit = |hits;
-assign rom_q = hits[0] ? data[0] : hits[1] ? data[1] : hits[2] ? data[2] : data[3];
-assign rom_wait = active && rom_req && ~hit;
+wire [15:0] hit_data = hits[0] ? data[0] : hits[1] ? data[1] : hits[2] ? data[2] : data[3];
+
+// Registered outputs. The combinational S-CPU-address -> SA-1-core path
+// (Super MMC map + cache comparators + SA-1 datapath, 41 logic levels)
+// misses mclk setup by 0.5 ns, so the hit decision and the word are
+// sampled here. Safe because every consumer advances its ROM address only
+// on CE/EN edges, which are 2 mclk apart (P65_CE, the DMA SDA/DDA/DTC
+// updates and the VBP VDA updates are all gated by the toggling CLK_CE
+// via EN): the word for the new address is in q_q a full mclk before any
+// CE/EN edge can sample it. The registers track only while rom_req is up,
+// so an S-CPU window (which forces rom_req low and freezes the SA-1 side)
+// leaves the SA-1's word in place with no re-hit bubble. Cost: one extra
+// mclk per cache miss; cached address changes cost nothing.
+reg         hit_q = 0;
+reg  [15:0] q_q = 0;
+assign rom_q = q_q;
+assign rom_wait = active && rom_req && ~hit_q;
 
 reg [1:0]  ack_sync = 0;            // cpu2_req_ack (fclk) into mclk
 reg        inflight = 0;
@@ -59,6 +74,7 @@ always @(posedge mclk) begin
         for (i = 0; i < 4; i = i + 1) valid[i] <= 0;
         inflight <= 0;
         last_valid <= 0;
+        hit_q <= 0;
     end else begin
         if (inflight && ack_sync[1] == cpu2_req) begin
             // cpu2_req_ack toggled: the word is in cpu2_dout
@@ -81,6 +97,10 @@ always @(posedge mclk) begin
         if (rom_req && hit) begin
             last_want <= want;
             last_valid <= 1;
+        end
+        if (rom_req) begin
+            hit_q <= hit;
+            q_q <= hit_data;
         end
     end
 end
