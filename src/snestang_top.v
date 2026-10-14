@@ -680,7 +680,11 @@ assign sa1_cpu2_req  = 1'b0;
 // pattern is the same (mostly sequential words, second byte hits), and the
 // two chips never share a cartridge, so the lane is muxed by chip type above.
 `ifdef CHIP_CX4
-sa1_rom_cache cx4_rom_cache (
+// QUALIFY_WAIT: the CX4 moves its fetch address on most mclk edges, so the
+// cache's registered hit would otherwise describe the previous word when
+// the wait counter matches (wrong byte at WS1 = 0). The SA-1 instance above
+// keeps the default and is unchanged.
+sa1_rom_cache #(.QUALIFY_WAIT(1)) cx4_rom_cache (
     .mclk(mclk), .resetn(resetn), .active(cx4_mode & ~loading),
     .rom_addr(rom_addr), .rom_req(cx4_rom_req),
     .rom_q(cx4_rom_q), .rom_wait(cx4_rom_wait),

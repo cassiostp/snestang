@@ -4,7 +4,16 @@
 // being consumed are prefetched (a fetch takes longer than consuming one
 // word). Four entries cover the SA-1 CPU / DMA / VBP interleave on the
 // one address mux.
-module sa1_rom_cache (
+//
+// QUALIFY_WAIT = 1 is the CX4 instance: the CX4 advances its fetch address
+// on most mclk edges, so the registered hit_q/q_q below still describe the
+// previous word when the wait counter already matches (WS1 = 0). The wait
+// then also covers that one-mclk register lag (want_q records which word
+// the registered outputs are for). Costs one mclk per word change even on
+// a hit; the SA-1 instance keeps QUALIFY_WAIT = 0 and is unchanged.
+module sa1_rom_cache #(
+    parameter QUALIFY_WAIT = 0
+) (
     input             mclk,
     input             resetn,
     input             active,       // SA-1 game running, not loading
@@ -40,11 +49,24 @@ wire [15:0] hit_data = hits[0] ? data[0] : hits[1] ? data[1] : hits[2] ? data[2]
 // CE/EN edge can sample it. The registers track only while rom_req is up,
 // so an S-CPU window (which forces rom_req low and freezes the SA-1 side)
 // leaves the SA-1's word in place with no re-hit bubble. Cost: one extra
-// mclk per cache miss; cached address changes cost nothing.
+// mclk per cache miss; cached address changes cost nothing. (With
+// QUALIFY_WAIT = 1 the mismatch term below re-adds one mclk per word
+// change, hit or miss: the price of the CX4's every-mclk addresses.)
 reg         hit_q = 0;
 reg  [15:0] q_q = 0;
 assign rom_q = q_q;
-assign rom_wait = active && rom_req && ~hit_q;
+generate
+if (QUALIFY_WAIT) begin : g_qualify_wait
+    reg [21:0] want_q = 0;
+    always @(posedge mclk) begin
+        if (~resetn || ~active) want_q <= 0;
+        else if (rom_req) want_q <= want;
+    end
+    assign rom_wait = active && rom_req && (~hit_q || want_q != want);
+end else begin : g_plain_wait
+    assign rom_wait = active && rom_req && ~hit_q;
+end
+endgenerate
 
 reg [1:0]  ack_sync = 0;            // cpu2_req_ack (fclk) into mclk
 reg        inflight = 0;
