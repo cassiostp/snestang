@@ -95,6 +95,7 @@ module tb_snes_linebuf #(
     snes2hdmi dut (
         .clk(clk), .resetn(1'b1),
         .dotclk(dotclk), .hblank(hblank), .vblank(vblank), .rgb5(rgb5), .xs(xs), .ys(ys),
+        .hires(1'b0),
         .overlay(1'b0), .overlay_x(ovx), .overlay_y(ovy), .overlay_color(ovc),
         .audio_l(16'd0), .audio_r(16'd0), .audio_ready(1'b0), .audio_en(), .pause(1'b0),
         .snes_refresh(refresh),

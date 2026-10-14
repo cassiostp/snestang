@@ -7,6 +7,7 @@
 #   tb_smooth_regress  snes2hdmi against the scaler before smoothing: identical with smoothing off
 #   tb_snes_smooth  the smoothing inside snes2hdmi, checked against the model
 #   tb_snes_linebuf the line buffer as the SNES fills it: every line the smoothing reads is there
+#   tb_snes_hires   hi-res pair blending in snes2hdmi: alternating sub-pixels and pseudo-hi-res pairs
 # prep.sh (python3, git) makes the vectors and the baselines; with a simulator image that has
 # neither, run prep.sh on the host first and `python3 -I model.py check snes_fx.log` and
 # `python3 -I model.py check_smooth snes_smooth.log snes_src.hex` after.
@@ -44,6 +45,10 @@ vvp tb_snes_smooth.out
 iverilog -g2012 -o tb_snes_linebuf.out tb_snes_linebuf.v $HDMI $RTL/snes2hdmi.v $RTL/scanlines.v \
     $RTL/video_fx.v $RTL/smooth.v $RTL/dual_clk_fifo.v
 vvp tb_snes_linebuf.out
+
+iverilog -g2012 -o tb_snes_hires.out tb_snes_hires.v $HDMI $RTL/snes2hdmi.v $RTL/scanlines.v \
+    $RTL/video_fx.v $RTL/smooth.v $RTL/dual_clk_fifo.v
+vvp tb_snes_hires.out
 if command -v python3 >/dev/null 2>&1; then
     python3 -I model.py check snes_fx.log
     python3 -I model.py check_smooth snes_smooth.log snes_src.hex

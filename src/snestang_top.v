@@ -222,6 +222,7 @@ wire        aram_16 = 0;
 
 wire BLEND = 1'b0;
 reg        PAL;
+wire       hires;
 wire       dotclk  /*verilator public*/;
 wire [14:0] rgb_out  /*verilator public*/;
 wire [8:0] x_out /*verilator public*/, y_out /*verilator public*/;
@@ -319,7 +320,7 @@ main #(.USE_DSPn(USE_DSPn), .USE_GSU(USE_GSU)) main (
     .ARAM_ADDR(ARAM_ADDR), .ARAM_Q(ARAM_Q), .ARAM_D(ARAM_D), 
     .ARAM_CE_N(ARAM_CE_N), .ARAM_OE_N(ARAM_OE_N), .ARAM_WE_N(ARAM_WE_N),
 
-    .BLEND(BLEND), .PAL(PAL), .HIGH_RES(), .FIELD(), .INTERLACE(), .DIS_SHORTLINE(),
+    .BLEND(BLEND), .PAL(PAL), .HIGH_RES(hires), .FIELD(), .INTERLACE(), .DIS_SHORTLINE(),
     .DOTCLK(dotclk), .RGB_OUT(rgb_out), .HBLANKn(hblankn),
     .VBLANKn(vblankn), .X_OUT(x_out), .Y_OUT(y_out),
 
@@ -709,7 +710,7 @@ snes2hdmi s2h(
     .clk(mclk), .resetn(resetn), .snes_refresh(refresh),
     .pause_snes_for_frame_sync(pause_snes_for_frame_sync),
     .dotclk(dotclk), .hblank(~hblankn),.vblank(~vblankn),.rgb5(rgb_out),
-    .xs(x_out), .ys(y_out), 
+    .xs(x_out), .ys(y_out), .hires(hires),
     .overlay(overlay), .overlay_x(overlay_x), .overlay_y(overlay_y),
     .overlay_color(overlay_color), 
     .scanlines(core_config[16]), .sl_darkness(core_config[19:18]), .sl_thick(core_config[20]), .sl_out(core_config[21]),
