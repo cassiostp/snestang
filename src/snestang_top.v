@@ -213,7 +213,19 @@ wire        BSRAM_RD_N;
 wire  [7:0] bsram_dout;            // the sdram controller's BSRAM read register
 reg   [7:0] snes_bsram_hold = 0;
 reg         snes_bsram_shadow = 0;
-wire  [7:0] BSRAM_Q = snes_bsram_shadow ? snes_bsram_hold : bsram_dout;
+// SA-1: its own ROM lane (served from the SDRAM CPU2 port through the word
+// cache below) and BW-RAM in block RAM instead of the SDRAM save RAM.
+wire [22:0] sa1_rom_addr;
+wire        sa1_rom_req;
+wire [15:0] sa1_rom_q;
+wire        sa1_rom_wait;
+`ifdef CHIP_SA1
+wire        sa1_mode = rom_type[7:4] == 4'h6;
+`else
+wire        sa1_mode = 1'b0;
+`endif
+wire  [7:0] bwram_q_a;             // SA-1 BW-RAM (block RAM) read data
+wire  [7:0] BSRAM_Q = sa1_mode ? bwram_q_a : (snes_bsram_shadow ? snes_bsram_hold : bsram_dout);
 wire  [7:0] BSRAM_D;
 
 wire [15:0] VRAM1_ADDR;
@@ -306,6 +318,11 @@ parameter USE_CX4=1;
 `else
 parameter USE_CX4=0;
 `endif
+`ifdef CHIP_SA1
+parameter USE_SA1=1;
+`else
+parameter USE_SA1=0;
+`endif
 
 // `ifdef VERILATOR
 // parameter USE_DSPn=1;
@@ -313,7 +330,7 @@ parameter USE_CX4=0;
 // `endif
 
 `ifndef DISABLE_SNES
-main #(.USE_DSPn(USE_DSPn), .USE_GSU(USE_GSU), .USE_CX4(USE_CX4)) main (
+main #(.USE_DSPn(USE_DSPn), .USE_GSU(USE_GSU), .USE_CX4(USE_CX4), .USE_SA1(USE_SA1)) main (
     .MCLK(mclk), .RESET_N(resetn & ~loading), .ENABLE(enable), 
     .SYSCLKF_CE(sysclkf_ce), .SYSCLKR_CE(sysclkr_ce), .REFRESH(refresh),
 
@@ -322,6 +339,9 @@ main #(.USE_DSPn(USE_DSPn), .USE_GSU(USE_GSU), .USE_CX4(USE_CX4)) main (
     .ROM_ADDR(ROM_ADDR), .ROM_D(ROM_D), .ROM_Q(ROM_Q),
     .ROM_CE_N(ROM_CE_N), .ROM_OE_N(ROM_OE_N), .ROM_WE_N(ROM_WE_N),
     .ROM_WORD(ROM_WORD),
+
+    .SA1_ROM_ADDR(sa1_rom_addr), .SA1_ROM_REQ(sa1_rom_req),
+    .SA1_ROM_Q(sa1_rom_q), .SA1_ROM_WAIT(sa1_rom_wait),
 
     .BSRAM_ADDR(BSRAM_ADDR), .BSRAM_D(BSRAM_D),	.BSRAM_Q(BSRAM_Q),
     .BSRAM_CE_N(BSRAM_CE_N), .BSRAM_OE_N(BSRAM_OE_N), .BSRAM_WE_N(BSRAM_WE_N),
@@ -368,6 +388,13 @@ reg         cpu_we;
 
 wire [22:0] rom_addr = loading ? loader_addr : ROM_ADDR[22:0];
 reg [22:0]  rom_addr_sd;
+
+// Second ROM reader on the controller's CPU2 lane (the SA-1's ROM fetches,
+// served below the S-CPU; driven by the word cache below).
+wire [22:1] cpu2_addr;
+wire        cpu2_req;
+wire        cpu2_req_ack;
+wire [15:0] cpu2_dout;
 
 reg [16:0]  wram_addr_sd;
 reg         wram_wr_r, wram_rd_r;
@@ -437,7 +464,12 @@ always @(posedge mclk) begin
 end
 
 // save channel <-> bridge (driven by iosys when MCU_BL616; quiet zeros otherwise)
-wire [16:0] sv_addr;
+`ifdef CHIP_SA1
+localparam SAVE_AW = 18;    // SA-1 BW-RAM saves reach 256 KB
+`else
+localparam SAVE_AW = 17;
+`endif
+wire [SAVE_AW-1:0] sv_addr;
 wire [7:0]  sv_din;
 wire        sv_req, sv_rreq;
 
@@ -475,6 +507,11 @@ wire        bs_issue_ok = ~bs_busy | bs_free;   // idle, or acked this very cloc
 
 always @(posedge mclk) begin
     bs_ack_sync <= {bs_ack_sync[1:0], bs_req_ack};
+    if (sa1_mode) begin                 // the BW-RAM block RAM serves both sides
+        snes_bs_seen <= snes_bs_tog;
+        sv_w_seen <= sv_req;
+        sv_r_seen <= sv_rreq;
+    end
     if (bs_busy && bs_free) begin               // the access just completed
         bs_busy <= 0;
         if (bs_owner) begin
@@ -485,7 +522,7 @@ always @(posedge mclk) begin
             end
         end
     end
-    if (bs_issue_ok && snes_bs_new) begin
+    if (bs_issue_ok && snes_bs_new && ~sa1_mode) begin
         snes_bsram_shadow <= 0;                 // the SNES gets the port's data again
         bs_addr_r <= bsram_addr[16:0];
         bs_din_r  <= bsram_din;
@@ -494,24 +531,24 @@ always @(posedge mclk) begin
         bs_busy   <= 1;
         bs_req_tog <= ~bs_req_tog;
         snes_bs_seen <= snes_bs_tog;
-    end else if (bs_issue_ok && sv_w_new) begin
+    end else if (bs_issue_ok && sv_w_new && ~sa1_mode) begin
         if (!snes_bsram_shadow) begin           // keep the SNES's last read data
             snes_bsram_hold <= bsram_dout;
             snes_bsram_shadow <= 1;
         end
-        bs_addr_r <= sv_addr;
+        bs_addr_r <= sv_addr[16:0];
         bs_din_r  <= sv_din;
         bs_we_r   <= 1;
         bs_owner  <= 1;
         bs_busy   <= 1;
         bs_req_tog <= ~bs_req_tog;
         sv_w_seen <= sv_req;
-    end else if (bs_issue_ok && sv_r_new) begin
+    end else if (bs_issue_ok && sv_r_new && ~sa1_mode) begin
         if (!snes_bsram_shadow) begin           // keep the SNES's last read data
             snes_bsram_hold <= bsram_dout;
             snes_bsram_shadow <= 1;
         end
-        bs_addr_r <= sv_addr;
+        bs_addr_r <= sv_addr[16:0];
         bs_din_r  <= 8'h0;
         bs_we_r   <= 0;
         bs_owner  <= 1;
@@ -521,6 +558,85 @@ always @(posedge mclk) begin
     end
 end
 wire sv_core_we = bsram_wr & ~bsram_wr_r;       // the SNES wrote save RAM
+
+// ---- SA-1: ROM word cache on CPU2, BW-RAM in block RAM ----------------------
+// In SA-1 mode the save channel talks to the BW-RAM's second port (through
+// the small FSM here) instead of the SDRAM bridge above, which stays out of
+// the way: it never issues, and its seen-toggles track the requests so a
+// later non-SA-1 game starts clean. BSRAM_Q (above) likewise switches to
+// the BW-RAM. The iosys save handshake sees the muxed ack/data.
+wire        bw_sv_ack, bw_sv_rack;
+wire  [7:0] bw_sv_q;
+wire        sv_ack  = sa1_mode ? bw_sv_ack  : sv_ack_r;
+wire        sv_rack = sa1_mode ? bw_sv_rack : sv_rack_r;
+wire  [7:0] sv_q    = sa1_mode ? bw_sv_q    : sv_q_r;
+
+`ifdef CHIP_SA1
+sa1_rom_cache sa1_rom_cache (
+    .mclk(mclk), .resetn(resetn), .active(sa1_mode & ~loading),
+    .rom_addr(sa1_rom_addr), .rom_req(sa1_rom_req),
+    .rom_q(sa1_rom_q), .rom_wait(sa1_rom_wait),
+    .cpu2_addr(cpu2_addr), .cpu2_req(cpu2_req),
+    .cpu2_req_ack(cpu2_req_ack), .cpu2_dout(cpu2_dout)
+);
+
+reg [17:0]  bw_addr_b = 0;
+reg  [7:0]  bw_din_b = 0;
+reg         bw_we_b = 0;
+reg         bw_ack_r = 0, bw_rack_r = 0;
+reg  [7:0]  bw_q_r = 0;
+reg         bw_w_seen = 0, bw_r_seen = 0;
+reg         bw_wr_pend = 0, bw_rd_pend = 0, bw_rd_valid = 0;
+wire [7:0]  bwram_q_b;
+
+always @(posedge mclk) begin
+    if (bw_wr_pend) begin               // the write landed at this edge
+        bw_we_b <= 0;
+        bw_wr_pend <= 0;
+        bw_ack_r <= ~bw_ack_r;
+    end else if (bw_rd_valid) begin     // q_b held the byte through last cycle
+        bw_rd_valid <= 0;
+        bw_q_r <= bwram_q_b;
+        bw_rack_r <= ~bw_rack_r;
+    end else if (bw_rd_pend) begin      // address is on the port; data next cycle
+        bw_rd_pend <= 0;
+        bw_rd_valid <= 1;
+    end else if (sa1_mode && sv_req != bw_w_seen) begin
+        bw_w_seen <= sv_req;
+        bw_addr_b <= sv_addr[17:0];
+        bw_din_b <= sv_din;
+        bw_we_b <= 1;
+        bw_wr_pend <= 1;
+    end else if (sa1_mode && sv_rreq != bw_r_seen) begin
+        bw_r_seen <= sv_rreq;
+        bw_addr_b <= sv_addr[17:0];
+        bw_rd_pend <= 1;
+    end else if (~sa1_mode) begin
+        bw_w_seen <= sv_req;
+        bw_r_seen <= sv_rreq;
+        bw_we_b <= 0;
+    end
+end
+
+bwram_256k bwram (
+    .clk(mclk),
+    .addr_a(BSRAM_ADDR[17:0]), .din_a(BSRAM_D), .q_a(bwram_q_a),
+    .we_a(sa1_mode & ~BSRAM_WE_N),
+    .addr_b(bw_addr_b), .din_b(bw_din_b), .q_b(bwram_q_b), .we_b(bw_we_b)
+);
+assign bw_sv_ack  = bw_ack_r;
+assign bw_sv_rack = bw_rack_r;
+assign bw_sv_q    = bw_q_r;
+`else
+assign bw_sv_ack  = 1'b0;
+assign bw_sv_rack = 1'b0;
+assign bw_sv_q    = 8'h0;
+assign bwram_q_a  = 8'h0;
+assign sa1_rom_q  = 16'h0;
+assign sa1_rom_wait = 1'b0;
+assign cpu2_addr  = 22'h0;
+assign cpu2_req   = 1'b0;
+`endif
 
 localparam RV_IDLE_REQ0 = 3'd0;
 localparam RV_WAIT0_REQ1 = 3'd1;
@@ -578,6 +694,11 @@ sdram_snes sdram(
     .cpu_addr(cpu_addr[22:1]), .cpu_din(cpu_din), .cpu_port(cpu_port), 
     .cpu_port0(cpu_port0), .cpu_port1(cpu_port1), .cpu_req(cpu_req), .cpu_req_ack(),
     .cpu_we(cpu_we), .cpu_ds(cpu_ds),
+
+`ifndef SDRAM_3CH
+    // Second ROM reader
+    .cpu2_addr(cpu2_addr), .cpu2_dout(cpu2_dout), .cpu2_req(cpu2_req), .cpu2_req_ack(cpu2_req_ack),
+`endif
 
     // BSRAM accesses: SNES cartridge bus and save channel, via the bridge above
     .bsram_addr({3'b0, bs_addr_r}), .bsram_dout(bsram_dout), .bsram_din(bs_din_r),
@@ -740,7 +861,7 @@ snes2hdmi s2h(
     .tmds_d_n(tmds_d_n), .tmds_d_p(tmds_d_p)
 );
 
-iosys_bl616 #(.CORE_ID(2), .FREQ(21_484_000), .SAVE_IF(1), .SAVE_AW(17), .SAVE_RDY(1)) iosys (
+iosys_bl616 #(.CORE_ID(2), .FREQ(21_484_000), .SAVE_IF(1), .SAVE_AW(SAVE_AW), .SAVE_RDY(1)) iosys (
     .clk(mclk), .hclk(hclk), .resetn(resetn),
     .overlay(overlay), .overlay_x(overlay_x), .overlay_y(overlay_y),
     .overlay_color(overlay_color),
@@ -750,8 +871,8 @@ iosys_bl616 #(.CORE_ID(2), .FREQ(21_484_000), .SAVE_IF(1), .SAVE_AW(17), .SAVE_R
     .joy1(joy1_btns_ds2 | joy1_btns_snes | joy1_usb), .joy2(joy2_btns_ds2 | joy2_btns_snes | joy2_usb), .hid1(hid1), .hid2(hid2),
     .uart_tx(UART_TXD), .uart_rx(UART_RXD),
     .rom_loading(loading), .rom_do(loader_do), .rom_do_valid(loader_do_valid),
-    .sv_addr(sv_addr), .sv_din(sv_din), .sv_we(), .sv_req(sv_req), .sv_ack(sv_ack_r),
-    .sv_rreq(sv_rreq), .sv_rack(sv_rack_r), .sv_q(sv_q_r), .sv_core_we(sv_core_we)
+    .sv_addr(sv_addr), .sv_din(sv_din), .sv_we(), .sv_req(sv_req), .sv_ack(sv_ack),
+    .sv_rreq(sv_rreq), .sv_rack(sv_rack), .sv_q(sv_q), .sv_core_we(sv_core_we)
 );
 
 `else       // VERILATOR
@@ -839,3 +960,4 @@ end
 `endif
 
 endmodule
+
