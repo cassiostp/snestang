@@ -357,6 +357,7 @@ CX4Map CX4Map
 (
 	.mclk(MCLK),
 	.rst_n(RESET_N),
+	.enable(ENABLE),
 
 	.ca(CA),
 	.di(DO),

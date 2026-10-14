@@ -301,6 +301,11 @@ parameter USE_GSU=1;
 `else
 parameter USE_GSU=0;
 `endif
+`ifdef CHIP_CX4
+parameter USE_CX4=1;
+`else
+parameter USE_CX4=0;
+`endif
 
 // `ifdef VERILATOR
 // parameter USE_DSPn=1;
@@ -308,7 +313,7 @@ parameter USE_GSU=0;
 // `endif
 
 `ifndef DISABLE_SNES
-main #(.USE_DSPn(USE_DSPn), .USE_GSU(USE_GSU)) main (
+main #(.USE_DSPn(USE_DSPn), .USE_GSU(USE_GSU), .USE_CX4(USE_CX4)) main (
     .MCLK(mclk), .RESET_N(resetn & ~loading), .ENABLE(enable), 
     .SYSCLKF_CE(sysclkf_ce), .SYSCLKR_CE(sysclkr_ce), .REFRESH(refresh),
 
