@@ -3,6 +3,7 @@
 
 `define CHIP_DSPn
 `define CHIP_CX4
+`define CHIP_GSU
 `define CONTROLLER_DS2
 
 `define USB1

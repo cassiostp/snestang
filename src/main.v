@@ -473,6 +473,7 @@ wire        GSU_BSRAM_CE_N;
 wire        GSU_BSRAM_OE_N;
 wire        GSU_BSRAM_WE_N;
 wire 		GSU_TURBO;
+assign GSU_TURBO = 1'b0;	// no turbo control; keep the GSU at cartridge speed
 
 generate
 if (USE_GSU == 1'b1) begin
