@@ -205,7 +205,13 @@ add_file -type verilog "src/spc700/muldiv.v"
 add_file -type verilog "src/spc700/spc700.v"
 add_file -type verilog "src/swram.v"
 add_file -type verilog "src/uart_tx_V2.v"
+// console138k/mega138k run the snes PLL at 3:1, the other boards at 4:1;
+// Gowin reads only one SDC per project.
+if {$dev eq "console138k" || $dev eq "mega138k"} {
+add_file -type sdc "src/boards/console138k.sdc"
+} else {
 add_file -type sdc "src/snestang.sdc"
+}
 add_file -type gao -disable "src/mega138k/snestang.gao"
 
 set_option -synthesis_tool gowinsynthesis
