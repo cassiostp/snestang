@@ -361,6 +361,16 @@ wire        CX4_BSRAM_WE_N;
 generate
 if (USE_CX4 == 1'b1) begin
 
+// SCRATCH trial (exp/round4-gsu-sa1) only, not for upstream: register the
+// CX4's BSRAM_Q feed. The SDRAM-BSRAM_Q -> CX4_DI -> CX4 -> CX4_DO -> S-CPU
+// cone misses mclk setup by ~2 ns on the congested combined tree (worst
+// -1.912 ns, CI 38507692232/38509272937); splitting it here leaves ~26 ns
+// on each side. The CX4 samples its data input on slow CEGen-divided
+// enables while the data sits stable for whole commands, so +1 mclk is
+// invisible to it. The S-CPU BW path keeps the unregistered BSRAM_Q.
+reg [7:0] bsram_q_cx4 = 0;
+always @(posedge MCLK) bsram_q_cx4 <= BSRAM_Q;
+
 CX4Map CX4Map
 (
 	.mclk(MCLK),
@@ -394,7 +404,7 @@ CX4Map CX4Map
 
 	.bsram_addr(CX4_BSRAM_ADDR),
 	.bsram_d(CX4_BSRAM_D),
-	.bsram_q(BSRAM_Q),
+	.bsram_q(bsram_q_cx4),
 	.bsram_ce_n(CX4_BSRAM_CE_N),
 	.bsram_oe_n(CX4_BSRAM_OE_N),
 	.bsram_we_n(CX4_BSRAM_WE_N),
