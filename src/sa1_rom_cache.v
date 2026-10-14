@@ -62,7 +62,13 @@ if (QUALIFY_WAIT) begin : g_qualify_wait
         if (~resetn || ~active) want_q <= 0;
         else if (rom_req) want_q <= want;
     end
-    assign rom_wait = active && rom_req && (~hit_q || want_q != want);
+    // Kept as the base wait term plus an appended mismatch term (same
+    // function as base && (match)): the base cone maps as before and the
+    // qualifier only adds its compare, to hold this region's routing
+    // (mclk margin here is thin) as close to the passing layout as a
+    // netlist delta allows.
+    assign rom_wait = (active && rom_req && ~hit_q) ||
+                      (active && rom_req && want_q != want);
 end else begin : g_plain_wait
     assign rom_wait = active && rom_req && ~hit_q;
 end
