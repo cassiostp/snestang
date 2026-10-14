@@ -2,6 +2,7 @@
 `define CONFIG_V
 
 `define CHIP_DSPn
+`define CHIP_SA1
 `define CONTROLLER_DS2
 
 `define USB1

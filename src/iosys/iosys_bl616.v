@@ -171,6 +171,7 @@ reg response_req;
 reg response_ack;
 
 // save-RAM interface state (SAVE_IF=1)
+reg [7:0]         sv_blk_hi;        // RX side: blk[15:8] of the block being written
 reg [SAVE_AW-1:0] sv_waddr;         // RX side: restore write address
 reg [SAVE_AW-1:0] sv_raddr;         // TX side: dump read address
 reg [15:0]        sv_req_blk;       // block the MCU asked for (latched in RX)
@@ -377,9 +378,11 @@ always @(posedge clk) begin
                         kbd_data_valid <= 1;
                     end
                     'h11: if (SAVE_IF) begin       // write one save-RAM block
-                        // data_cnt 0 is blk[15:8]: unused, SAVE_AW-9 bits of blk suffice
-                        if (data_cnt == 1)
-                            sv_waddr <= {rx_data, 9'd0};   // blk * 512 (truncated to SAVE_AW)
+                        // blk is 16 bits; only its low SAVE_AW-9 bits reach sv_waddr
+                        if (data_cnt == 0)
+                            sv_blk_hi <= rx_data;          // blk[15:8]
+                        else if (data_cnt == 1)
+                            sv_waddr <= {sv_blk_hi, rx_data, 9'd0};   // blk * 512 (truncated to SAVE_AW)
                         else if (data_cnt >= 2 && data_cnt < 2 + 512) begin
                             // >= 2 matters: byte 0 (blk[15:8]) must NOT fall through to a
                             // write -- it would land at the previous frame's last address.
@@ -514,7 +517,7 @@ always @(posedge clk) begin
                     send_state_next <= SEND_SAVE_BLK;
                     send_state <= SEND_HEADER;
                     resp_frame_len <= 1 + 2 + 512;          // type + blk16 + data
-                    sv_raddr <= {sv_req_blk[7:0], 9'd0};    // the read address settles during the header
+                    sv_raddr <= {sv_req_blk, 9'd0};    // blk * 512 (truncated to SAVE_AW); settles during the header
                     sv_idx <= 0;
                     if (sv_req_blk == 0 && !sv_core_we)
                         sv_dirty <= 0;                      // dump starting: clean again

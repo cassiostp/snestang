@@ -23,6 +23,14 @@ module main (
 	output reg        ROM_WE_N,
 	output reg        ROM_WORD,
 
+	// SA-1's own ROM lane: ROM_ADDR above carries the S-CPU's (Super MMC
+	// mapped) address in SA-1 mode, this carries the SA-1 side's. ROM_WAIT
+	// holds the SA-1 off until SA1_ROM_Q holds the word at SA1_ROM_ADDR.
+	output     [22:0] SA1_ROM_ADDR,
+	output            SA1_ROM_REQ,
+	input      [15:0] SA1_ROM_Q,
+	input             SA1_ROM_WAIT,
+
 	output reg [19:0] BSRAM_ADDR,
 	output reg  [7:0] BSRAM_D,
 	input       [7:0] BSRAM_Q,
@@ -529,7 +537,8 @@ endgenerate
 
 wire [7:0]  SA1_DO;
 wire        SA1_IRQ_N;
-wire [22:0] SA1_ROM_ADDR;
+wire [22:0] SA1_SNES_ROM_ADDR;
+wire        SA1_SNES_ROM_CE_N;
 wire        SA1_ROM_CE_N;
 wire        SA1_ROM_OE_N;
 wire        SA1_ROM_WORD;
@@ -546,6 +555,7 @@ SA1Map SA1Map
 (
 	.mclk(MCLK),
 	.rst_n(RESET_N),
+	.enable(ENABLE),
 
 	.ca(CA),
 	.di(DO),
@@ -569,10 +579,15 @@ SA1Map SA1Map
 	.irq_n(SA1_IRQ_N),
 
 	.rom_addr(SA1_ROM_ADDR),
-	.rom_q(ROM_Q),
+	.rom_q(SA1_ROM_Q),
 	.rom_ce_n(SA1_ROM_CE_N),
 	.rom_oe_n(SA1_ROM_OE_N),
 	.rom_word(SA1_ROM_WORD),
+	.rom_req(SA1_ROM_REQ),
+	.rom_wait(SA1_ROM_WAIT),
+	.snes_rom_addr(SA1_SNES_ROM_ADDR),
+	.snes_rom_q(ROM_Q),
+	.snes_rom_ce_n(SA1_SNES_ROM_CE_N),
 
 	.bsram_addr(SA1_BSRAM_ADDR),
 	.bsram_d(SA1_BSRAM_D),
@@ -584,10 +599,23 @@ SA1Map SA1Map
 	.map_active(MAP_ACTIVE[3]),
 	.map_ctrl(ROM_TYPE),
 	.rom_mask(ROM_MASK),
-	.bsram_mask(RAM_MASK)
+	.bsram_mask(RAM_MASK),
+
+	.sa1_p65_a(),
+	.sa1_p65_do(),
+	.sa1_p65_rd_n(),
+	.sa1_p65_wr_n(),
+	.ss_busy(1'b0),
+	.ss_sa1_romsel(),
+	.ss_sns_romsel()
 );
-end else
+end else begin
 assign MAP_ACTIVE[3] = 0;
+assign SA1_ROM_ADDR = 0;
+assign SA1_ROM_REQ = 0;
+assign SA1_SNES_ROM_ADDR = 0;
+assign SA1_SNES_ROM_CE_N = 1;
+end
 endgenerate
 
 wire [7:0]  SPC7110_DO;
@@ -778,9 +806,9 @@ always @(*) begin
 		begin
 			DI         = SA1_DO;
 			IRQ_N      = SA1_IRQ_N;
-			ROM_ADDR   = {1'b0,SA1_ROM_ADDR};
+			ROM_ADDR   = {1'b0,SA1_SNES_ROM_ADDR};
 			ROM_D      = 0;
-			ROM_CE_N   = SA1_ROM_CE_N;
+			ROM_CE_N   = SA1_SNES_ROM_CE_N;
 			ROM_OE_N   = SA1_ROM_OE_N;
 			ROM_WE_N   = 1;
 			BSRAM_ADDR = SA1_BSRAM_ADDR;

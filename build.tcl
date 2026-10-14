@@ -126,6 +126,21 @@ if {$dev eq "nano20k"} {
     add_file -type verilog "src/vram_spb.v"
     add_file -type verilog "src/usb_hid_host.v"
     add_file -type verilog "src/pll/pll_12.v"
+    add_file -type vhdl "src/chip/SA1/P65816_pkg.vhd"
+    add_file -type vhdl "src/chip/SA1/BCDAdder.vhd"
+    add_file -type vhdl "src/chip/SA1/AddSubBCD.vhd"
+    add_file -type vhdl "src/chip/SA1/ALU.vhd"
+    add_file -type vhdl "src/chip/SA1/AddrGen.vhd"
+    add_file -type vhdl "src/chip/SA1/MCode.vhd"
+    add_file -type vhdl "src/chip/SA1/P65C816.vhd"
+    add_file -type vhdl "src/chip/SA1/spram.vhd"
+    add_file -type vhdl "src/chip/SA1/SA1MULT.vhd"
+    add_file -type vhdl "src/chip/SA1/SA1DIV.vhd"
+    add_file -type vhdl "src/chip/SA1/SA1.vhd"
+    add_file -type vhdl "src/chip/SA1/SA1Map.vhd"
+    set_option -vhdl_std vhd2008
+    add_file -type verilog "src/sa1_rom_cache.v"
+    add_file -type verilog "src/bwram_256k.v"
     set_option -output_base_name snestang_${dev}_${controller}
 } else {
     error "Unknown device $dev"
