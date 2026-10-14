@@ -38,27 +38,29 @@ master clocks the S-CPU's own ROM reads through the mapper fail too
 (the mapper latches the CPU address at SYSCLKR_CE and the CPU samples
 5 master clocks later).
 
-## `port/tb_port.v` (iverilog): the real SDRAM ROM port at CX4 cadence
+## `port/tb_port.v` (iverilog): the CX4 on the CPU2 lane at CX4 cadence
 
 The ROM/WRAM request logic extracted from `src/snestang_top.v` at build
-time (see `port/run.sh`), the real `sdram_snes` controller, and the
-cosim's behavioural SDRAM chip. The CX4 side replays the chip's
-cache-fill cadence (CEGen ticks, sample after WS1+1 ticks); an S-CPU
-model makes WRAM accesses in a set percentage of SlowROM cycles.
+time (see `port/run.sh`), the real `sdram_snes` controller with both CPU
+lanes, the real `sa1_rom_cache` word cache (second instance, as the CX4
+uses it), and the cosim's behavioural SDRAM chip. The CX4 side replays the
+patched chip's cache-fill cadence (CEGen ticks, sample after WS1+1 ticks,
+held while `ROM_WAIT` is up); an S-CPU model makes WRAM accesses in a set
+percentage of SlowROM cycles.
 
 ```
 docker run --rm --name <prefix>_cx4port --user $(id -u):$(id -g) \
   -v <repo>:/w -w /w/sim/cx4/port tangcore-iv:1 sh run.sh
 ```
 
-Findings (6000 fetches per run): half the byte fetches are the second
-byte of an already-fetched word and answer at once; word-changing
-fetches arrive 3.3 or 4.3 master clocks after the address. So a cache
-fill run at WS1>=4 with the port to itself is error-free (0/6000),
-while the reset WS1=3 corrupts 17% of the bytes. With concurrent WRAM
-traffic in 50% of S-CPU cycles, requests are lost to the port's
-fire-and-forget toggle (`cpu_req_ack` is unconnected) and both streams
-corrupt at any wait-state setting. Whether a game hits either case
-depends on the wait states it programs and on what the S-CPU does while
-the CX4 is busy; the queued SDRAM arbiter being built for SA-1 is the
-fix for the second.
+Findings (6000 fetches per run): the CX4's own fetches ride CPU2 through
+the cache while the S-CPU lane keeps WRAM (and S-CPU ROM while the CX4 is
+idle), so the two streams can no longer cancel each other, and the CX4
+waits for each word. All of WS1=1..4 are error-free with and without WRAM
+traffic (0 wrong of 6000, 0 lost requests, 0 wrong WRAM reads); half the
+byte fetches hit the cached word at once, the rest arrive after the
+cache fetch (about 1 mclk on hits, longer on misses, longer still at
+WS1=1 where the chip outruns the fetch). Before the fix this bench showed
+17% corrupt bytes at the reset WS1=3 even alone, and 21-31% corrupt plus
+lost requests and lost WRAM writes with concurrent traffic at any wait
+state.
