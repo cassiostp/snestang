@@ -22,11 +22,13 @@ for p in 0 1; do
         grep -h "STABLE\|RESULT" build/stable$s.p$p.log | sed "s/^/phase $p, /"
         grep -q "RESULT scen=$s s_errs=0 w_errs=0 wram_bad=0 m2_errs=0 b_errs=0" build/stable$s.p$p.log || { echo "FAIL: functional errors scen=$s phase=$p"; fail=1; }
         line=$(grep "STABLE scen=$s " build/stable$s.p$p.log)
-        viol=$(echo "$line" | sed -n 's/.* viol=\([0-9]*\).*/\1/p')
-        minwin=$(echo "$line" | sed -n 's/.* minwin=\([0-9]*\).*/\1/p')
+        viol=$(echo "$line" | sed -n 's/.* viol=\([0-9-]*\).*/\1/p')
+        minage=$(echo "$line" | sed -n 's/.* minage=\(-\?[0-9]*\).*/\1/p')
         [ "$viol" = "0" ] || { echo "FAIL: stability violations scen=$s phase=$p"; fail=1; }
-        # minwin is capped at 6 by the 8-deep history; the claim needs >= 3
-        [ "${minwin:-0}" -ge 3 ] || { echo "FAIL: minwin=$minwin < 3 scen=$s phase=$p"; fail=1; }
+        # age is fclk periods since the relevant launch last changed; the
+        # multicycle-3 budget needs >= 3 (a change exactly on the sampling
+        # edge has age 0 and is benign). Negative means FCLK_U is wrong.
+        [ "${minage:-0}" -ge 3 ] || { echo "FAIL: minage=$minage < 3 scen=$s phase=$p"; fail=1; }
     done
 done
 [ $fail = 0 ] && echo "ALL STABLE" || { echo "FAILED"; exit 1; }

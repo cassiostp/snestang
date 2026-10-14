@@ -347,91 +347,86 @@ end
 // mclk logic through the top data mux: sticky data regs (sampled value) plus
 // the lane-select controls the STA paths launch from (ds/port/oe).
 // Handshake toggles (acks, busy) are excluded: a late arrival there only
-// costs a rotation, never corrupts. fh keeps each field's post-edge values
-// for the last 8 fclk edges; fwin counts quiet edges before a sample,
-// skipping the coincident one. Relevance is per lane (the mclk muxes select
-// one lane at a time): ROM reads need p0, WRAM reads p1, BSRAM reads the
-// byte mux (bs value + ds/port/oe selects), CPU2 reads cpu2_dout.
+// costs a rotation, never corrupts.
+//
+// Method: one level-sensitive change detector per field timestamps its last
+// transition ($time). At each mclk-domain sample the age in fclk periods is
+// (now - t)/FCLK_U. No history arrays or cross-block counters: every
+// variable has a single writer and all reads settle long before use, so no
+// iverilog scheduling race can corrupt the verdict. A change exactly on the
+// sampling edge has age 0 (the +1ns task delay) and is benign: it arrives
+// after this sample. Verdict: violation iff 1 <= age <= 2 for a relevant
+// field; age >= 3 is the budgeted window. Relevance is per lane and per
+// consumer: ROM reads need p0, WRAM reads p1, CPU2 reads cpu2_dout (all
+// sampled by slow mclk logic), and BSRAM bridge captures need the
+// bsram_dout VALUE only (the bridge samples the controller output two mclk
+// after the ack; the ds/port/oe selects cannot move that value with the
+// read gate closed, sdram_cl2_2ch.v:257, so they are not relevant there).
+// The SNES-side BSRAM selects are argued by construction in the report, not
+// measured here: the tb has no SNES BSRAM bus master.
 // Tags: 0 S-CPU ROM, 1 S-CPU WRAM, 2 BSRAM, 3 CPU2.
+//
+// FCLK_U is $time units per fclk: the tb drives fclk with #5 half-period
+// under `timescale 1ns/1ps, so one period is 10ns. (Note: this iverilog
+// build prints %0t scaled by 1000, i.e. in ps, but $time arithmetic is in
+// the module units, ns. Do not "fix" FCLK_U from %0t output.)
+localparam integer FCLK_U = 10;
+time t_p0 = 0, t_p1 = 0, t_cpu2 = 0, t_bs = 0;
+time t_aram = 0, t_ds = 0, t_port = 0, t_oe = 0;
+integer c_p0 = 0, c_p1 = 0, c_cpu2 = 0, c_bs = 0;
+integer c_aram = 0, c_ds = 0, c_port = 0, c_oe = 0;
+always @(cpu_port0) begin t_p0 = $time; c_p0 = c_p0 + 1; end
+always @(cpu_port1) begin t_p1 = $time; c_p1 = c_p1 + 1; end
 `ifndef BASELINE
-wire [15:0] mon_cpu2 = cpu2_dout;
-`else
-wire [15:0] mon_cpu2 = 16'h0;
+always @(cpu2_dout) begin t_cpu2 = $time; c_cpu2 = c_cpu2 + 1; end
 `endif
-integer fcnt = 0;
-// field order, MSB to LSB: p0[79:64] p1[63:48] cpu2[47:32] bs[31:24]
-// aram[23:8] ds[7:6] port[5:3] oe[2:0]
-wire [79:0] mon_vec = {cpu_port0, cpu_port1, mon_cpu2, bsram_dout, aram_dout,
-                       dut.ds[0], dut.port[0], dut.oe_latch[0]};
-reg [79:0] fh [0:7];
-integer fh_i_;
-initial for (fh_i_ = 0; fh_i_ < 8; fh_i_ = fh_i_ + 1) fh[fh_i_] = 0;
-always @(posedge fclk) begin
-    fcnt = fcnt + 1;
-    fh[7] <= fh[6]; fh[6] <= fh[5]; fh[5] <= fh[4]; fh[4] <= fh[3];
-    fh[3] <= fh[2]; fh[2] <= fh[1]; fh[1] <= fh[0]; fh[0] <= mon_vec;
-end
-function integer fwin;
-    input integer f;
-    integer b, w, done;
-    reg [79:0] x, y;
-    reg eq;
+always @(bsram_dout) begin t_bs = $time; c_bs = c_bs + 1; end
+always @(aram_dout) begin t_aram = $time; c_aram = c_aram + 1; end
+always @(dut.ds[0]) begin t_ds = $time; c_ds = c_ds + 1; end
+always @(dut.port[0]) begin t_port = $time; c_port = c_port + 1; end
+always @(dut.oe_latch[0]) begin t_oe = $time; c_oe = c_oe + 1; end
+function integer age;
+    input [63:0] t;
+    input [63:0] now;
     begin
-        w = 0; done = 0;
-        for (b = 1; b < 7; b = b + 1) begin
-            if (!done) begin
-                x = fh[b]; y = fh[b+1];
-                case (f)
-                0: eq = x[79:64] === y[79:64];
-                1: eq = x[63:48] === y[63:48];
-                2: eq = x[47:32] === y[47:32];
-                3: eq = x[31:24] === y[31:24];
-                4: eq = x[23:8] === y[23:8];
-                5: eq = x[7:6] === y[7:6];
-                6: eq = x[5:3] === y[5:3];
-                default: eq = x[2:0] === y[2:0];
-                endcase
-                if (eq) w = b;
-                else done = 1;
-            end
-        end
-        fwin = w;
+        age = (now - t) / FCLK_U;
     end
 endfunction
 integer st_samples = 0, st_viol = 0;
-integer st_minwin = 99;
+integer st_minage = 1000000;
 integer st_tag_cnt [0:3];
 integer st_tag_min [0:3];
 initial begin
     st_tag_cnt[0] = 0; st_tag_cnt[1] = 0; st_tag_cnt[2] = 0; st_tag_cnt[3] = 0;
-    st_tag_min[0] = 99; st_tag_min[1] = 99; st_tag_min[2] = 99; st_tag_min[3] = 99;
+    st_tag_min[0] = 1000000; st_tag_min[1] = 1000000;
+    st_tag_min[2] = 1000000; st_tag_min[3] = 1000000;
 end
 task st_sample;
     input integer tag;
-    integer w0, w1, w2, w3, w4, w5, w6, w7, wmin;
+    integer a0, a1, a2, a3, a4, a5, a6, a7, amin, now;
     begin
         #1;
+        now = $time;
         st_samples = st_samples + 1;
         st_tag_cnt[tag] = st_tag_cnt[tag] + 1;
-        w0 = fwin(0); w1 = fwin(1);
-        w2 = fwin(2); w3 = fwin(3);
-        w4 = fwin(4); w5 = fwin(5);
-        w6 = fwin(6); w7 = fwin(7);
+        a0 = age(t_p0, now); a1 = age(t_p1, now);
+        a2 = age(t_cpu2, now); a3 = age(t_bs, now);
+        a4 = age(t_aram, now); a5 = age(t_ds, now);
+        a6 = age(t_port, now); a7 = age(t_oe, now);
         case (tag)
-        0: wmin = w0;
-        1: wmin = w1;
-        2: wmin = w3 < w5 ? (w3 < w6 ? (w3 < w7 ? w3 : w7) : (w6 < w7 ? w6 : w7))
-                          : (w5 < w6 ? (w5 < w7 ? w5 : w7) : (w6 < w7 ? w6 : w7));
-        3: wmin = w2;
-        default: wmin = 0;
+        0: amin = a0;
+        1: amin = a1;
+        2: amin = a3;
+        3: amin = a2;
+        default: amin = -1;
         endcase
-        if (wmin < st_minwin) st_minwin = wmin;
-        if (wmin < st_tag_min[tag]) st_tag_min[tag] = wmin;
-        if (wmin < 3) begin
+        if (amin < st_minage) st_minage = amin;
+        if (amin < st_tag_min[tag]) st_tag_min[tag] = amin;
+        if (amin >= 0 && amin < 3) begin
             st_viol = st_viol + 1;
             if (st_viol <= 10)
-                $display("%0t STABLE-VIOL tag=%0d wmin=%0d wins=%0d/%0d/%0d/%0d/%0d/%0d/%0d/%0d fcnt=%0d",
-                         $time, tag, wmin, w0, w1, w2, w3, w4, w5, w6, w7, fcnt);
+                $display("%0t STABLE-VIOL tag=%0d agemin=%0d ages=%0d/%0d/%0d/%0d/%0d/%0d/%0d/%0d",
+                         $time, tag, amin, a0, a1, a2, a3, a4, a5, a6, a7);
         end
     end
 endtask
@@ -451,6 +446,15 @@ always @(posedge fclk) if (trace && running)
     $fdisplay(tf, "%b %h %h %b %h %h %h %h %b",
         {sdram_ncs, sdram_nras, sdram_ncas, sdram_nwe}, sdram_a, sdram_ba, sdram_dqm,
         sdram_dq, cpu_port0, cpu_port1, bsram_dout, {cpu_req_ack, bs_req_ack});
+`ifdef SDCMC_STABLE
+// Internal trace for stability-violation triage (rotation vs sample timing).
+integer tf2 = 0;
+always @(posedge fclk) if (trace && running)
+    $fdisplay(tf2, "%0t cyc=%b port=%0d ds=%b oe=%b p0=%h p1=%h cpu2=%h bs=%h bsreg=%h aram=%h ack=%b%b%b",
+        $time, dut.cycle, dut.port[0], dut.ds[0], dut.oe_latch[0],
+        cpu_port0, cpu_port1, cpu2_dout, bsram_dout, dut.bsram_dout_reg, aram_dout,
+        dut.cpu_req_ack, dut.bsram_req_ack, cpu2_req_ack);
+`endif
 
 // ---- run --------------------------------------------------------------------
 integer t, wbad;
@@ -463,6 +467,9 @@ initial begin
     if ($test$plusargs("TRACE")) begin
         trace = 1;
         tf = $fopen("trace.txt", "w");
+`ifdef SDCMC_STABLE
+        tf2 = $fopen("trace_stable.txt", "w");
+`endif
     end
     repeat (5) @(posedge mclk);
     resetn = 1;
@@ -499,12 +506,17 @@ initial begin
     $display("RESULT scen=%0d s_errs=%0d w_errs=%0d wram_bad=%0d m2_errs=%0d b_errs=%0d s_max=%0d w_max=%0d m2_max=%0d m2_reads=%0d",
              scen, s_errs, w_errs, wbad, m2_errs, b_errs, i, t, m2_lat_max, m2_reads);
 `ifdef SDCMC_STABLE
-    $display("STABLE scen=%0d samples=%0d viol=%0d minwin=%0d tags=%0d/%0d/%0d/%0d tagmin=%0d/%0d/%0d/%0d",
-             scen, st_samples, st_viol, st_minwin,
+    $display("STABLE scen=%0d samples=%0d viol=%0d minage=%0d tags=%0d/%0d/%0d/%0d tagmin=%0d/%0d/%0d/%0d",
+             scen, st_samples, st_viol, st_minage,
              st_tag_cnt[0], st_tag_cnt[1], st_tag_cnt[2], st_tag_cnt[3],
              st_tag_min[0], st_tag_min[1], st_tag_min[2], st_tag_min[3]);
+    $display("STABLE-DET p0=%0d p1=%0d cpu2=%0d bs=%0d aram=%0d ds=%0d port=%0d oe=%0d",
+             c_p0, c_p1, c_cpu2, c_bs, c_aram, c_ds, c_port, c_oe);
 `endif
     if (trace) $fclose(tf);
+`ifdef SDCMC_STABLE
+    if (trace) $fclose(tf2);
+`endif
     $finish;
 end
 
