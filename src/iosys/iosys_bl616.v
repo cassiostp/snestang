@@ -20,6 +20,8 @@ module iosys_bl616 #(
     //   MCU -> FPGA 0x12 blk[15:0]               request one block back
     //   FPGA -> MCU 0x0A blk[15:0] <512 bytes>   the requested block
     //   FPGA -> MCU 0x0B 0x00                    save RAM written by the core since the last dump
+    //   MCU -> FPGA 0x14 <13 bytes>              wall clock for the S-RTC
+    //     (unix BE32, BCD year mon day wday hour min sec, solar %, flags)
     // The response-type byte on the wire IS the TX state number (see SEND_HEADER), which
     // is why 0x0A/0x0B are the next free states. SAVE_IF=0 elaborates none of this.
     parameter SAVE_IF=0,
@@ -64,6 +66,12 @@ module iosys_bl616 #(
     
     output reg [31:0] core_config,
     output reg [31:0] video_config,     // see video_fx.v
+    output reg [31:0] time_unix,        // frame 0x14: unix seconds (BE32)
+    output reg [55:0] time_bcd,         // frame 0x14: BCD year mon day wday
+                                        // hour min sec, one byte each
+    output reg [7:0]  time_solar,       // frame 0x14: light level 0..100 %
+    output reg [7:0]  time_flags,       // frame 0x14: bit0 RTC, bit1 solar
+    output reg        time_strobe,       // toggles per received 0x14 frame
 
     // Save-RAM port (SAVE_IF=1 only; tie inputs to 0 and leave outputs open otherwise).
     // The RAM lives off-chip (SDRAM behind a bridge), so byte accesses are handshakes:
@@ -228,6 +236,10 @@ reg fdd_read_start, fdd_read_finish, fdd_write_finish;
 // 0x11 blk[15:0] <512 bytes> write one block into save RAM (SAVE_IF only)
 // 0x12 blk[15:0]             request one save-RAM block (SAVE_IF only)
 // 0x13 x[31:0]               set video config (video_fx.v)
+// 0x14 unix[31:0] bcd[6:0] solar flags  set wall clock (13 payload bytes:
+//   unix seconds BE, BCD year mon day wday hour min sec, solar %, flags;
+//   toggles time_strobe so the S-RTC resynchronises; the chip free-runs
+//   between frames. Old bitstreams ignore the frame.)
 //
 // Response payloads from FPGA to BL616:
 // 0x01 core_id[7:0]          core ID
@@ -248,6 +260,11 @@ always @(posedge clk) begin
         rom_remain <= 0;
         core_config <= 0;
         video_config <= 0;
+        time_unix <= 0;
+        time_bcd <= 0;
+        time_solar <= 0;
+        time_flags <= 0;
+        time_strobe <= 0;
         data_cnt <= 0;
         x_wr <= 0;
         y_wr <= 0;
@@ -316,6 +333,29 @@ always @(posedge clk) begin
                         if (data_cnt == 3) begin    // Received 4 bytes
                             video_config <= {data_reg[23:0], rx_data};
                         end
+                    end
+                    // Wall clock (13 payload bytes, byte i completes when
+                    // data_cnt == i).
+                    'h14: begin
+                        case (data_cnt)
+                        0: time_unix[31:24] <= rx_data;
+                        1: time_unix[23:16] <= rx_data;
+                        2: time_unix[15:8] <= rx_data;
+                        3: time_unix[7:0] <= rx_data;
+                        4: time_bcd[55:48] <= rx_data;
+                        5: time_bcd[47:40] <= rx_data;
+                        6: time_bcd[39:32] <= rx_data;
+                        7: time_bcd[31:24] <= rx_data;
+                        8: time_bcd[23:16] <= rx_data;
+                        9: time_bcd[15:8] <= rx_data;
+                        10: time_bcd[7:0] <= rx_data;
+                        11: time_solar <= rx_data;
+                        12: begin
+                            time_flags <= rx_data;
+                            time_strobe <= ~time_strobe;
+                        end
+                        default: ;
+                        endcase
                     end
                     4: case (data_cnt)              // cursor
                         0: cursor_x <= rx_data;
