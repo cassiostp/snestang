@@ -295,7 +295,7 @@ module snes2hdmi (
     // picture, the overlay and the border land where they did. The source line (yy_s) only changes
     // at the start of an output row, long before active.
     localparam FX_LAT = 11;     // clocks from rgb_pre to rgb, see video_fx.v
-    localparam SM_LAT = 10;     // the line buffer read is followed by a register, smooth.v (LAT 9) and the rgb_pre register
+    localparam SM_LAT = 9;      // the line buffer read is followed by a register, smooth.v (LAT 8) and the rgb_pre register
     reg cnew = 1'b0;            // the line buffer address is the first of a source column
     always @(posedge clk_pixel) begin
         reg active_t;
