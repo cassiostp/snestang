@@ -35,7 +35,8 @@
 //
 // Clkref also allows relaxed timing constraints. Requests need to be ready at most 2 
 // clks after mclk edge (3 for CPU/RV). Data out is ready at least 3 fclk before mclk 
-// posedge (TODO: current true only for BSRAM). This means the following timing constraints.
+// posedge (proven for ROM/WRAM/CPU2/BSRAM by sim/sdram_port/run_stable.sh).
+// This means the following timing constraints.
 //
 // set_multicycle_path 2 -setup -end -from [get_clocks {mclk}] -to [get_clocks {fclk}]
 // set_multicycle_path 1 -hold -end -from [get_clocks {mclk}] -to [get_clocks {fclk}]
