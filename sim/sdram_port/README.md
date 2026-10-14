@@ -14,8 +14,7 @@ master on the ARAM lane, and a BSRAM probe doing reads and writes.
   cycle[2]) every mclk-launched input was older than 1 fclk on the request
   lane with the rotation phase-locked to mclk (`RQSTABLE` lines: no age 0
   or 1, `lock_corr=0`). ARAM's first capture is 1 fclk after launch, so
-  its min age (1) is measured, not gated; see the SDCMC report for what
-  that leaves open.
+  its min age (1) is both measured and the enforced setup-1 budget.
 
 Both run in the standard container:
 

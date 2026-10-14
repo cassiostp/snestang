@@ -18,6 +18,13 @@ set_multicycle_path 2 -setup -end -from [get_clocks {mclk}] -to [get_clocks {fcl
 set_multicycle_path 1 -hold -end -from [get_clocks {mclk}] -to [get_clocks {fclk}]
 // Except vram?_req for refresh
 set_multicycle_path 1 -setup -end -from [get_nets {vram?_req}] -to [get_clocks {fclk}]
+// ARAM launches from the toggle-edge snapshots (snestang_top.v aram_*_sd),
+// latched at the controller's cycle[2], 1 fclk after launch (min age 1,
+// measured per field by sim/sdram_port/run_stable.sh)
+set_multicycle_path 1 -setup -end -from [get_nets {aram_req}] -to [get_clocks {fclk}]
+set_multicycle_path 1 -setup -end -from [get_nets {aram_addr_sd*}] -to [get_clocks {fclk}]
+set_multicycle_path 1 -setup -end -from [get_nets {aram_din_sd*}] -to [get_clocks {fclk}]
+set_multicycle_path 1 -setup -end -from [get_nets {aram_we_sd}] -to [get_clocks {fclk}]
 
 // sdram to SNES, 3*fclk
 set_multicycle_path 3 -setup -start -from [get_clocks {fclk}] -to [get_clocks {mclk}]

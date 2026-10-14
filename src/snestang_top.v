@@ -409,6 +409,8 @@ reg         bsram_rd_r, bsram_wr_r;
 wire        aram_rd = ~ARAM_CE_N & ~ARAM_OE_N;
 wire        aram_wr = ~ARAM_CE_N & ~ARAM_WE_N;
 reg [15:0]  aram_addr_sd;
+reg [15:0]  aram_din_sd;
+reg         aram_we_sd;
 reg         aram_rd_r, aram_wr_r;
 reg         aram_req;
 
@@ -454,11 +456,17 @@ always @(posedge mclk) begin
             bsram_we <= bsram_wr;
         end
 
-        // ARAM read/write
+        // ARAM read/write. The controller is fed the address/data/we
+        // snapshot taken on the toggle edge (not the combinational DSP/SMP
+        // outputs), so the mclk->fclk ARAM path starts at flip-flops; the
+        // DSP/SMP sees the same latency, the snapshot is the same edge's
+        // values. Proven window: sim/sdram_port/run_stable.sh.
         aram_rd_r <= aram_rd; aram_wr_r <= aram_wr;
         if (aram_rd && aram_addr_sd != ARAM_ADDR || (aram_wr && aram_addr_sd != ARAM_ADDR) || (aram_rd & ~aram_rd_r) || (aram_wr & ~aram_wr_r)) begin
             aram_req <= ~aram_req;
             aram_addr_sd <= ARAM_ADDR;
+            aram_din_sd <= {ARAM_D, ARAM_D};
+            aram_we_sd <= aram_wr;
         end
     end
 end
@@ -705,8 +713,8 @@ sdram_snes sdram(
     .bsram_req(bs_req_tog), .bsram_req_ack(bs_req_ack), .bsram_we(bs_we_r),
 
     // ARAM accesses
-    .aram_16(aram_16), .aram_addr(ARAM_ADDR), .aram_din({ARAM_D, ARAM_D}), 
-    .aram_dout(aram_dout), .aram_req(aram_req), .aram_req_ack(), .aram_we(aram_wr),
+    .aram_16(aram_16), .aram_addr(aram_addr_sd), .aram_din(aram_din_sd), 
+    .aram_dout(aram_dout), .aram_req(aram_req), .aram_req_ack(), .aram_we(aram_we_sd),
 
 `ifdef SDRAM_3CH
     // VRAM accesses
