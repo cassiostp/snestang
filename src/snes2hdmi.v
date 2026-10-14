@@ -188,31 +188,46 @@ module snes2hdmi (
     
 
     // HDMI TX audio - send 32K sampling rate audio
-    // Hoarse sound issue: https://github.com/nand2mario/snestang/issues/16
-    // SNES average framerate is 60.09881. So we need to pause the SNES a bit every frame to ensure 60 fps HDMI. 
-    // For sound, that translate to about 8 samples pause time per frame. So we run our DSP a bit faster to 
-    // buffer enough samples before the SNES pause.
+    // The DSP (ACLK_FREQ in dsp.vh) produces just enough samples per HDMI
+    // frame to cover the consumption below plus the samples lost while the
+    // frame sync halts the SNES once per frame. The FIFO level trims the
+    // residual (clock tolerance): above FIFO_HI the audio period shortens by
+    // one pixel clock, below FIFO_LO it lengthens by one, so the level stays
+    // mid-FIFO and samples are neither dropped nor repeated.
     localparam AUDIO_OUT_RATE = 32000;
     localparam AUDIO_DELAY = CLKFRQ * 1000 / AUDIO_OUT_RATE / 2;
+    localparam [10:0] AUDIO_PERIOD = AUDIO_DELAY - 1;    // pixel clocks per half audio clock
+    localparam FIFO_ADDRSIZE = 6;       // 64 samples, ~2 ms at 32 kHz
+    localparam [FIFO_ADDRSIZE:0] FIFO_LO = 20;
+    localparam [FIFO_ADDRSIZE:0] FIFO_HI = 44;
     reg [15:0] audio_sample_word [1:0];
-    reg [$clog2(AUDIO_DELAY)-1:0] audio_divider;
+    reg [10:0] audio_divider;
     reg clk_audio;
     reg audio_rinc;
     wire audio_full, audio_empty;
+    wire [FIFO_ADDRSIZE:0] audio_used;
     wire [31:0] audio_sample;
+    wire [10:0] audio_limit = (audio_used >= FIFO_HI) ? AUDIO_PERIOD - 11'd1 :
+                              (audio_used <= FIFO_LO) ? AUDIO_PERIOD + 11'd1 : AUDIO_PERIOD;
 
     always @(posedge clk_pixel) begin
-        if (resetn) begin
+        if (!resetn) begin
+            audio_divider <= 0;
+            clk_audio <= 0;
             audio_rinc <= 0;
-            if (audio_divider != AUDIO_DELAY - 1) 
+            audio_sample_word[0] <= 0;
+            audio_sample_word[1] <= 0;
+        end else begin
+            audio_rinc <= 0;
+            if (audio_divider < audio_limit)
                 audio_divider <= audio_divider + 1;
-            else begin 
+            else begin
                 audio_divider <= 0;
                 clk_audio = ~clk_audio;     // generate audio clock @ 32Khz
                 // output audio sample on posedge clk_audio
                 if (!clk_audio && !audio_empty) begin
                     {audio_sample_word[0], audio_sample_word[1]} <= audio_sample;
-                    audio_rinc <= 1'b1;                    
+                    audio_rinc <= 1'b1;
                 end else if (!clk_audio && pause)
                     // menu pause drained the fifo: output silence, not the last held sample
                     {audio_sample_word[0], audio_sample_word[1]} <= 32'd0;
@@ -220,13 +235,13 @@ module snes2hdmi (
         end
     end
 
-    // Audio sample FIFO for 16 samples
-    dual_clk_fifo #(.DATESIZE(32), .ADDRSIZE(4)) audio_fifo (
-        .clk(clk), .wrst_n(1'b1), 
+    // Audio sample FIFO for 64 samples
+    dual_clk_fifo #(.DATESIZE(32), .ADDRSIZE(FIFO_ADDRSIZE)) audio_fifo (
+        .clk(clk), .wrst_n(resetn),
         .winc(audio_ready), .wdata({audio_l, audio_r}), .wfull(audio_full),
-        .rclk(clk_pixel), .rrst_n(1'b1),
+        .rclk(clk_pixel), .rrst_n(resetn),
         .rinc(audio_rinc), .rdata(audio_sample), .rempty(audio_empty),
-        .almost_full(), .almost_empty()
+        .almost_full(), .almost_empty(), .rdusedw(audio_used)
     );
 
     //

@@ -14,7 +14,8 @@ module dual_clk_fifo #(
     output reg wfull,
     output reg rempty,
     output reg almost_full,
-    output reg almost_empty
+    output reg almost_empty,
+    output [ADDRSIZE:0] rdusedw         // read-domain fill count, for rate servos
 );
 wire [ADDRSIZE-1:0] waddr, raddr;
 reg  [ADDRSIZE:0] wptr, rptr;
@@ -131,6 +132,7 @@ endgenerate
 wire [ADDRSIZE:0] rgap_reg;
 assign rgap_reg = rq2_wptr_bin - rbin;
 assign almost_empty_val = (rgap_reg <= ALMOST_GAP);
+assign rdusedw = rgap_reg;
 
 always @(posedge rclk or negedge rrst_n)
     if (!rrst_n) 
