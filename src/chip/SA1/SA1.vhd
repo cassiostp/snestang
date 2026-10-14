@@ -1,5 +1,8 @@
 -- SA1 (srg320, SNES_MiSTer, GPL-3.0), with snestang changes:
 --   * the SA-1 CPU is P65C816_SA1 (renamed to avoid snestang's Verilog P65C816);
+--   * the I-RAM is entity work.sa1_spram (src/chip/SA1/spram.vhd,
+--     written fresh; renamed because the CX4 ships its own spram.vhd and
+--     Gowin keeps all VHDL in one library);
 --   * new ROM_REQ/ROM_WAIT ports: ROM_WAIT makes the SA-1-side ROM consumers
 --     (CPU, normal DMA, VBP) see a busy ROM, like an S-CPU window, until the
 --     word on ROM_A has arrived over snestang's slower SDRAM port;
@@ -709,7 +712,7 @@ IRAM_WE <= '0'										               when ENABLE = '0' else
 			  P65_WR and SA1_IRAM_WE			               when SA1_IRAM_SEL = '1' else 
 			  '0';
 			  
-IRAM: entity work.spram generic map(11, 8)
+IRAM: entity work.sa1_spram generic map(11, 8)
 port map (
 	clock    => CLK,
 	wren     => IRAM_WE,
