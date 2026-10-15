@@ -1,6 +1,7 @@
 // Audio transport bench: the snes2hdmi 32 kHz FIFO across the frame-sync halt.
 //
-// A behavioral SNES plays NTSC frames (262 lines x 1364 mclk, WRAM-refresh
+// A behavioral SNES plays NTSC frames (262 lines x 1360 mclk: 340 dots of 4
+// master clocks, ppu.v DOT_NUM/LAST_DOT, 262 lines, LAST_LINE 261; WRAM-refresh
 // pulse every line) and produces one DSP sample per 128 CEGen ticks at
 // PROD_NUM/PROD_DEN per mclk (dsp.vh ACLK_FREQ/2147730 for the console
 // 21.4844 MHz mclk). Production and the frame generator freeze while
@@ -43,7 +44,7 @@ module tb_snes_audio_fifo;
     reg [31:0] prod_acc = 0;
     reg [15:0] prod_cnt = 0;
 
-    // behavioral SNES frame: 262 lines of 1364 mclk, refresh pulse each line
+    // behavioral SNES frame: 262 lines of 1360 mclk, refresh pulse each line
     reg [8:0] ys = 0;
     reg [10:0] line_cnt = 0;
     reg        snes_refresh = 0;
@@ -57,6 +58,7 @@ module tb_snes_audio_fifo;
         .pause(1'b0), .snes_refresh(snes_refresh),
         .scanlines(1'b0), .sl_darkness(2'd0), .sl_thick(1'b0), .sl_out(1'b0), .video_config(32'd0),
         .clk_pixel(clk_pixel), .clk_5x_pixel(1'b0), .locked(1'b1),
+        .std_timing(1'b0),
         .pause_snes_for_frame_sync(pause_sync),
         .tmds_clk_n(tmds_clk_n), .tmds_clk_p(tmds_clk_p), .tmds_d_n(tmds_d_n), .tmds_d_p(tmds_d_p)
     );
@@ -82,7 +84,7 @@ module tb_snes_audio_fifo;
         // sync halts on ys == 1 && snes_refresh
         snes_refresh <= (line_cnt < 40);
         if (!pause_sync && resetn) begin
-            if (line_cnt == 1363) begin
+            if (line_cnt == 1359) begin
                 line_cnt <= 0;
                 ys <= (ys == 261) ? 0 : ys + 1;
             end else

@@ -41,6 +41,9 @@ module snes2hdmi (
 	input clk_5x_pixel,
 	input locked,
 
+    // 1: standard 60 Hz HDMI timing; 0: native rate (from video_std_timing in the top)
+    input std_timing,
+
     output reg pause_snes_for_frame_sync,
 
     // output [7:0] led,
@@ -451,6 +454,8 @@ module snes2hdmi (
             .IT_CONTENT(1),
             .AUDIO_RATE(AUDIO_OUT_RATE), 
             .AUDIO_BIT_WIDTH(AUDIO_BIT_WIDTH),
+            // SNES native rate (60.0988 Hz): 74.25 MHz / (1647 x 750) = 60.1093 Hz
+            .NATIVE_FRAME_WIDTH(1647),
             .START_X(0),
             .START_Y(0) )
 
@@ -459,6 +464,7 @@ module snes2hdmi (
           .clk_audio(clk_audio),
           .rgb(rgb), 
           .reset( ~resetn ),
+          .std_timing(std_timing),
           .audio_sample_word(audio_sample_word),
           .tmds(tmds), 
           .tmds_clock(tmdsClk), 

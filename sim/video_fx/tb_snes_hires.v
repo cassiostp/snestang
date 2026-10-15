@@ -46,6 +46,7 @@ module tb_snes_hires;
         .scanlines(1'b0), .sl_darkness(2'd0), .sl_thick(1'b0), .sl_out(1'b0),
         .video_config(vcfg),
         .clk_pixel(clk_pixel), .clk_5x_pixel(1'b0), .locked(1'b1),
+        .std_timing(1'b1),
         .pause_snes_for_frame_sync(pause_sync),
         .tmds_clk_n(tmds_clk_n), .tmds_clk_p(tmds_clk_p), .tmds_d_n(tmds_d_n), .tmds_d_p(tmds_d_p)
     );
