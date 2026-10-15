@@ -403,7 +403,14 @@ module snes2hdmi (
     localparam [7:0] W_THIRD = 8'd85;   // round(256 / 3)
     wire row_first = ~sl_show_p | sl_last_p;
     wire geom_blend = (sm_mode == 2'd2) & ((row_first & (yy_s != 8'd0)) | (sl_last & (yy_s != LINES - 1)));
-    wire [7:0] wy = sl_geom ? (geom_blend ? W_THIRD : 8'd0) : wy_ax;
+    // Registered for timing: geom_blend is an 8-bit yy_s compare cone feeding
+    // the vertical-blend DSP through wy, the only unregistered yy_s path into
+    // it. It changes only at row starts (yy_s updates at cy edges) while the
+    // first read that can reach the picture starts SM_LAT clocks after active,
+    // so the clock of skew never reaches the picture.
+    reg geom_blend_q;
+    always @(posedge clk_pixel) geom_blend_q <= geom_blend;
+    wire [7:0] wy = sl_geom ? (geom_blend_q ? W_THIRD : 8'd0) : wy_ax;
     wire vnext = sl_geom ? sl_last : vnext_ax;
     always @(posedge clk_pixel)
         yb_s <= vnext ? ((yy_s == LINES - 1) ? yy_s : yy_s + 8'd1)
