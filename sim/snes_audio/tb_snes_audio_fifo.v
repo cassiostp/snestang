@@ -36,7 +36,7 @@ module tb_snes_audio_fifo;
     wire [7:0] overlay_x, overlay_y;
 
     // ACLK_FREQ from src/dsp.vh, over the CEGen IN_CLK (board-independent: rates are exact counter ratios)
-    parameter PROD_NUM = 410330;
+    parameter PROD_NUM = 410787;
     parameter PROD_DEN = 2147730;
 
     reg [15:0] audio_l = 0, audio_r = 0;

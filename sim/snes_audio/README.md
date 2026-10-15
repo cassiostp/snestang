@@ -17,6 +17,7 @@ docker run --rm --name snesaudio_x --user $(id -u):$(id -g) -v <repo>:/w -w /w/s
 
 Exit code 0 means no dropped or repeated samples (`PASS` line at the end).
 The per-frame table shows produced/consumed/dropped/repeated samples, FIFO
-occupancy min/max and the frame-sync halt in mclk (about 590 here, at SNES
+occupancy min/max and the frame-sync halt in mclk (about 990 here at the
+21.477 MHz model clock, 1450 on console138k, 1110 on console60k; at SNES
 line 257: `ys[7:0]` also matches there, after `sync_done` re-arms at line
 200).
