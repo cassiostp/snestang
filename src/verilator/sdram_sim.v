@@ -124,7 +124,12 @@ always @(posedge mclk) begin
     bsram_req_r <= bsram_req;
     aram_req_r <= aram_req;
     cpu_req_new <= cpu_req_new_t;
-    bsram_req_new <= bsram_req_new_t;
+    // BSRAM requests are sticky until served, like the real controller's
+    // level-based bsram_req ^ bsram_req_ack: the top-level save bridge
+    // toggles at arbitrary phase and waits for the ack, so a pulse that
+    // misses this model's RAS phase would wedge it (the CPU/ARAM toggles
+    // are phase-locked to DOT_CLK_CE and keep the pulse form).
+    bsram_req_new <= bsram_req_new_t | bsram_req_new;
     aram_req_new <= aram_req_new_t;
 
     if (~resetn) begin
