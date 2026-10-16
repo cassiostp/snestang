@@ -386,7 +386,7 @@ main #(.USE_DSPn(USE_DSPn), .USE_GSU(USE_GSU), .USE_CX4(USE_CX4), .USE_SA1(USE_S
     .ARAM_ADDR(ARAM_ADDR), .ARAM_Q(ARAM_Q), .ARAM_D(ARAM_D), 
     .ARAM_CE_N(ARAM_CE_N), .ARAM_OE_N(ARAM_OE_N), .ARAM_WE_N(ARAM_WE_N),
 
-    .BLEND(BLEND), .PAL(PAL), .HIGH_RES(hires), .FIELD(), .INTERLACE(), .DIS_SHORTLINE(),
+    .BLEND(BLEND), .PAL(PAL), .HIGH_RES(hires), .FIELD(), .INTERLACE(), .DIS_SHORTLINE(1'b0),
     .DOTCLK(dotclk), .RGB_OUT(rgb_out), .HBLANKn(hblankn),
     .VBLANKn(vblankn), .X_OUT(x_out), .Y_OUT(y_out),
 

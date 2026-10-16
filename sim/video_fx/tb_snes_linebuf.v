@@ -1,6 +1,7 @@
 // The line buffer as the SNES fills it. The smoothing reads, besides the line a row shows, the
 // line next to it, so the question is whether that line has been written when it is read.
-// The SNES is played by a model of the PPU's video output (340 dots of 4 master clocks a line,
+// The SNES is played by a model of the PPU's video output (340 dots a line, dots 323 and 327
+// of 6 master clocks and the rest of 4, a 1360-clock short line at line 240 of odd frames,
 // 262 lines, pixel x of a line is written to the buffer OFS dots after the line starts, nothing
 // in the blanking, the line counter ys as ppu.v counts it) and of the refresh that
 // snes2hdmi's frame sync waits for (once a line, from dot 133 on, 40 master clocks), halted by
@@ -14,11 +15,15 @@
 // at every address cycle of the picture, in sharp and soft, with the default and the integer
 // scale geometry, with scanlines in output rows mode. STALL slows the SNES down; the frame sync
 // only works while the SNES frame (262 lines) is shorter than the picture's, which it is by
-// 0.5 %, so STALL is meaningful from about 250 (one dot in 250 lost) up.
+// 405 master clocks on console138k and 56 on console60k, so even a small STALL breaks the lock.
 // Also reported: the shortest time between a pixel being written and a read of it as the line
 // below the one shown (the margin of the frame sync), the shortest time between the last read
 // of a pixel and its being overwritten, and the largest lead of the SNES over the picture.
 `timescale 1ns/1ps
+
+`ifndef MCLK_HALF_NS
+`define MCLK_HALF_NS 23.2727
+`endif
 
 module tb_snes_linebuf #(
     parameter OFS = 18,         // dots from the start of a line to its first pixel (18 is the latest, the blanking starts at 274)
@@ -27,7 +32,7 @@ module tb_snes_linebuf #(
 
     reg clk_pixel = 0, clk = 0;
     always #6.734 clk_pixel = ~clk_pixel;       // 74.25 MHz
-    always #23.28 clk = ~clk;                   // 21.477 MHz
+    always #(`MCLK_HALF_NS) clk = ~clk;         // board mclk (run.sh: 138K and 60K)
 
     reg        sl_on = 0, sl_thick = 0, sl_out = 0;
     reg  [1:0] sl_dark = 0;
@@ -39,8 +44,10 @@ module tb_snes_linebuf #(
     wire       pause_sync;
 
     // ---- the PPU's video output
-    reg [1:0]  c = 0;           // master clock within the dot
+    reg [2:0]  c = 0;           // master clock within the dot
     reg [8:0]  h = 0, v = 0;    // dot, line
+    reg        field = 0;
+    wire [2:0] dotlen = ((h == 9'd323 || h == 9'd327) && !(v == 9'd240 && field)) ? 3'd6 : 3'd4;
     reg [11:0] wframe = 0;
     reg        en = 0;
     integer    scnt = 0;
@@ -62,16 +69,16 @@ module tb_snes_linebuf #(
     reg [8:0] nh, nv;
     always @(posedge clk) begin
         en <= ~pause_sync;
-        c <= c + 2'd1;
-        dotclk <= (c == 2'd3) || (c == 2'd0);
-        if (en && c == 2'd3 && STALL != 0 && scnt == STALL - 1)
+        c <= (c == dotlen - 3'd1) ? 3'd0 : c + 3'd1;
+        dotclk <= (c == dotlen - 3'd1) || (c == 3'd0);
+        if (en && c == dotlen - 3'd1 && STALL != 0 && scnt == STALL - 1)
             scnt <= 0;                  // this dot is lost
-        else if (en && c == 2'd3) begin
+        else if (en && c == dotlen - 3'd1) begin
             scnt <= scnt + 1;
             nh = (h == 9'd339) ? 9'd0 : h + 9'd1;
             nv = (h == 9'd339) ? ((v == 9'd261) ? 9'd0 : v + 9'd1) : v;
             h <= nh; v <= nv;
-            if (h == 9'd339 && v == 9'd261) wframe <= wframe + 12'd1;
+            if (h == 9'd339 && v == 9'd261) begin wframe <= wframe + 12'd1; field <= ~field; end
             hblank <= (nh >= 274);
             vblank <= (nv >= 225);
             ys <= ys_of(nv);

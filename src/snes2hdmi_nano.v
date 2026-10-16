@@ -95,13 +95,34 @@ module snes2hdmi (
     reg sync_done = 1'b0;
     reg hdmi_first_line;
     reg pause_sync;     // pause for even number of cycles for PPU sdram access to stay in sync
+    reg fl_missed = 1'b0;       // a release row passed with no halt waiting for it
+    reg fl_old = 1'b0;
+    reg [18:0] fl_age = 19'b0;  // clocks since the last release row (saturating)
+    reg [18:0] late1 = {19{1'b1}}, late2 = {19{1'b1}};  // fl_age at the last two halt points
     always @(posedge clk) begin
         if (pause_snes_for_frame_sync) pause_sync <= ~pause_sync;
+        fl_old <= hdmi_first_line;
+        if (hdmi_first_line && ~fl_old) begin
+            fl_age <= 19'b0;
+            if (~pause_snes_for_frame_sync)
+                fl_missed <= 1'b1;  // release rows seen while halted are releases, not misses
+        end else if (~&fl_age)
+            fl_age <= fl_age + 19'd1;
         if (~sync_done) begin
             if (~pause_snes_for_frame_sync) begin
                 if (ys[7:0] == 8'd2 && snes_refresh) begin      // halt SNES during snes dram refresh on line 2
-                    pause_snes_for_frame_sync <= 1'b1;
-                    pause_sync <= 0;
+                    // Skip the halt only when the halt point gets later every frame
+                    // (SNES frame not shorter than the HDMI one); while acquiring
+                    // it gets earlier and waiting for the release row is right.
+                    if (fl_missed && fl_age >= late2)
+                        sync_done <= 1'b1;
+                    else begin
+                        pause_snes_for_frame_sync <= 1'b1;
+                        pause_sync <= 0;
+                    end
+                    fl_missed <= 1'b0;
+                    late2 <= late1;
+                    late1 <= fl_missed ? fl_age : 19'b0;
                 end
             end else if (hdmi_first_line && pause_sync) begin                 // HDMI frame start, now resume SNES
                 pause_snes_for_frame_sync <= 1'b0;
@@ -109,7 +130,8 @@ module snes2hdmi (
             end
         end else
             pause_snes_for_frame_sync <= 1'b0;
-        if (ys[7:0] == 8'd200) sync_done <= 1'b0;               // reset sync_done for next frame
+        if (ys[7:0] == 8'd200)
+            sync_done <= 1'b0;               // reset sync_done for next frame
     end
     always @(posedge clk_pixel) begin
         if (cy == 10'd24 && cx >= 11'd256 && cx < 11'd356)      // first 100 pixels of first line

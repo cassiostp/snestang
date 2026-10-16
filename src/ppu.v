@@ -258,7 +258,7 @@ always @(posedge CLK) begin : clock_gen
             DOT_CYCLES = 4;
         else if (V_CNT == 240 && ~BGINTERLACE && FIELD && ~PAL && ~DIS_SHORTLINE)
             DOT_CYCLES = 4;
-        else if (H_CNT == 323 && H_CNT == 327)
+        else if (H_CNT == 323 || H_CNT == 327)
             DOT_CYCLES = 6;
         else
             DOT_CYCLES = 4;

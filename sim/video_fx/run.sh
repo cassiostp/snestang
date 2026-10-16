@@ -42,7 +42,13 @@ iverilog -g2012 -o tb_snes_smooth.out tb_snes_smooth.v $HDMI $RTL/snes2hdmi.v $R
     $RTL/video_fx.v $RTL/smooth.v $RTL/dual_clk_fifo.v
 vvp tb_snes_smooth.out
 
-iverilog -g2012 -o tb_snes_linebuf.out tb_snes_linebuf.v $HDMI $RTL/snes2hdmi.v $RTL/scanlines.v \
+# mclk half-periods: 138K 21.5053763 MHz -> 23.2498 ns; 60K 21.484375 -> 23.2727
+echo "tb_snes_linebuf at console138k mclk"
+iverilog -g2012 -DMCLK_HALF_NS=23.2498 -o tb_snes_linebuf.out tb_snes_linebuf.v $HDMI $RTL/snes2hdmi.v $RTL/scanlines.v \
+    $RTL/video_fx.v $RTL/smooth.v $RTL/dual_clk_fifo.v
+vvp tb_snes_linebuf.out
+echo "tb_snes_linebuf at console60k mclk"
+iverilog -g2012 -DMCLK_HALF_NS=23.2727 -o tb_snes_linebuf.out tb_snes_linebuf.v $HDMI $RTL/snes2hdmi.v $RTL/scanlines.v \
     $RTL/video_fx.v $RTL/smooth.v $RTL/dual_clk_fifo.v
 vvp tb_snes_linebuf.out
 

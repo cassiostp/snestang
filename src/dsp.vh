@@ -6,13 +6,15 @@
 // parameter ACLK_FREQ = 411904;           // 536.33 samples per frame
 // The DSP overproduces relative to the 32 kHz HDMI audio otherwise: the HDMI
 // side consumes 1647*750/2320 samples per frame while the DSP makes
-// 356320*ACLK_FREQ/(2147730*128) per SNES frame (340 dots of 4 master clocks,
-// 262 lines: ppu.v DOT_NUM/LAST_DOT/LAST_LINE), so a 16-deep FIFO sits full
-// and ~2 samples are dropped every frame (crackle on high-frequency
-// content). Match the net production to the consumption (532.44 samples per
-// HDMI frame); the snes2hdmi FIFO servo trims the residual frame jitter.
+// 357366*ACLK_FREQ/(2147730*128) per SNES frame (340 dots a line, dots 323
+// and 327 of 6 master clocks and the rest of 4, 262 lines with a 1360-clock
+// short line on odd fields: 357366 clocks on average, ppu.v clock_gen), so a
+// 16-deep FIFO sits full and ~2 samples are dropped every frame (crackle on
+// high-frequency content). Match the net production to the consumption
+// (532.44 samples per HDMI frame); the snes2hdmi FIFO servo trims the
+// residual frame jitter.
 // The count is in clock cycles, so one value serves every board's mclk.
-parameter ACLK_FREQ = 410787;
+parameter ACLK_FREQ = 409584;
 
 
 parameter V0VOLL = 8'h00;
