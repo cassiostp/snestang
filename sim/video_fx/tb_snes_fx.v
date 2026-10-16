@@ -43,6 +43,7 @@ module tb_snes_fx;
         .scanlines(sl_on), .sl_darkness(sl_dark), .sl_thick(sl_thick), .sl_out(sl_out),
         .video_config(vcfg),
         .clk_pixel(clk_pixel), .clk_5x_pixel(1'b0), .locked(1'b1),
+        .std_timing(1'b1),
         .pause_snes_for_frame_sync(pause_sync),
         .tmds_clk_n(tmds_clk_n), .tmds_clk_p(tmds_clk_p), .tmds_d_n(tmds_d_n), .tmds_d_p(tmds_d_p)
     );

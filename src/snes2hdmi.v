@@ -41,6 +41,9 @@ module snes2hdmi (
 	input clk_5x_pixel,
 	input locked,
 
+    // 1: standard 60 Hz HDMI timing; 0: native rate (from video_std_timing in the top)
+    input std_timing,
+
     output reg pause_snes_for_frame_sync,
 
     // output [7:0] led,
@@ -188,31 +191,46 @@ module snes2hdmi (
     
 
     // HDMI TX audio - send 32K sampling rate audio
-    // Hoarse sound issue: https://github.com/nand2mario/snestang/issues/16
-    // SNES average framerate is 60.09881. So we need to pause the SNES a bit every frame to ensure 60 fps HDMI. 
-    // For sound, that translate to about 8 samples pause time per frame. So we run our DSP a bit faster to 
-    // buffer enough samples before the SNES pause.
+    // The DSP (ACLK_FREQ in dsp.vh) produces just enough samples per HDMI
+    // frame to cover the consumption below plus the samples lost while the
+    // frame sync halts the SNES once per frame. The FIFO level trims the
+    // residual (clock tolerance): above FIFO_HI the audio period shortens by
+    // one pixel clock, below FIFO_LO it lengthens by one, so the level stays
+    // mid-FIFO and samples are neither dropped nor repeated.
     localparam AUDIO_OUT_RATE = 32000;
     localparam AUDIO_DELAY = CLKFRQ * 1000 / AUDIO_OUT_RATE / 2;
+    localparam [10:0] AUDIO_PERIOD = AUDIO_DELAY - 1;    // pixel clocks per half audio clock
+    localparam FIFO_ADDRSIZE = 6;       // 64 samples, ~2 ms at 32 kHz
+    localparam [FIFO_ADDRSIZE:0] FIFO_LO = 20;
+    localparam [FIFO_ADDRSIZE:0] FIFO_HI = 44;
     reg [15:0] audio_sample_word [1:0];
-    reg [$clog2(AUDIO_DELAY)-1:0] audio_divider;
+    reg [10:0] audio_divider;
     reg clk_audio;
     reg audio_rinc;
     wire audio_full, audio_empty;
+    wire [FIFO_ADDRSIZE:0] audio_used;
     wire [31:0] audio_sample;
+    wire [10:0] audio_limit = (audio_used >= FIFO_HI) ? AUDIO_PERIOD - 11'd1 :
+                              (audio_used <= FIFO_LO) ? AUDIO_PERIOD + 11'd1 : AUDIO_PERIOD;
 
     always @(posedge clk_pixel) begin
-        if (resetn) begin
+        if (!resetn) begin
+            audio_divider <= 0;
+            clk_audio <= 0;
             audio_rinc <= 0;
-            if (audio_divider != AUDIO_DELAY - 1) 
+            audio_sample_word[0] <= 0;
+            audio_sample_word[1] <= 0;
+        end else begin
+            audio_rinc <= 0;
+            if (audio_divider < audio_limit)
                 audio_divider <= audio_divider + 1;
-            else begin 
+            else begin
                 audio_divider <= 0;
                 clk_audio = ~clk_audio;     // generate audio clock @ 32Khz
                 // output audio sample on posedge clk_audio
                 if (!clk_audio && !audio_empty) begin
                     {audio_sample_word[0], audio_sample_word[1]} <= audio_sample;
-                    audio_rinc <= 1'b1;                    
+                    audio_rinc <= 1'b1;
                 end else if (!clk_audio && pause)
                     // menu pause drained the fifo: output silence, not the last held sample
                     {audio_sample_word[0], audio_sample_word[1]} <= 32'd0;
@@ -220,13 +238,13 @@ module snes2hdmi (
         end
     end
 
-    // Audio sample FIFO for 16 samples
-    dual_clk_fifo #(.DATESIZE(32), .ADDRSIZE(4)) audio_fifo (
-        .clk(clk), .wrst_n(1'b1), 
+    // Audio sample FIFO for 64 samples
+    dual_clk_fifo #(.DATESIZE(32), .ADDRSIZE(FIFO_ADDRSIZE)) audio_fifo (
+        .clk(clk), .wrst_n(resetn),
         .winc(audio_ready), .wdata({audio_l, audio_r}), .wfull(audio_full),
-        .rclk(clk_pixel), .rrst_n(1'b1),
+        .rclk(clk_pixel), .rrst_n(resetn),
         .rinc(audio_rinc), .rdata(audio_sample), .rempty(audio_empty),
-        .almost_full(), .almost_empty()
+        .almost_full(), .almost_empty(), .rdusedw(audio_used)
     );
 
     //
@@ -295,7 +313,7 @@ module snes2hdmi (
     // picture, the overlay and the border land where they did. The source line (yy_s) only changes
     // at the start of an output row, long before active.
     localparam FX_LAT = 11;     // clocks from rgb_pre to rgb, see video_fx.v
-    localparam SM_LAT = 10;     // the line buffer read is followed by a register, smooth.v (LAT 9) and the rgb_pre register
+    localparam SM_LAT = 9;      // the line buffer read is followed by a register, smooth.v (LAT 8) and the rgb_pre register
     reg cnew = 1'b0;            // the line buffer address is the first of a source column
     always @(posedge clk_pixel) begin
         reg active_t;
@@ -385,7 +403,14 @@ module snes2hdmi (
     localparam [7:0] W_THIRD = 8'd85;   // round(256 / 3)
     wire row_first = ~sl_show_p | sl_last_p;
     wire geom_blend = (sm_mode == 2'd2) & ((row_first & (yy_s != 8'd0)) | (sl_last & (yy_s != LINES - 1)));
-    wire [7:0] wy = sl_geom ? (geom_blend ? W_THIRD : 8'd0) : wy_ax;
+    // Registered for timing: geom_blend is an 8-bit yy_s compare cone feeding
+    // the vertical-blend DSP through wy, the only unregistered yy_s path into
+    // it. It changes only at row starts (yy_s updates at cy edges) while the
+    // first read that can reach the picture starts SM_LAT clocks after active,
+    // so the clock of skew never reaches the picture.
+    reg geom_blend_q;
+    always @(posedge clk_pixel) geom_blend_q <= geom_blend;
+    wire [7:0] wy = sl_geom ? (geom_blend_q ? W_THIRD : 8'd0) : wy_ax;
     wire vnext = sl_geom ? sl_last : vnext_ax;
     always @(posedge clk_pixel)
         yb_s <= vnext ? ((yy_s == LINES - 1) ? yy_s : yy_s + 8'd1)
@@ -436,6 +461,8 @@ module snes2hdmi (
             .IT_CONTENT(1),
             .AUDIO_RATE(AUDIO_OUT_RATE), 
             .AUDIO_BIT_WIDTH(AUDIO_BIT_WIDTH),
+            // SNES native rate (60.0988 Hz): 74.25 MHz / (1647 x 750) = 60.1093 Hz
+            .NATIVE_FRAME_WIDTH(1647),
             .START_X(0),
             .START_Y(0) )
 
@@ -444,6 +471,7 @@ module snes2hdmi (
           .clk_audio(clk_audio),
           .rgb(rgb), 
           .reset( ~resetn ),
+          .std_timing(std_timing),
           .audio_sample_word(audio_sample_word),
           .tmds(tmds), 
           .tmds_clock(tmdsClk), 

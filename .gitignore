@@ -8,6 +8,16 @@ gwsynthesis
 temp
 roms
 sim/cosim/build/
+# round-5 sim outputs (see sim/*/run.sh): iverilog binaries, logs, vectors
+sim/*/*.out
+sim/*/snes_fx.log
+sim/*/snes_smooth.log
+sim/*/snes_src.hex
+sim/*/vec_*.hex
+sim/*/fx_*.log
+sim/*/aud_*.log
+sim/*/build/
+meas_nativerate/build/
 sim/dsp_rain/build/
 *.user
 
