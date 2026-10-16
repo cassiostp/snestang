@@ -1,12 +1,14 @@
 // Can snestang's SDRAM ROM port serve the CX4?  The real request logic of snestang_top.v (the ROM and
 // WRAM edge detectors, extracted from the source at build time, see run.sh) in front of the real
 // sdram_snes controller and a behavioural SDRAM chip, with the CX4's ROM cache-fill cadence on the
-// ROM side and, optionally, S-CPU WRAM accesses on the other.
+// CPU2 lane (through the real sa1_rom_cache word cache, as the core builds it) and, optionally,
+// S-CPU WRAM accesses on the CPU lane.
 //
-// The CX4 model is the chip's own cadence (CEGen's 2 MHz / 2.147727 MHz clock enable, then CACHE_WAIT_CNT
-// counting to WS1: CX4.vhd:562-572): it changes the ROM address on one clock-enable tick and samples
-// the data WS1+1 ticks later. The S-CPU model makes a SlowROM cycle (8 master clocks) every time,
-// reading or writing one of 32 WRAM bytes with probability +wram=<percent>. Every WRAM read is checked
+// The CX4 model is the patched chip's cadence (CEGen's 2 MHz / 2.147727 MHz clock enable, then
+// CACHE_WAIT_CNT counting to WS1, held while ROM_WAIT is up: CX4.vhd cache process): it changes the
+// ROM address on one clock-enable tick and samples the data WS1+1 ticks later, or later if the word
+// has not arrived. The S-CPU model makes a SlowROM cycle (8 master clocks) every time, reading or
+// writing one of 32 WRAM bytes with probability +wram=<percent>. Every WRAM read is checked
 // against what was written.
 //
 // +ws=<n>      CX4 wait state WS1 (default 3, the chip's reset value)
@@ -61,7 +63,17 @@ reg  [15:0] cpu_din;
 reg  [22:0] cpu_addr;
 reg         cpu_we;
 
-wire [15:0] ROM_Q = (ROM_WORD || ~ROM_ADDR[0]) ? cpu_port0 : { cpu_port0[7:0], cpu_port0[15:8] };
+// CX4 owns the ROM bus while it runs: its fetches go through the CPU2 word
+// cache, the S-CPU lane keeps WRAM (top_req.vh suppresses the CPU-lane ROM
+// fetch while cx4_owns_rom is up, exactly as snestang_top.v does).
+reg         cx4_run = 0;
+wire        cx4_rom_req = cx4_run;                          // always fetching ROM while running
+wire        cx4_mode = 1'b1;
+wire        cx4_owns_rom = cx4_mode & cx4_rom_req;
+wire [15:0] cx4_rom_q;
+wire        cx4_rom_wait;
+wire [15:0] rom_word = cx4_owns_rom ? cx4_rom_q : cpu_port0;
+wire [15:0] ROM_Q = (ROM_WORD || ~ROM_ADDR[0]) ? rom_word : { rom_word[7:0], rom_word[15:8] };
 wire  [7:0] WRAM_SD_Q = WRAM_ADDR[0] ? cpu_port1[15:8] : cpu_port1[7:0];
 
 always @(posedge mclk) begin
@@ -70,6 +82,20 @@ always @(posedge mclk) begin
 `include "top_req.vh"
     end
 end
+
+// The CX4's word cache (the real sa1_rom_cache, second instance as built).
+// While the CX4 owns the bus rom_addr is its fetch address.
+wire [22:1] cpu2_addr;
+wire        cpu2_req;
+wire        cpu2_req_ack;
+wire [15:0] cpu2_dout;
+sa1_rom_cache #(.QUALIFY_WAIT(1)) cx4_cache (
+    .mclk(mclk), .resetn(resetn), .active(~loading),
+    .rom_addr(rom_addr), .rom_req(cx4_rom_req),
+    .rom_q(cx4_rom_q), .rom_wait(cx4_rom_wait),
+    .cpu2_addr(cpu2_addr), .cpu2_req(cpu2_req),
+    .cpu2_req_ack(cpu2_req_ack), .cpu2_dout(cpu2_dout)
+);
 
 wire sdram_busy;
 wire [15:0] sdram_dq;
@@ -85,6 +111,8 @@ sdram_snes sdram (
     .cpu_addr(cpu_addr[22:1]), .cpu_din(cpu_din), .cpu_port(cpu_port),
     .cpu_port0(cpu_port0), .cpu_port1(cpu_port1), .cpu_req(cpu_req),
     .cpu_req_ack(), .cpu_we(cpu_we), .cpu_ds(cpu_ds),
+    .cpu2_addr(cpu2_addr), .cpu2_dout(cpu2_dout),
+    .cpu2_req(cpu2_req), .cpu2_req_ack(cpu2_req_ack),
     .bsram_addr(20'h0), .bsram_dout(), .bsram_din(8'h0),
     .bsram_req(1'b0), .bsram_req_ack(), .bsram_we(1'b0),
     .aram_16(1'b0), .aram_addr(16'h0), .aram_din(16'h0),
@@ -97,6 +125,7 @@ sdram_snes sdram (
 // (which its request test xors with the host's toggles) are cleared here
 initial begin
     sdram.cpu_req_ack = 0;
+    sdram.cpu2_req_ack = 0;
     sdram.bsram_req_ack = 0;
     sdram.aram_req_ack = 0;
     sdram.rv_req_ack = 0;
@@ -108,8 +137,9 @@ sdram_chip chip (
     .SDRAM_DQ(sdram_dq)
 );
 
-// ---- a request that arrives while the controller still owes an ack for the previous one is lost:
-// two toggles of cpu_req in the same acceptance window cancel (snestang_top.v leaves cpu_req_ack open)
+// ---- a CPU-lane request that arrives while the controller still owes an ack is lost:
+// two toggles of cpu_req in the same acceptance window cancel (the CPU lane has no ack).
+// The CX4 no longer uses this lane, so ROM+WRAM coincidences are gone by construction.
 reg cpu_req_d = 0;
 integer lost = 0, req_total = 0;
 always @(posedge mclk) begin
@@ -117,6 +147,17 @@ always @(posedge mclk) begin
     if (cpu_req != cpu_req_d) begin
         req_total <= req_total + 1;
         if (sdram.cpu_req_ack != cpu_req_d) lost <= lost + 1;   // previous toggle not yet acknowledged
+    end
+end
+
+// ---- the CPU2 lane is acked (the cache waits), so nothing is lost there; count to prove it
+reg cpu2_req_d = 0;
+integer lost2 = 0, req_total2 = 0;
+always @(posedge mclk) begin
+    cpu2_req_d <= cpu2_req;
+    if (cpu2_req != cpu2_req_d) begin
+        req_total2 <= req_total2 + 1;
+        if (cpu2_req_ack != cpu2_req_d) lost2 <= lost2 + 1;
     end
 end
 
@@ -149,10 +190,9 @@ task load_rom(input integer n);
     end
 endtask
 
-// ---- CX4 model ------------------------------------------------------------------------------
+// ---- CX4 model (patched chip: wait counters hold while ROM_WAIT is up) -----------------------
 integer WS1 = 3;
 integer steps = 4000;
-reg cx4_run = 0;
 reg [31:0] clk_sum = 0;
 reg ce = 0;
 always @(negedge mclk) begin                  // CEGen.vhd: falling_edge(CLK)
@@ -175,11 +215,15 @@ reg [15:0] lat_hist [0:63];                   // arrival time after the address 
 integer lat_max = 0, lat_n = 0, lat_never = 0;
 reg arrived = 0;
 reg verbose = 0;
+integer stalls = 0;
 
 always @(posedge mclk) begin
     if (cx4_run && ce) begin
-        if (cwc == WS1) begin
-            // CX4.vhd: CACHE_DI <= BUS_DI on this tick, the address moves on
+        if (cx4_rom_wait) begin
+            // CX4.vhd (patched): the wait counter holds until the word arrives
+            stalls <= stalls + 1;
+        end else if (cwc == WS1) begin
+            // CACHE_DI <= BUS_DI on this tick, the address moves on
             if (ROM_Q[7:0] !== pat(ROM_ADDR[22:0])) begin
                 bad <= bad + 1;
                 if (verbose) $display("bad fetch at %0t: addr %h got %h want %h", $time, ROM_ADDR[22:0], ROM_Q[7:0], pat(ROM_ADDR[22:0]));
@@ -212,6 +256,7 @@ end
 
 // ---- S-CPU model: SlowROM cycles of 8 master clocks, WRAM reads/writes at the given rate -------
 integer wram_pct = 0;
+reg sc_stop = 0;                            // set at run end: finish the cycle, then stay idle
 reg [7:0] shadow [0:31];
 reg       valid  [0:31];
 integer wram_reads = 0, wram_bad = 0, wram_writes = 0;
@@ -225,7 +270,7 @@ always @(posedge mclk) begin
         sc_cnt <= (sc_cnt == 7) ? 0 : sc_cnt + 1;
         case (sc_cnt)
         0: begin
-            sc_active = ($urandom % 100) < wram_pct;
+            sc_active = !sc_stop && (($urandom % 100) < wram_pct);
             sc_a = $urandom;
             sc_wr = ($urandom % 3) == 0 || !valid[sc_a];
             sc_d = $urandom;
@@ -272,7 +317,7 @@ initial begin
     repeat (50) @(posedge mclk);
 
     load_rom(16384);
-    // the first reads after loading: a spot check of the image
+    // the first reads after loading: a spot check of the image (CPU lane, CX4 idle)
     ROM_CE_N = 0;
     for (i = 0; i < 6; i = i + 1) begin
         #100; ROM_ADDR = 24'h000100 + i * 9;
@@ -285,21 +330,31 @@ initial begin
     ROM_CE_N = 0;
     cx4_run = 1;
     wait (fetched >= steps);
+    // Drain like a live S-CPU at bus handover: no new accesses, one full
+    // idle SlowROM cycle, lane acked, and only then release the bus
+    // (dropping cx4_run fires one CPU-lane ROM re-fetch). Halting the model
+    // mid-cycle here used to collide that re-fetch with the last WRAM
+    // toggle and count a lost request no running game could produce.
+    sc_stop = 1;
+    repeat (16) @(posedge mclk);
+    for (i = 0; i < 64 && cpu_req != sdram.cpu_req_ack; i = i + 1) @(posedge mclk);
     cx4_run = 0;
     repeat (20) @(posedge mclk);
 
-    $display("WS1=%0d wram=%0d%%: %0d CX4 fetches, %0d wrong (%0d%%); latest arrival %0d fclk ticks after the address (%0d never in time)",
-             WS1, wram_pct, fetched, bad, (bad * 100) / fetched, lat_max, lat_never);
+    $display("WS1=%0d wram=%0d%%: %0d CX4 fetches, %0d wrong (%0d%%); latest arrival %0d fclk ticks after the address (%0d never in time); wait stalls %0d",
+             WS1, wram_pct, fetched, bad, (bad * 100) / fetched, lat_max, lat_never, stalls);
     $display("   arrival histogram (fclk ticks = 1/3 master clock):");
     for (i = 0; i < 24; i = i + 1)
         if (lat_hist[i] != 0) $display("     %2d (%0d.%0d mclk): %0d", i, i / 3, (i % 3) * 33 / 10, lat_hist[i]);
-    $display("   S-CPU WRAM reads: %0d, wrong: %0d; ROM+WRAM requests: %0d, lost to a coincident toggle: %0d",
-             wram_reads, wram_bad, req_total, lost);
+    $display("   S-CPU WRAM reads: %0d, wrong: %0d; CPU-lane requests: %0d, lost: %0d; CPU2 requests: %0d, lost: %0d",
+             wram_reads, wram_bad, req_total, lost, req_total2, lost2);
+    if (bad !== 0 || lost !== 0 || lost2 !== 0 || wram_bad !== 0) $display("RESULT: FAIL");
+    else $display("RESULT: PASS");
     $finish;
 end
 
 initial begin
-    repeat (60) #1000000000;     // 60 ms of simulated time
+    repeat (120) #1000000000;     // 120 ms of simulated time
     $display("TIMEOUT");
     $finish;
 end

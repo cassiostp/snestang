@@ -31,6 +31,15 @@ module main (
 	input      [15:0] SA1_ROM_Q,
 	input             SA1_ROM_WAIT,
 
+	// CX4's own ROM fetch: ROM_ADDR above carries the CX4's fetch address
+	// while the CX4 owns the ROM bus (busy), and the S-CPU's while it is
+	// idle. CX4_ROM_REQ asks the SDRAM CPU2 lane (through the word cache in
+	// snestang_top) for the byte; CX4_ROM_WAIT holds the CX4's wait counters
+	// until it has arrived. SA-1 and CX4 never share a cartridge, so they
+	// share the CPU2 lane, muxed by the chip type in snestang_top.
+	output            CX4_ROM_REQ,
+	input             CX4_ROM_WAIT,
+
 	output reg [19:0] BSRAM_ADDR,
 	output reg  [7:0] BSRAM_D,
 	input       [7:0] BSRAM_Q,
@@ -391,6 +400,8 @@ CX4Map CX4Map
 	.rom_ce_n(CX4_ROM_CE_N),
 	.rom_oe_n(CX4_ROM_OE_N),
 	.rom_word(CX4_ROM_WORD),
+	.rom_req(CX4_ROM_REQ),
+	.rom_wait(CX4_ROM_WAIT),
 
 	.bsram_addr(CX4_BSRAM_ADDR),
 	.bsram_d(CX4_BSRAM_D),
@@ -404,8 +415,10 @@ CX4Map CX4Map
 	.rom_mask(ROM_MASK),
 	.bsram_mask(RAM_MASK)
 );
-end else
+end else begin
 assign MAP_ACTIVE[0] = 0;
+assign CX4_ROM_REQ = 0;
+end
 endgenerate
 
 wire [7:0]  SDD_DO;
