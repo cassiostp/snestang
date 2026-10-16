@@ -1,13 +1,13 @@
 // Audio transport bench: the snes2hdmi 32 kHz FIFO across the frame-sync halt.
 //
-// A behavioral SNES plays NTSC frames (262 lines x 1360 mclk: 340 dots of 4
-// master clocks, ppu.v DOT_NUM/LAST_DOT, 262 lines, LAST_LINE 261; WRAM-refresh
+// A behavioral SNES plays NTSC frames (262 lines x 1364 mclk: 340 dots,
+// dots 323 and 327 of 6 master clocks and the rest of 4, ppu.v clock_gen,
+// with a 1360-clock short line at line 240 of odd frames; WRAM-refresh
 // pulse every line) and produces one DSP sample per 128 CEGen ticks at
-// PROD_NUM/PROD_DEN per mclk (dsp.vh ACLK_FREQ/2147730 for the console
-// 21.4844 MHz mclk). Production and the frame generator freeze while
-// pause_snes_for_frame_sync is asserted, the way enable=0 does in
-// snestang_top. The HDMI side (../scanlines/hdmi_stub.v) consumes at
-// 74.25 MHz / 2320.
+// PROD_NUM/PROD_DEN per mclk (dsp.vh ACLK_FREQ/2147730). Production and
+// the frame generator freeze while pause_snes_for_frame_sync is
+// asserted, the way enable=0 does in snestang_top. The HDMI side
+// (../scanlines/hdmi_stub.v) consumes at 74.25 MHz / 2320.
 //
 // Samples carry an incrementing counter, so the bench counts exactly, per
 // HDMI frame after a two-frame warmup: produced samples, consumed samples,
@@ -19,11 +19,15 @@
 // Run (from this directory): ./run.sh
 `timescale 1ns/1ps
 
+`ifndef MCLK_HALF_NS
+`define MCLK_HALF_NS 23.2727
+`endif
+
 module tb_snes_audio_fifo;
 
     reg clk_pixel = 0, clk = 0;
     always #6.734 clk_pixel = ~clk_pixel;       // 74.25 MHz
-    always #23.28 clk = ~clk;                   // 21.477 MHz
+    always #(`MCLK_HALF_NS) clk = ~clk;         // board mclk (run.sh: 138K and 60K)
 
     reg resetn = 0;
     initial begin
@@ -36,7 +40,7 @@ module tb_snes_audio_fifo;
     wire [7:0] overlay_x, overlay_y;
 
     // ACLK_FREQ from src/dsp.vh, over the CEGen IN_CLK (board-independent: rates are exact counter ratios)
-    parameter PROD_NUM = 410787;
+    parameter PROD_NUM = 409584;
     parameter PROD_DEN = 2147730;
 
     reg [15:0] audio_l = 0, audio_r = 0;
@@ -44,11 +48,14 @@ module tb_snes_audio_fifo;
     reg [31:0] prod_acc = 0;
     reg [15:0] prod_cnt = 0;
 
-    // behavioral SNES frame: 262 lines of 1360 mclk, refresh pulse each line
+    // behavioral SNES frame: 262 lines of 1364 mclk (1360 at line 240 of
+    // odd frames), refresh pulse each line
     reg [8:0] ys = 0;
     reg [10:0] line_cnt = 0;
+    reg        field = 0;
     reg        snes_refresh = 0;
     reg        dotclk = 0;
+    wire [10:0] line_len = (ys == 240 && field) ? 11'd1360 : 11'd1364;
 
     snes2hdmi dut (
         .clk(clk), .resetn(resetn),
@@ -68,6 +75,7 @@ module tb_snes_audio_fifo;
     initial begin
         dut.pause_snes_for_frame_sync = 0;
         dut.sync_done = 0;
+        dut.fl_missed = 0;
         dut.pause_sync = 0;
         dut.hdmi_first_line = 0;
         dut.hdmi_first_line_r = 0;
@@ -84,9 +92,13 @@ module tb_snes_audio_fifo;
         // sync halts on ys == 1 && snes_refresh
         snes_refresh <= (line_cnt < 40);
         if (!pause_sync && resetn) begin
-            if (line_cnt == 1359) begin
+            if (line_cnt == line_len - 1) begin
                 line_cnt <= 0;
-                ys <= (ys == 261) ? 0 : ys + 1;
+                if (ys == 261) begin
+                    ys <= 0;
+                    field <= ~field;
+                end else
+                    ys <= ys + 1;
             end else
                 line_cnt <= line_cnt + 1;
             prod_acc <= prod_acc + PROD_NUM;
