@@ -70,6 +70,7 @@ reg         cx4_run = 0;
 wire        cx4_rom_req = cx4_run;                          // always fetching ROM while running
 wire        cx4_mode = 1'b1;
 wire        cx4_owns_rom = cx4_mode & cx4_rom_req;
+wire        gsu_owns_rom = 1'b0;   // no GSU in this bench (its CPU2 lane is sim/gsu_boot's)
 wire [15:0] cx4_rom_q;
 wire        cx4_rom_wait;
 wire [15:0] rom_word = cx4_owns_rom ? cx4_rom_q : cpu_port0;

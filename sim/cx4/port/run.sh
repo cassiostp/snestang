@@ -16,6 +16,7 @@ awk '/\/\/ ROM read and load/ {on=1} /\/\/ BSRAM read\/write/ {on=0} on' $SRC/sn
 grep -q "rom_addr_sd != rom_addr" $B/top_req.vh
 grep -q "WRAM read/write" $B/top_req.vh
 grep -q "cx4_owns_rom" $B/top_req.vh
+grep -q "gsu_owns_rom" $B/top_req.vh
 ! grep -q "BSRAM" $B/top_req.vh
 
 # same two port-declaration softeners as sim/cosim/Makefile; no functional change
