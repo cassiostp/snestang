@@ -299,7 +299,7 @@ DSP_LHRomMap #(.USE_DSPn(USE_DSPn)) DSP_LHRomMap
 	// .WCLK(WCLK),
 	.MCLK(MCLK),
 	.RST_N(RESET_N),
-    .ENABLE(1'b1),
+    .ENABLE(ENABLE),
 
 	.CA(CA),
 	.DI(DO),
@@ -503,7 +503,7 @@ GSUMap GSUMap
 (
 	.MCLK(MCLK),
 	.RST_N(RESET_N),
-	.ENABLE(1'b1),
+	.ENABLE(ENABLE),
 
 	.CA(CA),
 	.DI(DO),
