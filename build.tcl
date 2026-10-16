@@ -90,6 +90,9 @@ if {$dev eq "nano20k"} {
     set_option -output_base_name snestang_${dev}_${controller}
 } elseif {$dev eq "console60k"} {
     set_device GW5AT-LV60PG484AC1/I0 -device_version B
+    if {$controller eq ""} {
+        set controller "ds2"
+    }
     if {$controller eq "snes"} {
         add_file src/boards/console60k_snescontroller.v
         add_file -type cst "src/boards/console60k_snescontroller.cst"
