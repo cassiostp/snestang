@@ -40,6 +40,19 @@ module main (
 	output            CX4_ROM_REQ,
 	input             CX4_ROM_WAIT,
 
+	// The GSU's own ROM fetch, same scheme as the CX4's: while the GSU owns
+	// the ROM bus (RON) ROM_ADDR carries its fetch address, GSU_ROM_REQ asks
+	// the CPU2 word cache for the byte and GSU_ROM_WAIT holds the GSU's
+	// ROM_ACCESS_CNT sample points until it has arrived. Its fixed wait
+	// counters alone cannot cover this SDRAM port's latency, and a fetch on
+	// the shared fire-and-forget CPU lane can be lost to a coinciding WRAM
+	// access (the GSU then samples stale data, typically 0x00 = STOP).
+	// GSU_RAM_WAIT is the same hold for the BSRAM bridge in snestang_top.
+	output            GSU_ROM_REQ,
+	input             GSU_ROM_WAIT,
+	output            GSU_RAM_REQ,
+	input             GSU_RAM_WAIT,
+
 	output reg [19:0] BSRAM_ADDR,
 	output reg  [7:0] BSRAM_D,
 	input       [7:0] BSRAM_Q,
@@ -529,6 +542,10 @@ GSUMap GSUMap
 	.ROM_CE_N(GSU_ROM_CE_N),
 	.ROM_OE_N(GSU_ROM_OE_N),
 	.ROM_WORD(GSU_ROM_WORD),
+	.ROM_REQ(GSU_ROM_REQ),
+	.ROM_WAIT(GSU_ROM_WAIT),
+	.RAM_REQ(GSU_RAM_REQ),
+	.RAM_WAIT(GSU_RAM_WAIT),
 
 	.BSRAM_ADDR(GSU_BSRAM_ADDR),
 	.BSRAM_D(GSU_BSRAM_D),
@@ -544,8 +561,11 @@ GSUMap GSUMap
 
 	.TURBO(GSU_TURBO)
 );
-end else
+end else begin
 assign MAP_ACTIVE[2] = 0;
+assign GSU_ROM_REQ = 0;
+assign GSU_RAM_REQ = 0;
+end
 endgenerate
 
 // assign GSU_ACTIVE = MAP_ACTIVE[2];

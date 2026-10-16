@@ -1,4 +1,15 @@
 
+// snestang: new ROM_REQ/ROM_WAIT and RAM_REQ/RAM_WAIT ports (same scheme
+// as the CX4's): the SDRAM word for ROM_A can take longer than the fixed
+// ROM_ACCESS_CNT wait (and a request on the shared fire-and-forget CPU
+// lane can be lost to a coinciding WRAM access), so while the GSU owns
+// the ROM bus its fetches ride the CPU2 word cache in snestang_top and
+// ROM_WAIT holds the three ROM_ACCESS_CNT sample points until ROM_DI is
+// the byte for ROM_A. RAM is the same story through the save-RAM bridge
+// (one byte at a time, ~6+ mclk, against back-to-back byte writes 4 mclk
+// apart): RAM_WAIT holds every RAM_ACCESS_CNT completion until the
+// bridge has finished the byte, so no write toggle is overwritten and
+// no read samples stale data.
 import GSU_Package::*;
 
 module GSU(
@@ -16,12 +27,16 @@ module GSU(
     output IRQ_N,
     output [20:0] ROM_A,
     input [7:0] ROM_DI,
+    output ROM_REQ,             // snestang: GSU side wants the byte on ROM_A
+    input ROM_WAIT,             // snestang: that byte is not in ROM_DI yet
     output reg ROM_RD_N,
     output [16:0] RAM_A,
     input [7:0] RAM_DI,
     output [7:0] RAM_DO,
     output RAM_WE_N,
-    output RAM_CE_N
+    output RAM_CE_N,
+    output RAM_REQ,             // snestang: GSU side owns the RAM bus
+    input RAM_WAIT              // snestang: the bridge has not finished the byte on RAM_A
     // output DBG_IN_CACHE,
     //  output Microcode_r DBG_MC;      //for MISTer sdram
     // output [15:0] DBG_GO_CNT
@@ -313,6 +328,8 @@ end
 
 assign GSU_ROM_ACCESS = GSU_MEM_ACCESS & RON;
 assign GSU_RAM_ACCESS = GSU_MEM_ACCESS & RAN;
+assign ROM_REQ = GSU_ROM_ACCESS;
+assign RAM_REQ = GSU_RAM_ACCESS;
 
 assign SFR = {FLAG_IRQ,1'b0,1'b0,FLAG_B,1'b0,1'b0,
             FLAG_ALT2,FLAG_ALT1,1'b0,FLAG_R,FLAG_GO,
@@ -960,24 +977,28 @@ always @(posedge CLK) begin
 
             ROMST_LOAD : 
                 if (RON) begin
-                    ROM_ACCESS_CNT <= ROM_ACCESS_CNT - 1;
                     if (ROM_ACCESS_CNT == 0) begin
+                    if (~ROM_WAIT) begin
                     ROMDR <= ROM_DI;
                     FLAG_R <= 1'b0;
                     ROM_LOAD_END <= 1'b1;
                     ROMST <= ROMST_IDLE;
                     end
+                    end else
+                    ROM_ACCESS_CNT <= ROM_ACCESS_CNT - 1;
                 end else 
                     ROM_ACCESS_CNT <= ROM_CYCLES + 1;
             
             ROMST_FETCH : 
                 if (RON) begin
-                    ROM_ACCESS_CNT <= ROM_ACCESS_CNT - 1;
                     if (ROM_ACCESS_CNT == 0) begin
+                    if (~ROM_WAIT) begin
                     ROM_BUF <= ROM_DI;
                     ROM_FETCH_END <= 1'b1;
                     ROMST <= ROMST_FETCH_DONE;
                     end
+                    end else
+                    ROM_ACCESS_CNT <= ROM_ACCESS_CNT - 1;
                 end else 
                     ROM_ACCESS_CNT <= ROM_CYCLES;
 
@@ -986,11 +1007,13 @@ always @(posedge CLK) begin
 
             ROMST_CACHE : 
                 if (RON) begin
-                    ROM_ACCESS_CNT <= ROM_ACCESS_CNT - 1;
                     if (ROM_ACCESS_CNT == 3'd0) begin
+                        if (~ROM_WAIT) begin
                         ROM_BUF <= ROM_DI;
                         ROMST <= ROMST_CACHE_DONE;
-                    end
+                        end
+                    end else
+                    ROM_ACCESS_CNT <= ROM_ACCESS_CNT - 1;
                 end else 
                     ROM_ACCESS_CNT <= ROM_CYCLES;
 
@@ -1347,8 +1370,8 @@ always @(posedge CLK) begin
 
             RAMST_LOAD : begin
                 if (RAN) begin
-                    RAM_ACCESS_CNT <= RAM_ACCESS_CNT - 1;
                     if (RAM_ACCESS_CNT == 0) begin
+                        if (~RAM_WAIT) begin
                         RAM_ACCESS_CNT <= RAM_CYCLES;
                         RAM_BYTES <= 1'b1;
                         if (~RAM_BYTES) 
@@ -1359,30 +1382,34 @@ always @(posedge CLK) begin
                             RAM_LOAD_END = 1'b1;
                             RAMST <= RAMST_IDLE;
                         end
-                    end
+                        end
+                    end else
+                    RAM_ACCESS_CNT <= RAM_ACCESS_CNT - 1;
                 end else 
                     RAM_ACCESS_CNT <= RAM_CYCLES;
             end
 
             RAMST_SAVE : begin
                 if (RAN) begin
-                    RAM_ACCESS_CNT <= RAM_ACCESS_CNT - 1;
                     if (RAM_ACCESS_CNT == 0) begin
+                        if (~RAM_WAIT) begin
                         RAM_ACCESS_CNT <= RAM_CYCLES;
                         RAM_BYTES <= 1'b1;
                         if (RAM_BYTES == RAM_WORD) begin
                             RAM_SAVE_END = 1'b1;
                             RAMST <= RAMST_IDLE;
                         end
-                    end
+                        end
+                    end else
+                    RAM_ACCESS_CNT <= RAM_ACCESS_CNT - 1;
                 end else 
                     RAM_ACCESS_CNT <= RAM_CYCLES;
             end
 
             RAMST_PCF : begin
                 if (RAN) begin
-                    RAM_ACCESS_CNT <= RAM_ACCESS_CNT - 1;
                     if (RAM_ACCESS_CNT == 0) begin
+                        if (~RAM_WAIT) begin
                         PCF_RW <= ~PCF_RW | PCF_WO;
                         RAMST <= RAMST_IDLE;
                         if (~PCF_RW && ~PCF_WO) 
@@ -1395,7 +1422,9 @@ always @(posedge CLK) begin
                                 RAMST <= RAMST_PCF_END;
                             end
                         end
-                    end
+                        end
+                    end else
+                    RAM_ACCESS_CNT <= RAM_ACCESS_CNT - 1;
                 end else 
                     RAM_ACCESS_CNT <= RAM_CYCLES;
             end
@@ -1409,8 +1438,8 @@ always @(posedge CLK) begin
 
             RAMST_RPIX : begin
                 if (RAN) begin
-                    RAM_ACCESS_CNT <= RAM_ACCESS_CNT - 1;
                     if (RAM_ACCESS_CNT == 0) begin
+                        if (~RAM_WAIT) begin
                         RPIX_DATA[BPP_CNT] <= RAM_DI[~PC_X[2:0]];
                         BPP_CNT <= BPP_CNT + 1;
                         if (BPP_CNT == GetLastBPP(SCMR_MD)) begin
@@ -1419,19 +1448,23 @@ always @(posedge CLK) begin
                             RAM_PCF_END = 1'b1;
                         end
                         RAMST <= RAMST_IDLE;
-                    end
+                        end
+                    end else
+                    RAM_ACCESS_CNT <= RAM_ACCESS_CNT - 1;
                 end else 
                     RAM_ACCESS_CNT <= RAM_CYCLES;
             end
 
             RAMST_FETCH : begin
                 if (RAN) begin
-                    RAM_ACCESS_CNT <= RAM_ACCESS_CNT - 1;
                     if (RAM_ACCESS_CNT == 0) begin
+                        if (~RAM_WAIT) begin
                         RAM_BUF <= RAM_DI;
                         RAM_FETCH_END = 1'b1;
                         RAMST <= RAMST_FETCH_DONE;
-                    end
+                        end
+                    end else
+                    RAM_ACCESS_CNT <= RAM_ACCESS_CNT - 1;
                 end else 
                     RAM_ACCESS_CNT <= RAM_CYCLES;
             end
@@ -1441,12 +1474,14 @@ always @(posedge CLK) begin
 
             RAMST_CACHE : begin
                 if (RAN) begin
-                    RAM_ACCESS_CNT <= RAM_ACCESS_CNT - 1;
                     if (RAM_ACCESS_CNT == 0) begin
+                        if (~RAM_WAIT) begin
                         RAM_BUF <= RAM_DI;
                         RAM_CACHE_END = 1'b1;
                         RAMST <= RAMST_CACHE_DONE;
-                    end
+                        end
+                    end else
+                    RAM_ACCESS_CNT <= RAM_ACCESS_CNT - 1;
                 end else 
                     RAM_ACCESS_CNT <= RAM_CYCLES;
             end
