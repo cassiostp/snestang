@@ -311,7 +311,7 @@ wire pause_snes_for_frame_sync;
 // Selects the standard 60 Hz HDMI timing (for displays that refuse the native
 // rate; a menu option for it may come later). Tied 0: the game runs at the
 // console's own refresh rate.
-wire video_std_timing = 1'b0;
+wire video_std_timing = 1'b1;
 
 wire [7:0] loader_do;
 wire loader_do_valid, loading, header_finished;
