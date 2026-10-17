@@ -85,7 +85,7 @@ module sdram_snes
     // CPU access (ROM and WRAM) uses bank 0 and 1 (total 16MB)
 	input      [15:0] cpu_din /* synthesis syn_keep=1 */,
 	input             cpu_port,
-	output reg [15:0] cpu_port0,    // bank 0, captured from the pin and held
+	output     [15:0] cpu_port0,    // bank 0, held after the capture
 	output     [15:0] cpu_port1,    // bank 1, held after the capture
 	input      [22:1] cpu_addr,     // 8MB SNES memory, with WRAM at end
     input             cpu_req,
@@ -272,15 +272,17 @@ always @* begin
 	end
 end
 
-// dq_cap is the shared sample. The CPU ROM lane does not read it: that
-// lane's word is cpu_port0, which samples the pin on the same edge and
-// holds it, so the 31 ns path starts at a flop with no forward mux.
-// An IOB capture meets the pin but then misses that path.
+// The only flop fed by the pin. It stays in the fabric, beside the
+// CPU cone: an IOB capture meets the pin but then misses the 31 ns
+// path to the 65816. The first mclk after a capture reads it through
+// the fwd mux (the fwd flag clears on that mclk, so the mclk still
+// sees it). The hold regs copy it on that same edge.
 reg [15:0] dq_cap;
-reg cpu1_fwd, cpu2_fwd, bsram_fwd, rv_fwd, aram_fwd;
+reg cpu0_fwd, cpu1_fwd, cpu2_fwd, bsram_fwd, rv_fwd, aram_fwd;
 reg bsram_lo;
-reg [15:0] cpu_port1_h, cpu2_dout_h, rv_h, aram_dout_h;
+reg [15:0] cpu_port0_h, cpu_port1_h, cpu2_dout_h, rv_h, aram_dout_h;
 reg [7:0] bsram_dout_reg;
+assign cpu_port0 = cpu0_fwd ? dq_cap : cpu_port0_h;
 assign cpu_port1 = cpu1_fwd ? dq_cap : cpu_port1_h;
 assign cpu2_dout = cpu2_fwd ? dq_cap : cpu2_dout_h;
 assign rv_dout   = rv_fwd   ? dq_cap : rv_h;
@@ -297,6 +299,7 @@ always @(posedge clk) begin
         SDRAM_DQM <= 2'b0;
         normal <= 0;
         setup <= 0;
+        cpu0_fwd <= 0;
         cpu1_fwd <= 0;
         cpu2_fwd <= 0;
         bsram_fwd <= 0;
@@ -423,10 +426,8 @@ always @(posedge clk) begin
             // set). The hold copy happens on that mclk.
             if ((cycle[4] && oe_latch[0]) || (cycle[1] && oe_latch[1]))
                 dq_cap <= dq_in;
-            // Same edge as dq_cap, straight from the pin, and it holds.
-            // The mclk two fclk later still sees this word.
             if (cycle[4] && oe_latch[0] && port[0] == PORT_CPU && !cpu_port)
-                cpu_port0 <= dq_in;
+                cpu0_fwd <= 1;
             if (cycle[4] && oe_latch[0] && port[0] == PORT_CPU && cpu_port)
                 cpu1_fwd <= 1;
             if (cycle[4] && oe_latch[0] && port[0] == PORT_CPU2) begin
@@ -443,10 +444,12 @@ always @(posedge clk) begin
                 aram_fwd <= 1;
             // cycle[0] is the mclk that first sees a channel-0 word.
             if (cycle[0]) begin
+                if (cpu0_fwd) cpu_port0_h <= dq_cap;
                 if (cpu1_fwd) cpu_port1_h <= dq_cap;
                 if (cpu2_fwd) cpu2_dout_h <= dq_cap;
                 if (bsram_fwd) bsram_dout_reg <= bsram_lo ? dq_cap[7:0] : dq_cap[15:8];
                 if (rv_fwd) rv_h <= dq_cap;
+                cpu0_fwd <= 0;
                 cpu1_fwd <= 0;
                 cpu2_fwd <= 0;
                 bsram_fwd <= 0;
