@@ -155,6 +155,17 @@ localparam RECV_PARAM        = 8'b00010000; // receiving parameters
 localparam RECV_RESPONSE_REQ = 8'b00100000; // post a response request to TX
 localparam RECV_SAVE_WAIT    = 8'b10000000; // waiting for a save-RAM byte access to finish
 reg [7:0] recv_state = RECV_IDLE;
+// Inter-byte timeout: a frame's bytes arrive back to back at 2 Mbaud
+// (~5 us apart, streamed from the MCU's TX FIFO inside one critical
+// section), so 1 ms without a byte mid-frame means the stream desynced
+// -- a byte dropped or flipped on the wire, or raw bytes spliced in --
+// and the length being counted down is garbage. Abandon the partial
+// frame (the same resync the firmware's parser does on its side)
+// instead of swallowing core-ID polls as parameters for up to 2047
+// bytes, which at the in-game poll rate deafens the link for minutes.
+localparam integer RX_GAP_MAX = FREQ / 1000;   // 1 ms
+reg [$clog2(RX_GAP_MAX+1)-1:0] rx_gap = 0;
+
 
 // UART command buffer
 reg [7:0] cmd_reg;
@@ -255,6 +266,7 @@ reg fdd_read_start, fdd_read_finish, fdd_write_finish;
 always @(posedge clk) begin
     if (!resetn) begin
         recv_state <= RECV_IDLE;
+        rx_gap <= 0;
         cmd_reg <= 0;
         data_reg <= 0;
         rom_loading_reg <= 0;
@@ -286,6 +298,13 @@ always @(posedge clk) begin
         kbd_data_valid <= 0;
         sv_req_d <= sv_req;         // keeps sv_w_pulse a single clock when SAVE_RDY=0
 
+        if (rx_valid || recv_state == RECV_IDLE)
+            rx_gap <= 0;
+        else if (rx_gap == RX_GAP_MAX) begin
+            recv_state <= RECV_IDLE;   // desynced partial frame: drop it
+            rx_gap <= 0;
+        end else
+            rx_gap <= rx_gap + 1'd1;
         case (recv_state)
 
             RECV_IDLE: if (rx_valid && rx_data == 8'hAA) begin
