@@ -126,16 +126,16 @@ defparam PLL_inst.CLKOUT0_PE_FINE = 0;
 defparam PLL_inst.CLKOUT1_PE_COARSE = 0;
 defparam PLL_inst.CLKOUT1_PE_FINE = 0;
 // CLKOUT2 is O_sdram_clk. Phase is (COARSE+FINE/8)/ODIV*360 (UG306).
-// 18+4/8 = 214.839 degrees = 9.25 ns behind fclk. The other cores use
+// 18+4/8 = 207.581 degrees = 8.9375 ns behind fclk. The other cores use
 // 225 degrees (9.6875 ns). That lag meets command setup once the address
 // flop is in the IOB, but the read capture has to stay in the fabric
 // (the 31 ns path to the CPU does not fit from the pin) and at 225
-// degrees that capture misses tAC by about 0.03 ns. 9.25 ns gives the
+// degrees that capture misses tAC by about 0.03 ns. 8.9375 ns gives the
 // read that 0.44 ns and still leaves the IOB command path positive.
 // A 6 ns lag cannot: the clock tree is about 3.7 ns and the pad 2.6 ns
 // before the 1.5 ns tCMS.
-defparam PLL_inst.CLKOUT2_PE_COARSE = 18;
-defparam PLL_inst.CLKOUT2_PE_FINE = 4;
+defparam PLL_inst.CLKOUT2_PE_COARSE = 17;
+defparam PLL_inst.CLKOUT2_PE_FINE = 7;
 defparam PLL_inst.CLKOUT3_PE_COARSE = 0;
 defparam PLL_inst.CLKOUT3_PE_FINE = 0;
 defparam PLL_inst.CLKOUT4_PE_COARSE = 0;
