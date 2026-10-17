@@ -137,9 +137,9 @@ assign SDRAM_DQ = dq_oen ? {16{1'bz}} : dq_out;
 wire [15:0] dq_in = SDRAM_DQ;     // DQ input
 reg [3:0] cmd;
 reg [12:0] a;
-// Pin copy of the address. `a` holds across clocks, so its Q feeds back
-// and cannot sit in the IOB. a_pin is assigned the same value on the
-// same edge and drives only the pin.
+// Pin copy of the address. `a` holds, so its Q feeds back and cannot
+// sit in the IOB. a_pin is a full-bus write every clock (the hold
+// value comes from `a`, not from itself) and drives only the pin.
 (* syn_useioff = 1 *) reg [12:0] a_pin;
 assign {SDRAM_nCS, SDRAM_nRAS, SDRAM_nCAS, SDRAM_nWE} = cmd;
 assign SDRAM_A = a_pin;
@@ -189,6 +189,16 @@ reg [15:0] next_din[2];
 reg  [1:0] next_ds[2];
 reg  [2:0] next_we;
 reg  [2:0] next_oe;
+
+wire [12:0] a_pin_d =
+    (normal && cycle[0]) ? next_addr[0][22:10] :
+    (normal && cycle[2]) ? next_addr[1][22:10] :
+    (normal && cycle[1] && (oe_latch[0] || we_latch[0])) ? {4'b0010, addr_latch[0][9:1]} :
+    (normal && cycle[4] && (oe_latch[1] || we_latch[1])) ? {4'b0010, addr_latch[1][9:1]} :
+    (setup && cycle[0]) ? {a[12:11], 1'b1, a[9:0]} :
+    (setup && cycle[T_RP+T_RC+T_RC]) ? {a[12:11], MODE_REG} :
+    a;
+always @(posedge clk) a_pin <= a_pin_d;
 
 reg clkref_r;
 always @(posedge clk) clkref_r <= clkref;
@@ -277,6 +287,10 @@ assign cpu2_dout = cpu2_fwd ? dq_cap : cpu2_dout_h;
 assign rv_dout   = rv_fwd   ? dq_cap : rv_h;
 assign aram_dout = aram_fwd ? dq_cap : aram_dout_h;
 assign bsram_dout = bsram_fwd ? (bsram_lo ? dq_cap[7:0] : dq_cap[15:8]) : bsram_dout_reg;
+// Own always, so D is the pin and the select is a clock enable.
+always @(posedge clk)
+    if ((cycle[4] && oe_latch[0]) || (cycle[1] && oe_latch[1]))
+        dq_cap <= dq_in;
 
 //
 // SDRAM state machine
@@ -314,7 +328,6 @@ always @(posedge clk) begin
                 // precharge all
                 cmd <= CMD_PreCharge;
                 a[10] <= 1'b1;
-                a_pin[10] <= 1'b1;
             end
             if (cycle[T_RP]) begin
                 // 1st AutoRefresh
@@ -328,7 +341,6 @@ always @(posedge clk) begin
                 // set register
                 cmd <= CMD_SetModeReg;
                 a[10:0] <= MODE_REG;
-                a_pin[10:0] <= MODE_REG;
             end
             if (cycle[T_RP+T_RC+T_RC+T_MRD]) begin
                 setup <= 0;
@@ -351,7 +363,6 @@ always @(posedge clk) begin
 	    		{ we_latch[0], oe_latch[0] } <= { next_we[0], next_oe[0] };
     			addr_latch[0] <= next_addr[0];
 	    		a <= next_addr[0][22:10];
-                a_pin <= next_addr[0][22:10];
                 SDRAM_BA <= next_addr[0][24:23];
                 din_latch[0] <= next_din[0];
                 ds[0] <= next_ds[0];
@@ -364,7 +375,6 @@ always @(posedge clk) begin
                 { we_latch[1], oe_latch[1] } <= { next_we[1], next_oe[1] };
                 addr_latch[1] <= next_addr[1];
                 a <= next_addr[1][22:10];
-                a_pin <= next_addr[1][22:10];
                 SDRAM_BA <= 2'b10;
                 din_latch[1] <= next_din[1];
                 ds[1] <= next_ds[1];
@@ -390,7 +400,6 @@ always @(posedge clk) begin
                 end else
                     SDRAM_DQM <= 2'b00;
                 a <= { 4'b0010, addr_latch[0][9:1] };  // auto precharge
-                a_pin <= { 4'b0010, addr_latch[0][9:1] };
                 SDRAM_BA <= addr_latch[0][24:23];                
             end
             if (cycle[1]) begin
@@ -412,14 +421,11 @@ always @(posedge clk) begin
                 end else
                     SDRAM_DQM <= 2'b00;
                 a <= { 4'b0010, addr_latch[1][9:1] };  // auto precharge
-                a_pin <= { 4'b0010, addr_latch[1][9:1] };
 			    SDRAM_BA <= 2'b10;
             end
 
             // Capture into the IOB register. The first mclk reads dq_cap
             // (fwd is still set). The hold copy happens on that mclk.
-            if ((cycle[4] && oe_latch[0]) || (cycle[1] && oe_latch[1]))
-                dq_cap <= dq_in;
             if (cycle[4] && oe_latch[0] && port[0] == PORT_CPU && !cpu_port)
                 cpu0_fwd <= 1;
             if (cycle[4] && oe_latch[0] && port[0] == PORT_CPU && cpu_port)
