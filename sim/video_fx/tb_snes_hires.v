@@ -16,7 +16,7 @@
 //     pair does not split it (the value sampled with the sub sub-pixel governs);
 //   pairs sent during hblank are not written;
 //   a whole picture of alternating sub-pixels renders as uniform grey through the
-//     scaler, with smoothing off and sharp.
+//     scaler.
 // Fails with $fatal on the first mismatch.
 `timescale 1ns/1ps
 
@@ -222,8 +222,7 @@ module tb_snes_hires;
         $display("line buffer: %0d checks ok", checks);
 
         // ---- end to end: every buffer slot holds the blended grey, so the whole
-        // picture must render as uniform grey whatever the scaler does, with
-        // smoothing off and then sharp.
+        // picture must render as uniform grey whatever the scaler does.
         for (line = 0; line < 32; line = line + 1) begin
             start_line(line);
             for (x = 0; x < 256; x = x + 1) send_pair(x, x[0] ? BLACK : WHITE, x[0] ? WHITE : BLACK, 1, 1);
@@ -234,24 +233,12 @@ module tb_snes_hires;
         for (x = 0; x < 9; x = x + 1) begin
             checks = checks + 1;
             if (img[360 * 1280 + 200 + x * 100] !== GREY8) begin
-                $display("MISMATCH rendered (smoothing off) at x %0d: got %h, want %h",
+                $display("MISMATCH rendered at x %0d: got %h, want %h",
                          200 + x * 100, img[360 * 1280 + 200 + x * 100], GREY8);
                 errors = errors + 1;
             end
         end
-        $display("rendered alternating sub-pixels as uniform grey %h (smoothing off): done", GREY8);
-        vcfg = 32'h1 << 18;                     // sharp
-        wait_frame;
-        wait_frame;                             // the mode latch is at the frame start
-        for (x = 0; x < 9; x = x + 1) begin
-            checks = checks + 1;
-            if (img[360 * 1280 + 200 + x * 100] !== GREY8) begin
-                $display("MISMATCH rendered (sharp) at x %0d: got %h, want %h",
-                         200 + x * 100, img[360 * 1280 + 200 + x * 100], GREY8);
-                errors = errors + 1;
-            end
-        end
-        $display("rendered alternating sub-pixels as uniform grey %h (smoothing sharp): done", GREY8);
+        $display("rendered alternating sub-pixels as uniform grey %h: done", GREY8);
 
         if (errors != 0) begin
             $display("tb_snes_hires: FAIL (%0d errors)", errors);

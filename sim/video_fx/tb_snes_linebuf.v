@@ -1,5 +1,5 @@
-// The line buffer as the SNES fills it. The smoothing reads, besides the line a row shows, the
-// line next to it, so the question is whether that line has been written when it is read.
+// The line buffer as the SNES fills it: the question is whether the line a row shows
+// has been written when it is read, and not yet overwritten by the line 32 lines later.
 // The SNES is played by a model of the PPU's video output (340 dots a line, dots 323 and 327
 // of 6 master clocks and the rest of 4, a 1360-clock short line at line 240 of odd frames,
 // 262 lines, pixel x of a line is written to the buffer OFS dots after the line starts, nothing
@@ -9,16 +9,14 @@
 //
 // Every write to the buffer is tagged with the frame and the line it belongs to (a pixel
 // written before the line's own pixels, or on line 0 of the 262, is tagged as junk). Every read
-// whose result the picture can depend on - the shown line always, the neighbour line when the
-// row blends with it (smoothing on and a vertical weight) - must find the tag of the frame
+// whose result the picture can depend on - the shown line - must find the tag of the frame
 // and line it wants: the pixel has been written, and not yet overwritten by line + 32. Checked
-// at every address cycle of the picture, in sharp and soft, with the default and the integer
-// scale geometry, with scanlines in output rows mode. STALL slows the SNES down; the frame sync
+// at every address cycle of the picture, with the default and the integer scale geometry, with
+// scanlines in output rows mode. STALL slows the SNES down; the frame sync
 // only works while the SNES frame (262 lines) is shorter than the picture's, which it is by
 // 405 master clocks on console138k and 56 on console60k, so even a small STALL breaks the lock.
-// Also reported: the shortest time between a pixel being written and a read of it as the line
-// below the one shown (the margin of the frame sync), the shortest time between the last read
-// of a pixel and its being overwritten, and the largest lead of the SNES over the picture.
+// Also reported: the shortest time between the last read of a pixel and its being overwritten,
+// and the largest lead of the SNES over the picture (the buffer holds 32 lines, so 31 is the limit).
 `timescale 1ns/1ps
 
 `ifndef MCLK_HALF_NS
@@ -149,37 +147,29 @@ module tb_snes_linebuf #(
 
     // ---- every read the picture can depend on finds its pixel
     reg     armed = 0;
-    integer checks = 0, fwd_checks = 0, bad = 0, lead_max = 0, lead;
-    real    age, fwd_min = 1.0e9, fwd_min_row = 0;
+    integer checks = 0, bad = 0, lead_max = 0, lead;
+    real    age;
     reg [7:0] expl;
-    reg       need;
     reg [12:0] raddr;
     reg [11:0] eframe;
     always @(posedge clk_pixel) begin
-        if (armed && (dut.active || dut.cnew) && dut.sl_show && dut.cy < 10'd720) begin
+        if (armed && dut.active && dut.sl_show && dut.cy < 10'd720) begin
             raddr = dut.mem_portB_addr;
-            expl  = dut.sm_rd_b ? dut.yb_s : dut.yy_s;
+            expl  = dut.yy_s;
             eframe = (pause_sync && dut.cy == dut.sl_pic_top) ? wframe : rframe;
-            need  = !dut.sm_rd_b || (dut.sm_mode != 2'd0 && dut.wy != 8'd0);
-            if (need) begin
-                checks = checks + 1;
-                if (tag[raddr] !== {eframe, expl}) begin
-                    bad = bad + 1;
-                    if (bad <= 10)
-                        $display("MISSING: row %0d shows line %0d, read line %0d column %0d (rd_b=%b wy=%0d): buffer has frame/line %0d/%0d (frame %0d, SNES at line %0d dot %0d)",
-                                 dut.cy, dut.yy_s, expl, raddr[7:0], dut.sm_rd_b, dut.wy,
-                                 tag[raddr][19:8], tag[raddr][7:0], eframe, v, h);
-                end else begin
-                    age = $realtime - wt[raddr];
-                    lr[raddr] = $realtime;
-                    if (expl > dut.yy_s) begin
-                        fwd_checks = fwd_checks + 1;
-                        if (age < fwd_min) begin fwd_min = age; fwd_min_row = dut.cy; end
-                    end
-                end
-                lead = (v >= 1 && v <= 224) ? (v - 1) - expl : 0;
-                if (lead > lead_max) lead_max = lead;
+            checks = checks + 1;
+            if (tag[raddr] !== {eframe, expl}) begin
+                bad = bad + 1;
+                if (bad <= 10)
+                    $display("MISSING: row %0d shows line %0d, read column %0d: buffer has frame/line %0d/%0d (frame %0d, SNES at line %0d dot %0d)",
+                             dut.cy, dut.yy_s, raddr[7:0],
+                             tag[raddr][19:8], tag[raddr][7:0], eframe, v, h);
+            end else begin
+                age = $realtime - wt[raddr];
+                lr[raddr] = $realtime;
             end
+            lead = (v >= 1 && v <= 224) ? (v - 1) - expl : 0;
+            if (lead > lead_max) lead_max = lead;
         end
     end
 
@@ -191,13 +181,13 @@ module tb_snes_linebuf #(
             armed = 0;
             r0 = releases;
             while (releases < r0 + 2) @(posedge clk_pixel);     // a whole frame with these settings first
-            checks = 0; fwd_checks = 0; bad = 0; fwd_min = 1.0e9; ow_min = 1.0e9; lead_max = 0;
+            checks = 0; bad = 0; ow_min = 1.0e9; lead_max = 0;
             armed = 1;
             r0 = releases;
             while (releases < r0 + 3) @(posedge clk_pixel);     // then two whole frames
             armed = 0;
-            $display("scanlines=%b out=%b thick=%b video_config=%h: %0d reads checked (%0d of the line below), %0d missing; line below written >= %0.1f us before the read (row %0d), pixel read >= %0.1f us before it is overwritten, SNES ahead by <= %0d lines",
-                     on, out, thick, cfg, checks, fwd_checks, bad, fwd_min / 1000.0, fwd_min_row, ow_min / 1000.0, lead_max);
+            $display("scanlines=%b out=%b thick=%b video_config=%h: %0d reads checked, %0d missing; pixel read >= %0.1f us before it is overwritten, SNES ahead by <= %0d lines",
+                     on, out, thick, cfg, checks, bad, ow_min / 1000.0, lead_max);
             if (bad != 0 || checks < 100000) begin
                 $display("tb_snes_linebuf: FAIL");
                 $fatal(1, "tb_snes_linebuf: FAIL");
@@ -205,17 +195,14 @@ module tb_snes_linebuf #(
         end
     endtask
 
-    localparam [31:0] SHARP = 32'h1 << 18, SOFT = 32'h2 << 18;
-
     initial begin
         $display("tb_snes_linebuf: OFS=%0d STALL=%0d", OFS, STALL);
         //  on out thk dk  video_config
-        run(0, 0, 0, 2, 32'h0);                // off: only the shown line
-        run(0, 0, 0, 2, SHARP);                // 960x720
-        run(0, 0, 0, 2, SOFT);
-        run(1, 0, 0, 2, SHARP);                // integer scale, 896x672
-        run(1, 0, 1, 2, SOFT);
-        run(1, 1, 0, 2, SOFT);                 // output rows, 960x720
+        run(0, 0, 0, 2, 32'h0);                // scanlines off, integer scale
+        run(0, 1, 0, 2, 32'h0);                // scanlines off, full scale
+        run(1, 0, 0, 2, 32'h0);                // integer scale, 896x672
+        run(1, 0, 1, 2, 32'h0);                // integer scale, thick
+        run(1, 1, 0, 2, 32'h0);                // output rows, 960x720
         $display("tb_snes_linebuf: PASS");
         $finish;
     end

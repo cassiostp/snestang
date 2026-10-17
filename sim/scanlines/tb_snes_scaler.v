@@ -140,7 +140,7 @@ module tb_snes_scaler;
 
     task check_rows(input on, input out, input thick, input [1:0] dk, input over);
         begin
-            is_geom = on & ~out & ~over;
+            is_geom = ~out & ~over;
             nd = thick ? 2 : 1;
             XP = 640;
             for (row = 0; row < 720; row = row + 1) begin
@@ -152,7 +152,7 @@ module tb_snes_scaler;
                     want = BORDER;
                 else begin
                     want = to_rgb(src_color(line));
-                    if (is_geom ? ((row - TOP) % R >= R - nd) : (on & out & ((row % R) >= R - nd)))
+                    if (is_geom ? (on && ((row - TOP) % R >= R - nd)) : (on && out && ((row % R) >= R - nd)))
                         want = darken(want, dk);
                 end
                 if (got !== want) fail("picture", row, got, want);
@@ -210,7 +210,7 @@ module tb_snes_scaler;
     task run(input on, input out, input thick, input [1:0] dk, input over);
         begin
             sl_on = on; sl_out = out; sl_thick = thick; sl_dark = dk; ov = over;
-            cur_geom = on & ~out & ~over;
+            cur_geom = ~out & ~over;
             settle;
             check_rows(on, out, thick, dk, over);
             $display("snes2hdmi on=%b out=%b thick=%b darkness=%0d overlay=%b: ok", on, out, thick, dk, over);
@@ -221,7 +221,8 @@ module tb_snes_scaler;
         cur_geom = 0;
         #1;
         // by row: the vertical geometry and the darkening
-        run(0, 0, 0, 2, 0);                     // off: the old geometry
+        run(0, 0, 0, 2, 0);                     // Integer scale with scanlines off: integer geometry, no darkening
+        run(0, 1, 0, 2, 0);                     // Full scale with scanlines off
         run(1, 0, 0, 2, 0);                     // the default: integer, thin, 75 %
         run(1, 0, 1, 0, 0);
         run(1, 0, 0, 1, 0);
@@ -234,8 +235,8 @@ module tb_snes_scaler;
         // by column: the horizontal geometry
         by_column = 1;
         load_columns;
-        sl_on = 0; sl_out = 0; ov = 0; cur_geom = 0; settle; check_columns(0);
-        $display("snes2hdmi columns, scanlines off: ok");
+        sl_on = 0; sl_out = 0; ov = 0; cur_geom = 1; settle; check_columns(1);
+        $display("snes2hdmi columns, Integer scale with scanlines off: ok");
         sl_on = 1; cur_geom = 1; settle; check_columns(1);
         $display("snes2hdmi columns, integer scale: ok");
         sl_out = 1; cur_geom = 0; settle; check_columns(0);

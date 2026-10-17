@@ -8,7 +8,7 @@ set -e
 cd "$(dirname "$0")"
 RTL=../../src
 HDMI=../scanlines/hdmi_stub.v
-SRCS="$HDMI $RTL/snes2hdmi.v $RTL/scanlines.v $RTL/video_fx.v $RTL/smooth.v $RTL/dual_clk_fifo.v"
+SRCS="$HDMI $RTL/snes2hdmi.v $RTL/scanlines.v $RTL/video_fx.v $RTL/dual_clk_fifo.v"
 
 # mclk half-periods: 138K 21.5053763 MHz -> 23.2498 ns; 60K 21.484375 -> 23.2727
 echo "== console138k mclk"
