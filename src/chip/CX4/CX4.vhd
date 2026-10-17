@@ -6,6 +6,14 @@
 --     or BUS_ACCESS_CNT) is held and the sample (CACHE_WE, DMA_DAT, MBR) is
 --     suppressed; SRAM accesses keep the old fixed timing. Everything else
 --     is byte-identical to upstream.
+--   * hardware-faithful termination (Mega Man X3 boot): the cartridge bus
+--     is fixed-timing, so a cache fill or DMA dest byte always completes
+--     after its counts even when it selects nothing (open bus), instead of
+--     spinning forever with BUSY up (which hangs games that poll it);
+--     SUSPEND is a short EN-ticked timer (FBNeo/Ikari/Nocash/Overload/Segher
+--     CX4 research: 7F55 brief, 7F56-5C progressively longer, 7F5D clears),
+--     not a latch; a 7F48 fill starts even while the CPU runs, and starting
+--     the CPU with 7F4F populates the cache from the current base/page.
 library IEEE;
 use IEEE.STD_LOGIC_1164.ALL;
 library STD;
@@ -109,6 +117,12 @@ architecture rtl of CX4 is
 	signal WS1, WS2 : std_logic_vector(2 downto 0);
 	signal ROM_MODE : std_logic;
 	signal SUSPEND : std_logic;
+	-- snestang: SUSPEND is a short timer, not a latch (see the header
+	-- note): 7F55 suspends ~1 EN tick, 7F56-5C progressively longer
+	-- (offset*32 ticks), 7F5D clears. Ticked by EN like the logic it
+	-- gates, so a stray write (e.g. a bulk register fill) cannot wedge
+	-- the chip with BUSY up forever.
+	signal SUSPEND_CNT : unsigned(7 downto 0);
 	signal IRQ_EN : std_logic;
 	
 	signal IR : std_logic_vector(15 downto 0);
@@ -213,6 +227,7 @@ begin
 			IRQ_EN <= '0';
 			ROM_MODE <= '0';
 			SUSPEND <= '0';
+			SUSPEND_CNT <= (others => '0');
 		elsif rising_edge(CLK) then
 			if ENABLE = '1' then
 				if MMIO_WR = '1' and ADDR(11 downto 8) = x"F" then
@@ -261,14 +276,52 @@ begin
 								IRQ_EN <= not DI(0);
 							when x"2" =>						-- 7F52
 								ROM_MODE <= DI(0);
+							-- snestang: 7F55-5C suspend for a short,
+							-- address-dependent time (HW research, see the
+							-- header note), 7F5D clears. A latch here
+							-- wedges the chip whenever a bulk register
+							-- fill (e.g. Mega Man X3's boot) touches 7F55.
 							when x"5" =>						-- 7F55
 								SUSPEND <= '1';
+								SUSPEND_CNT <= to_unsigned(1, 8);
+							when x"6" =>						-- 7F56
+								SUSPEND <= '1';
+								SUSPEND_CNT <= to_unsigned(1*32, 8);
+							when x"7" =>						-- 7F57
+								SUSPEND <= '1';
+								SUSPEND_CNT <= to_unsigned(2*32, 8);
+							when x"8" =>						-- 7F58
+								SUSPEND <= '1';
+								SUSPEND_CNT <= to_unsigned(3*32, 8);
+							when x"9" =>						-- 7F59
+								SUSPEND <= '1';
+								SUSPEND_CNT <= to_unsigned(4*32, 8);
+							when x"A" =>						-- 7F5A
+								SUSPEND <= '1';
+								SUSPEND_CNT <= to_unsigned(5*32, 8);
+							when x"B" =>						-- 7F5B
+								SUSPEND <= '1';
+								SUSPEND_CNT <= to_unsigned(6*32, 8);
+							when x"C" =>						-- 7F5C
+								SUSPEND <= '1';
+								SUSPEND_CNT <= to_unsigned(7*32, 8);
 							when x"D" =>						-- 7F5D
 								SUSPEND <= '0';
+								SUSPEND_CNT <= (others => '0');
 							when others => null;
 						end case;
 					elsif ADDR(7 downto 5) = "011" then	-- 7F60-7F7F
 						VEC_MEM(to_integer(unsigned(ADDR(4 downto 0)))) <= DI;
+					end if;
+				end if;
+				-- snestang: the suspend timer ticks down on EN edges and
+				-- releases SUSPEND at zero (a same-edge 7F55-5D write
+				-- wins: it loads/clears the counter and skips the tick).
+				if SUSPEND = '1' and EN = '1' then
+					if SUSPEND_CNT = 0 then
+						SUSPEND <= '0';
+					elsif not (MMIO_WR = '1' and ADDR(11 downto 8) = x"F" and ADDR(7 downto 4) = x"5") then
+						SUSPEND_CNT <= SUSPEND_CNT - 1;
 					end if;
 				end if;
 			end if;
@@ -539,8 +592,12 @@ begin
 		elsif rising_edge(CLK) then
 			if ENABLE = '1' then
 				if CACHE_RUN = '0' then
-					if CPU_RUN = '0' then
-						if MMIO_WR = '1' and ADDR(11 downto 0) = x"F48" then	--7F48
+					-- snestang: a 7F48 fill starts even while the CPU runs (the
+					-- hardware refills; the running CPU pauses on CACHE_RUN via
+					-- CPU_EN). Mega Man X3's boot starts the CPU with 7F4F before
+					-- its 7F48, so gating the fill on CPU_RUN = '0' leaves the
+					-- cache empty and the chip busy forever.
+					if MMIO_WR = '1' and ADDR(11 downto 0) = x"F48" then	--7F48
 							if CACHE_PAGE(BitToInt(DI(0)))(14 downto 0) /= ROM_PAGE then
 								CACHE_RUN <= '1';
 								CACHE_BANK <= DI(0);
@@ -549,7 +606,8 @@ begin
 								
 								CACHE_BUS_ADDR <= std_logic_vector(unsigned(ROM_BASE) + (unsigned(ROM_PAGE) & "000000000"));
 							end if;
-						elsif MMIO_WR = '1' and ADDR(11 downto 0) = x"F4C" then	--7F4C
+					elsif CPU_RUN = '0' then
+						if MMIO_WR = '1' and ADDR(11 downto 0) = x"F4C" then	--7F4C
 							CACHE_PAGE(0)(15) <= DI(0);
 							if DI(0) = '1' then
 								CACHE_PAGE(0)(14 downto 0) <= ROM_PAGE;
@@ -559,11 +617,24 @@ begin
 								CACHE_PAGE(1)(14 downto 0) <= ROM_PAGE;
 							end if;
 						elsif MMIO_WR = '1' and ADDR(11 downto 0) = x"F4F" then	--7F4F
+							-- snestang: starting the CPU populates the cache from the
+							-- current base/page into the bank it will run (the hardware
+							-- does; FBNeo). Unconditional: the tag may match content
+							-- from an older base. The CPU pauses on CACHE_RUN and
+							-- resumes on the fresh page.
 							if CACHE_PAGE(0)(15) = '1' and CACHE_PAGE(0)(14 downto 0) = ROM_PAGE then
 								CACHE_BANK <= '0';
+								CACHE_PAGE(0)(14 downto 0) <= ROM_PAGE;
 							elsif CACHE_PAGE(1)(15) = '1' and CACHE_PAGE(1)(14 downto 0) = ROM_PAGE then
 								CACHE_BANK <= '1';
+								CACHE_PAGE(1)(14 downto 0) <= ROM_PAGE;
+							else
+								CACHE_BANK <= BANK;
+								CACHE_PAGE(BitToInt(BANK))(14 downto 0) <= ROM_PAGE;
 							end if;
+							CACHE_RUN <= '1';
+							CACHE_ADDR <= (others => '0');
+							CACHE_BUS_ADDR <= std_logic_vector(unsigned(ROM_BASE) + (unsigned(ROM_PAGE) & "000000000"));
 						end if;
 					elsif CPU_EN = '1' then
 						if (INST = I_BR or INST = I_BSUB) and IR(9) = '1' and COND = '1' then
@@ -579,7 +650,12 @@ begin
 					end if;
 				elsif SUSPEND = '0' and EN = '1' and not (ROM_WAIT = '1' and ROM_SEL = '1' and CACHE_RUN = '1') then
 					CACHE_WAIT_CNT <= CACHE_WAIT_CNT + 1;
-					if (CACHE_WAIT_CNT = unsigned(WS1) and ROM_SEL = '1') or (CACHE_WAIT_CNT = unsigned(WS2) and SRAM_SEL = '1') then
+					-- snestang: like the DMA dest, a fill byte with no select
+					-- (open bus) still completes after its counts so the fill
+					-- always terminates; the byte written is whatever is on
+					-- the bus, as on hardware.
+					if (CACHE_WAIT_CNT = unsigned(WS1) and ROM_SEL = '1') or (CACHE_WAIT_CNT = unsigned(WS2) and SRAM_SEL = '1') or
+						(CACHE_WAIT_CNT = unsigned(WS1) and ROM_SEL = '0' and SRAM_SEL = '0') then
 						CACHE_ADDR <= std_logic_vector(unsigned(CACHE_ADDR) + 1);
 						if CACHE_ADDR = "111111111" then
 							CACHE_RUN <= '0';
@@ -625,8 +701,16 @@ begin
 							DMA_WAIT_CNT <= DMA_WAIT_CNT + 1;
 						end if;
 					else
-						if (DMA_WAIT_CNT = unsigned(WS2) and SRAM_SEL = '1') or 
-							(DMA_WAIT_CNT = 0 and RAM_SEL = '1') then
+						-- snestang: a dest byte always completes after its counts,
+						-- even with no select (open bus) or into ROM (read-only,
+						-- the write strobe stays inactive): the cartridge bus is
+						-- fixed-timing, so a DMA always terminates. Spinning here
+						-- on an unmapped dest hangs the chip with BUSY up (Mega Man
+						-- X3's boot starts one with stale regs and polls BUSY).
+						if (DMA_WAIT_CNT = unsigned(WS2) and SRAM_SEL = '1') or
+							(DMA_WAIT_CNT = 0 and RAM_SEL = '1') or
+							(DMA_WAIT_CNT = unsigned(WS2) and ROM_SEL = '1') or
+							(DMA_WAIT_CNT = 0 and ROM_SEL = '0' and SRAM_SEL = '0' and RAM_SEL = '0') then
 							DMA_WAIT_CNT <= (others => '0');
 							DMA_DST_ADDR <= std_logic_vector(unsigned(DMA_DST_ADDR) + 1);
 							DMA_CNT <= DMA_CNT - 1;
