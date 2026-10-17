@@ -299,32 +299,29 @@ always @(posedge clk) begin
         kbd_data_valid <= 0;
         sv_req_d <= sv_req;         // keeps sv_w_pulse a single clock when SAVE_RDY=0
 
+        if (rx_eop && recv_state != RECV_IDLE &&
+                recv_state != RECV_RESPONSE_REQ)
+            recv_state <= RECV_IDLE;   // desynced partial frame: drop it
         case (recv_state)
 
             RECV_IDLE: if (rx_valid && rx_data == 8'hAA) begin
                 recv_state <= RECV_LEN1;
             end
 
-            RECV_LEN1: if (rx_eop) begin
-                recv_state <= RECV_IDLE;   // desynced partial frame: drop it
-            end else if (rx_valid) begin
+            RECV_LEN1: if (rx_valid) begin
                 len_reg[15:8] <= rx_data;
-                if (rx_data < 8)                      // max frame length 2047
+                if (rx_data < 5)                      // max frame 1279: the longest the MCU sends is 1025 (ROM data)
                     recv_state <= RECV_LEN2;
                 else
                     recv_state <= RECV_IDLE;
             end
 
-            RECV_LEN2: if (rx_eop) begin
-                recv_state <= RECV_IDLE;   // desynced partial frame: drop it
-            end else if (rx_valid) begin
+            RECV_LEN2: if (rx_valid) begin
                 len_reg[7:0] <= rx_data;
                 recv_state <= RECV_CMD;
             end
 
-            RECV_CMD: if (rx_eop) begin
-                recv_state <= RECV_IDLE;   // desynced partial frame: drop it
-            end else if (rx_valid) begin
+            RECV_CMD: if (rx_valid) begin
                 cmd_reg <= rx_data;
                 if (rx_data == 1 || rx_data == 2) 
                     recv_state <= RECV_RESPONSE_REQ;    // request sending core id / config string
@@ -335,9 +332,7 @@ always @(posedge clk) begin
                 data_cnt <= 0;
             end
             
-            RECV_PARAM: if (rx_eop) begin
-                recv_state <= RECV_IDLE;   // desynced partial frame: drop it
-            end else if (rx_valid) begin
+            RECV_PARAM: if (rx_valid) begin
                 data_reg <= {data_reg[23:0], rx_data};
                 data_cnt <= data_cnt + 1;
                 // e.g. set_overlay x[7:0], the 1st param byte is the last 
