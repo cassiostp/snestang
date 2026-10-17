@@ -282,18 +282,9 @@ reg cpu0_fwd, cpu1_fwd, cpu2_fwd, bsram_fwd, rv_fwd, aram_fwd;
 reg bsram_lo;
 reg [15:0] cpu_port0_h, cpu_port1_h, cpu2_dout_h, rv_h, aram_dout_h;
 reg [7:0] bsram_dout_reg;
-// syn_keep so this mux stays a net of its own. Merged into the ROM/CX4
-// cone, bit 2 was routed out to column 68 and back and missed the 31 ns
-// window by 0.34 ns.
-wire [15:0] cpu_port0_k /* synthesis syn_keep=1 */;
-wire [15:0] cpu_port1_k /* synthesis syn_keep=1 */;
-wire [15:0] cpu2_dout_k /* synthesis syn_keep=1 */;
-assign cpu_port0_k = cpu0_fwd ? dq_cap : cpu_port0_h;
-assign cpu_port1_k = cpu1_fwd ? dq_cap : cpu_port1_h;
-assign cpu2_dout_k = cpu2_fwd ? dq_cap : cpu2_dout_h;
-assign cpu_port0 = cpu_port0_k;
-assign cpu_port1 = cpu_port1_k;
-assign cpu2_dout = cpu2_dout_k;
+assign cpu_port0 = cpu0_fwd ? dq_cap : cpu_port0_h;
+assign cpu_port1 = cpu1_fwd ? dq_cap : cpu_port1_h;
+assign cpu2_dout = cpu2_fwd ? dq_cap : cpu2_dout_h;
 assign rv_dout   = rv_fwd   ? dq_cap : rv_h;
 assign aram_dout = aram_fwd ? dq_cap : aram_dout_h;
 assign bsram_dout = bsram_fwd ? (bsram_lo ? dq_cap[7:0] : dq_cap[15:8]) : bsram_dout_reg;
