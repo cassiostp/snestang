@@ -91,7 +91,7 @@ module snestang_top (
 // Clock signals
 wire mclk;                      // SNES master clock at 21.5054Mhz (~21.477)
 wire fclk;                      // Fast clock for sdram for SDRAM
-wire fclk_p;                    // SDRAM clock, 214.839 degrees (9.25 ns) behind fclk
+wire fclk_p;                    // SDRAM clock, 206.129 degrees (8.875 ns) behind fclk
 wire clk27;                     // 27Mhz for hdmi clock generation
 wire hclk5, hclk;               // 720p pixel clock at 74.25Mhz, and 5x high-speed
 
@@ -143,7 +143,7 @@ CLKDIV #(.DIV_MODE(5)) div5 (
 gowin_pll_snes pll_snes (
     .clkin(sys_clk),
     .clkout(fclk),              // 86.4
-    .clkoutp(fclk_p),           // 214.839 degrees behind fclk
+    .clkoutp(fclk_p),           // 206.129 degrees behind fclk
     .clkoutd(mclk)              // 21.6
 );
 
