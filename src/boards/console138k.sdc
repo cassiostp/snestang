@@ -63,6 +63,13 @@ set_multicycle_path 2 -setup -start -from [get_regs {sdram/cpu2_req_ack*}] -to [
 set_multicycle_path 1 -hold -start -from [get_regs {sdram/cpu2_req_ack*}] -to [get_clocks {mclk}]
 set_multicycle_path 2 -setup -start -from [get_regs {sdram/bsram_dout_reg*}] -to [get_clocks {mclk}]
 set_multicycle_path 1 -hold -start -from [get_regs {sdram/bsram_dout_reg*}] -to [get_clocks {mclk}]
+// The SA-1 is clocked only while sa1_mode is set (snestang_top.v .active),
+// and in that mode BSRAM_Q is the BW-RAM, not bsram_dout. The cone from
+// bsram_dout_reg into the SA-1 still fails a 31 ns check by a few tenths;
+// the S-CPU cone from the same register meets 31 ns. Give the SA-1 side
+// the following mclk (46.5 ns).
+set_multicycle_path 3 -setup -start -from [get_regs {sdram/bsram_dout_reg*}] -to [get_regs {main/SA1Map/*}]
+set_multicycle_path 2 -hold -start -from [get_regs {sdram/bsram_dout_reg*}] -to [get_regs {main/SA1Map/*}]
 set_multicycle_path 2 -setup -start -from [get_regs {sdram/bsram_req_ack*}] -to [get_clocks {mclk}]
 set_multicycle_path 1 -hold -start -from [get_regs {sdram/bsram_req_ack*}] -to [get_clocks {mclk}]
 // rv_dout / rv_req_ack are swept when the softcore is tied off (MCU_BL616).
