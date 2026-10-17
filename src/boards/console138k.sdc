@@ -79,13 +79,15 @@ set_multicycle_path 1 -hold -start -from [get_regs {sdram/bsram_req_ack*}] -to [
 //set_multicycle_path 6 -setup -end -from [get_nets {main/SNES/PPU/BG*}] -to [get_clocks {fclk}]
 //set_multicycle_path 5 -hold -end -from [get_nets {main/SNES/PPU/BG*}] -to [get_clocks {fclk}]
 
-// DQ read capture is not constrained here. O_sdram_clk is PLL CLKOUT2,
-// PS=(19+3/8)/31*360 = 225 degrees (9.6875 ns) behind fclk (UG306). The
-// controller samples dq_in 3 fclk after it launches CAS, which is 5.8125 ns
-// after the SDRAM edge that launches CL2 data. W9825G6KH tAC at CL2 is 6 ns,
-// so the datasheet maximum does not fit before pad-to-FF delay, and there is
-// no set_input_delay. Both round-4 and round-5 builds pass STA with this
-// path invisible.
+// Pin timing of the unchanged 225 degree CLKOUT2 (PE 19/3). Same delays as
+// fix/snes-sdram-io. The read word is 5.8125 ns old at the sample, against
+// tAC 6.0 plus 0.5 ns of assumed board skew, so this is expected to miss.
+// The default setup edge is the controller's sample. No multicycle.
+create_generated_clock -name sdram_clk -source [get_nets {fclk}] -master_clock fclk -phase 225.000 -divide_by 1 [get_ports {O_sdram_clk}]
+set_input_delay -clock sdram_clk -max 6.5 -min 2.5 [get_ports {IO_sdram_dq*}]
+set_output_delay -clock sdram_clk -max 2.0 -min -0.3 [get_ports {O_sdram_cs_n O_sdram_ras_n O_sdram_cas_n O_sdram_wen_n O_sdram_cke}]
+set_output_delay -clock sdram_clk -max 2.0 -min -0.3 [get_ports {O_sdram_addr* O_sdram_ba* O_sdram_dqm*}]
+set_output_delay -clock sdram_clk -max 2.0 -min -0.3 [get_ports {IO_sdram_dq*}]
 
 // false paths
 //set_false_path -from [get_regs {main/SNES/smp/CPUO*}] -to [get_regs {sdram/dq_out*}]
