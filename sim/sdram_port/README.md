@@ -6,7 +6,9 @@ it (ROM/WRAM edge detectors copied from there, 6/8/12-mclk bus cycles),
 plus an SA-1-like second master on the CPU2 lane, an SMP-like slow byte
 master on the ARAM lane, and a BSRAM probe doing reads and writes.
 
-- `run.sh` — functional regression (all lanes, both S-CPU phases).
+- `run.sh` — functional regression (all lanes, both S-CPU phases). ARAM
+  checks known initial data and later writes with both byte masks and full
+  words. Each case must exercise at least 100 reads and writes of each width.
 - `run_stable.sh` — proves the two multicycle windows the SDC relies on
   (`src/boards/console138k.sdc`): at every mclk-domain sample the fclk
   data was quiet for >= 3 fclk (SDRAM->SNES, `STABLE` lines), and at every

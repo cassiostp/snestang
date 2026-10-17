@@ -80,6 +80,7 @@ wire        bs_req_ack;
 
 reg  [15:0] aram_addr = 0;
 reg         aram_req = 0;
+reg         aram_16_r = 0;
 reg  [15:0] aram_din_r = 0;
 reg         aram_we_r = 0;
 wire [15:0] aram_dout;
@@ -97,7 +98,7 @@ sdram_snes dut (
 `endif
     .bsram_addr(bs_addr), .bsram_dout(bsram_dout), .bsram_din(bs_din),
     .bsram_req(bs_req), .bsram_req_ack(bs_req_ack), .bsram_we(bs_we),
-    .aram_16(1'b0), .aram_addr(aram_addr), .aram_din(aram_din_r),
+    .aram_16(aram_16_r), .aram_addr(aram_addr), .aram_din(aram_din_r),
     .aram_dout(aram_dout), .aram_req(aram_req), .aram_req_ack(), .aram_we(aram_we_r),
     .rv_addr(22'h0), .rv_din(16'h0),
     .rv_ds(2'b00), .rv_dout(), .rv_req(1'b0), .rv_req_ack(), .rv_we(1'b0)
@@ -372,10 +373,8 @@ always @(posedge mclk) if (running) begin
     end
 end
 
-`ifdef SDCMC_STABLE
 // ---- ARAM master: SMP-like slow byte accesses on the ARAM lane ------------
-// The SMP reads/writes ARAM at ~1 MHz through byte strobes (snestang_top.v
-// drives aram_din={ARAM_D,ARAM_D} with aram_16=0, as here); its req toggle
+// Exercise byte accesses (as used by the SMP) and full words. Its req toggle
 // is fire-and-forget (aram_req_ack is unconnected at the top level). The
 // controller serves one ARAM request per rotation (RAS at cycle2, CAS at
 // cycle4, DATA at cycle1) and copies req into aram_req_ack at the serving
@@ -383,19 +382,25 @@ end
 // after the serving cycle2) and samples two mclk later: DATA lands at the
 // serving cycle2 + 5 fclk and the next rotation overwrites aram_dout at +11,
 // so +8 is inside the valid window. din/we are held until the sample, i.e.
-// long past the serving cycle2 latch. A byte scoreboard with valid bits
-// checks every read that follows a write.
+// long past the serving cycle2 latch. Known initial data and a scoreboard
+// check every read, including both byte masks and full-word reads/writes.
+integer a_byte_reads = 0, a_word_reads = 0, a_byte_writes = 0, a_word_writes = 0;
 integer a_reads = 0, a_errs = 0, a_writes = 0, a_gap = 8, a_state = 0, a_dly = 0;
 reg [15:0] a_tag = 0;
-reg [7:0]  a_wd = 0;
+reg [15:0] a_wd = 0;
 reg        a_is_write = 0;
 reg [7:0]  aram_shadow [0:65535];
-reg        aram_valid [0:65535];
 integer a_i;
-initial begin for (a_i = 0; a_i < 65536; a_i = a_i + 1) aram_valid[a_i] = 0; end
+initial begin
+    for (a_i = 0; a_i < 65536; a_i = a_i + 1) begin
+        aram_shadow[a_i] = a_i[7:0] ^ a_i[15:8] ^ 8'ha6;
+        if (a_i[0]) chip.mem[24'hBC_0000 + (a_i >> 1)][15:8] = aram_shadow[a_i];
+        else chip.mem[24'hBC_0000 + (a_i >> 1)][7:0] = aram_shadow[a_i];
+    end
+end
 wire [7:0] aram_byte = a_tag[0] ? aram_dout[15:8] : aram_dout[7:0];
 reg [15:0] a_nxt;
-reg [7:0]  a_wtmp;
+reg [15:0] a_wtmp;
 reg        a_wwr;
 always @(posedge mclk) if (running) begin
     case (a_state)
@@ -405,14 +410,15 @@ always @(posedge mclk) if (running) begin
         // address/data and the toggle launch on the same mclk edge from
         // flops, like the top-level toggle-edge snapshots
         // (snestang_top.v aram_req/aram_addr_sd/aram_din_sd/aram_we_sd)
-        a_nxt = {$urandom(seed)} % 65536;
+        a_nxt = {$urandom(seed)} % 512;
         a_wtmp = $urandom(seed);
         a_wwr = $urandom(seed) % 3 == 0;
+        aram_16_r <= $urandom(seed) % 2;
         aram_addr <= a_nxt;
         a_tag <= a_nxt;
         a_wd <= a_wtmp;
         a_is_write <= a_wwr;
-        aram_din_r <= {a_wtmp, a_wtmp};
+        aram_din_r <= a_wtmp;
         aram_we_r <= a_wwr;
         aram_req <= ~aram_req;
         a_state <= 1;
@@ -423,14 +429,21 @@ always @(posedge mclk) if (running) begin
     end
     2: if (a_dly == 0) begin
         if (a_is_write) begin
-            aram_shadow[a_tag] <= a_wd;
-            aram_valid[a_tag] <= 1;
+            if (aram_16_r) begin
+                aram_shadow[{a_tag[15:1], 1'b0}] <= a_wd[7:0];
+                aram_shadow[{a_tag[15:1], 1'b1}] <= a_wd[15:8];
+            end else aram_shadow[a_tag] <= a_tag[0] ? a_wd[15:8] : a_wd[7:0];
             a_writes <= a_writes + 1;
+            if (aram_16_r) a_word_writes <= a_word_writes + 1;
+            else a_byte_writes <= a_byte_writes + 1;
         end else begin
             a_reads <= a_reads + 1;
-            if (aram_valid[a_tag] && aram_byte !== aram_shadow[a_tag]) begin
+            if (aram_16_r) a_word_reads <= a_word_reads + 1;
+            else a_byte_reads <= a_byte_reads + 1;
+            if ((aram_16_r && aram_dout !== {aram_shadow[{a_tag[15:1], 1'b1}], aram_shadow[{a_tag[15:1], 1'b0}]}) ||
+                (!aram_16_r && aram_byte !== aram_shadow[a_tag])) begin
                 a_errs <= a_errs + 1;
-                if (a_errs < 10) $display("%0t ARAM %04x: got %02x want %02x", $time, a_tag, aram_byte, aram_shadow[a_tag]);
+                if (a_errs < 10) $display("%0t ARAM %04x word=%0d: got %04x want %02x/%02x", $time, a_tag, aram_16_r, aram_dout, aram_shadow[{a_tag[15:1], 1'b1}], aram_shadow[{a_tag[15:1], 1'b0}]);
             end
         end
         aram_we_r <= 0;
@@ -440,9 +453,6 @@ always @(posedge mclk) if (running) begin
         a_dly <= a_dly - 1;
     endcase
 end
-`else
-integer a_reads = 0, a_errs = 0, a_writes = 0;
-`endif
 
 `ifdef SDCMC_STABLE
 // Multicycle-3 window proof. Each field below is an fclk launch that reaches
@@ -638,9 +648,10 @@ end
 
 // ---- trace for the identity check ------------------------------------------
 always @(posedge fclk) if (trace && running)
-    $fdisplay(tf, "%b %h %h %b %h %h %h %h %b",
+    $fdisplay(tf, "%b %h %h %b %h %h %h %h %b %h %h %b",
         {sdram_ncs, sdram_nras, sdram_ncas, sdram_nwe}, sdram_a, sdram_ba, sdram_dqm,
-        sdram_dq, cpu_port0, cpu_port1, bsram_dout, {cpu_req_ack, bs_req_ack});
+        sdram_dq, cpu_port0, cpu_port1, bsram_dout, {cpu_req_ack, bs_req_ack},
+        cpu2_dout, aram_dout, {cpu2_req_ack, dut.aram_req_ack});
 `ifdef SDCMC_STABLE
 // Internal trace for stability-violation triage (rotation vs sample timing).
 integer tf2 = 0;
@@ -699,6 +710,10 @@ initial begin
                  (m2_lat_sum * 100 / (m2_reads ? m2_reads : 1)) % 100, m2_lat_max);
     $display("  BSRAM reads %0d, errors %0d, writes %0d, latency max %0d avg %0d mclk", b_reads, b_errs, b_writes, b_lat_max, b_lat_sum / (b_reads ? b_reads : 1));
     $display("  ARAM reads %0d, errors %0d, writes %0d", a_reads, a_errs, a_writes);
+    $display("ARAM-COVER byte_reads=%0d word_reads=%0d byte_writes=%0d word_writes=%0d",
+             a_byte_reads, a_word_reads, a_byte_writes, a_word_writes);
+    if (a_byte_reads < 100 || a_word_reads < 100 || a_byte_writes < 100 || a_word_writes < 100)
+        $fatal(1, "ARAM coverage incomplete");
     $display("RESULT scen=%0d s_errs=%0d w_errs=%0d wram_bad=%0d m2_errs=%0d b_errs=%0d a_errs=%0d s_max=%0d w_max=%0d m2_max=%0d m2_reads=%0d a_reads=%0d",
              scen, s_errs, w_errs, wbad, m2_errs, b_errs, a_errs, i, t, m2_lat_max, m2_reads, a_reads);
 `ifdef SDCMC_STABLE
