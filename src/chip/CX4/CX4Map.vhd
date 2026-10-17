@@ -122,6 +122,13 @@ begin
 	BSRAM_ADDR <= BRAM_ADDR and BSRAM_MASK(19 downto 0);
 	BSRAM_CE_N <= SRAM_CE_N;
 
-	CX4_DI <= BSRAM_Q when SRAM_CE_N = '0' else ROM_Q(7 downto 0);
+	CX4_DI <= BSRAM_Q when SRAM_CE_N = '0' else
+		ROM_Q(7 downto 0) when ROM_CE1_N = '0' or ROM_CE2_N = '0' else
+		-- snestang: open bus reads as FF. When the chip selects
+		-- nothing (an external access outside ROM/SRAM, e.g. Mega Man
+		-- X3's boot table walk) BUS_DI must be FF, not the stale ROM_Q
+		-- byte: the game's loop terminates on it, and unmapped fill/DMA
+		-- bytes sample it, as on hardware.
+		x"FF";
 
 end rtl;
