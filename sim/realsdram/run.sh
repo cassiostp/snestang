@@ -115,7 +115,7 @@ do_run() {
     case $ROM in /*) ;; *) ROM=$PWD/$ROM;; esac
     mkdir -p "$OUT" "$B/run"
     rm -f "$OUT/$GAME".log "$OUT/$GAME".aud "$OUT/$GAME".stdout "$OUT/$GAME".stderr \
-          "$OUT/$GAME"_f*.ppm "$OUT/$GAME"_bsram.bin "$OUT/$GAME"_aram.bin
+          "$OUT/$GAME"_f*.ppm "$OUT/$GAME"_c*.ppm "$OUT/$GAME"_bsram.bin "$OUT/$GAME"_aram.bin
     R=$B/run/$GAME
     rm -rf "$R"; mkdir -p "$R/roms"
     SZ=$(python3 "$here/make_rom.py" "$ROM" "$R/roms/game.hex" | grep '^SIZE=' | cut -d= -f2)
@@ -125,16 +125,14 @@ do_run() {
     # Load of a 2 MB image is ~8M mclk before the first frame; the behavioural
     # smoke budget's +20M is tight once the controller's 200 us init is added.
     MCLK=$((FRAMES * 357380 + 40000000))
-    if [ "${DUMP_ALL_FRAMES:-0}" = 1 ]; then
-        DUMPS=$(python3 -c "print(','.join(str(f) for f in range(0, int($FRAMES)+1, 2)))")
-    else
-        DUMPS=$(python3 -c "print(','.join(str(f) for f in [60,300,600,900,1200] if f <= $FRAMES))")
-    fi
+    DUMPS=$(python3 -c "print(','.join(str(f) for f in [60,300,600,900,1200] if f <= $FRAMES))")
+    ALL_FRAMES=0
+    if [ "${DUMP_ALL_FRAMES:-0}" = 1 ]; then ALL_FRAMES=$FRAMES; fi
     echo "mclk budget: $MCLK dumps: $DUMPS"
     T0=$(date +%s)
     set +e
     (cd "$R" && nice -n 10 "$B/obj/obj/Vsnestang_smoke" -m "$MCLK" -o "$OUT/$GAME" \
-        ${SCRIPT:+-i "$SCRIPT"} -d "$DUMPS" >"$OUT/$GAME.stdout" 2>"$OUT/$GAME.stderr")
+        ${SCRIPT:+-i "$SCRIPT"} -d "$DUMPS" -a "$ALL_FRAMES" >"$OUT/$GAME.stdout" 2>"$OUT/$GAME.stderr")
     RC=$?
     set -e
     T1=$(date +%s)

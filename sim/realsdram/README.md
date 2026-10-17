@@ -31,8 +31,10 @@ length. CX4 and SA-1 are VHDL and are not in this model.
 
 `tools/smoke/snes/build.sh` builds the same model when `SMOKE_REAL_SDRAM=1`.
 
-Set `DUMP_ALL_FRAMES=1` on the run command to save every captured field
-through the frame budget for byte comparisons. Capture uses the smoke
-convention of even frame numbers (0, 2, ..., 600 for a 600-frame budget).
-Per-frame logs also record mclk and audio-sample counts; compare those to
-check timing as well as video and DSP audio. Keep all output local.
+Set `DUMP_ALL_FRAMES=1` on the run command to save every console frame
+through the frame budget as `<game>_c1.ppm` ... `<game>_c600.ppm`.
+`C` log records mark every visible-Y wrap and include mclk and audio-sample
+counts. The inherited `F` records and `_f60/_f300/_f600` images use a
+two-field counter; that counter still drives scripts, preserving input
+timing. Compare `C` records, all `_c` images and DSP audio for complete
+frame-by-frame coverage. Keep all output local.

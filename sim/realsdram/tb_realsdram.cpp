@@ -6,7 +6,7 @@
 //   ARAM  words at 0xBC0000 (bank 2, {2'b10, 7'b1111000, byte_addr[15:1]})
 //
 // Usage:
-//   Vsnestang_smoke -m <max_mclk> -o <outprefix> [-i script] [-d f0,f1,..]
+//   Vsnestang_smoke -m <max_mclk> -o <outprefix> [-i script] [-d f0,f1,..] [-a console_frames]
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -34,12 +34,15 @@ int main(int argc, char **argv) {
     uint64_t max_mclk = 0;
     const char *outprefix = "smoke";
     const char *scriptpath = nullptr;
+    uint64_t all_frames = 0;
     std::vector<unsigned long long> dumps;
     for (int i = 1; i < argc; i++) {
         if (strcmp(argv[i], "-m") == 0 && i + 1 < argc)
             max_mclk = strtoull(argv[++i], nullptr, 10);
         else if (strcmp(argv[i], "-o") == 0 && i + 1 < argc)
             outprefix = argv[++i];
+        else if (strcmp(argv[i], "-a") == 0 && i + 1 < argc)
+            all_frames = strtoull(argv[++i], nullptr, 10);
         else if (strcmp(argv[i], "-i") == 0 && i + 1 < argc)
             scriptpath = argv[++i];
         else if (strcmp(argv[i], "-d") == 0 && i + 1 < argc) {
@@ -48,7 +51,7 @@ int main(int argc, char **argv) {
         }
     }
     if (max_mclk == 0) {
-        printf("Usage: %s -m <max_mclk> [-o prefix] [-i script] [-d f0,f1,..]\n", argv[0]);
+        printf("Usage: %s -m <max_mclk> [-o prefix] [-i script] [-d f0,f1,..] [-a console_frames]\n", argv[0]);
         return 1;
     }
     std::vector<std::pair<uint64_t, uint16_t>> script;
@@ -87,6 +90,8 @@ int main(int argc, char **argv) {
     int prev_y = -1, last_x = -1, last_y = -1;
     uint64_t vhash = 1469598103934665603ULL;
     uint64_t frame_nonzero = 0;
+    uint64_t console_frame = 0, console_nonzero = 0;
+    uint64_t console_hash = 1469598103934665603ULL;
     size_t script_idx = 0;
 
     while (mclk < max_mclk) {
@@ -100,8 +105,10 @@ int main(int argc, char **argv) {
                 uint16_t px = snes->rgb_out & 0x7FFF;
                 vhash ^= (uint64_t)px;
                 vhash *= 1099511628211ULL;
+                console_hash ^= (uint64_t)px;
+                console_hash *= 1099511628211ULL;
                 fb[(y & 0xFF) * PX_W + x] = px;
-                if (px) frame_nonzero++;
+                if (px) { frame_nonzero++; console_nonzero++; }
                 last_x = x; last_y = y;
             }
             int rdy = snes->audio_ready;
@@ -111,6 +118,34 @@ int main(int argc, char **argv) {
                 nsamp++;
             }
             prev_ready = rdy;
+            // Y_OUT[8] is FIELD. Comparing the full value only detects
+            // the 1->0 FIELD transition, so the legacy F log skips alternate
+            // console frames. Capture each OUT_Y wrap separately; retain the
+            // legacy counter below so existing joypad scripts keep their timing.
+            if (prev_y >= 0 && (y & 0xFF) < (prev_y & 0xFF) && (prev_y & 0xFF) > 200) {
+                console_frame++;
+                fprintf(f, "C %lu mclk=%lu samp=%lu vhash=%016lx nz=%lu joy=%03x romtype=%02x\n",
+                        (unsigned long)console_frame, (unsigned long)mclk, (unsigned long)nsamp,
+                        (unsigned long)console_hash, (unsigned long)console_nonzero,
+                        (unsigned)snes->tb_joy1, (unsigned)snes->__PVT__rom_type);
+                if (console_frame <= all_frames) {
+                    snprintf(path, sizeof path, "%s_c%lu.ppm", outprefix, (unsigned long)console_frame);
+                    FILE *pf = fopen(path, "wb");
+                    if (!pf) { printf("cannot open frame capture\n"); return 1; }
+                    fprintf(pf, "P6\n%d %d\n255\n", PX_W, PX_H);
+                    for (int i = 0; i < PX_W * PX_H; i++) {
+                        uint16_t px = fb[i];
+                        uint8_t rgb[3] = {
+                            (uint8_t)(((px >> 10) & 0x1F) * 255 / 31),
+                            (uint8_t)(((px >> 5) & 0x1F) * 255 / 31),
+                            (uint8_t)((px & 0x1F) * 255 / 31)};
+                        fwrite(rgb, 1, 3, pf);
+                    }
+                    fclose(pf);
+                }
+                console_hash = 1469598103934665603ULL;
+                console_nonzero = 0;
+            }
             if (prev_y >= 0 && y < prev_y && prev_y > 200) {
                 unsigned long frame = (unsigned long)(ff * 2);
                 fprintf(f, "F %lu ff=%lu mclk=%lu samp=%lu vhash=%016lx nz=%lu joy=%03x romtype=%02x\n",
