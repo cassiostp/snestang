@@ -40,6 +40,13 @@ master clocks the S-CPU's own ROM reads through the mapper fail too
 
 ## `port/tb_port.v` (iverilog): the CX4 on the CPU2 lane at CX4 cadence
 
+The two-channel controller also gives S-CPU ROM reads their own request
+toggle. `sh port/run.sh lanes` checks coeval ROM/WRAM accesses at a
+six-master-clock FastROM cadence and an eight-master-clock mixed cadence,
+including each WRAM write followed by a read of the same byte. Both phases
+against the SDRAM rotation are checked. Request
+and acceptance counts must match on both lanes, with no mailbox overruns.
+
 The ROM/WRAM request logic extracted from `src/snestang_top.v` at build
 time (see `port/run.sh`), the real `sdram_snes` controller with both CPU
 lanes, the real `sa1_rom_cache` word cache (second instance, as the CX4

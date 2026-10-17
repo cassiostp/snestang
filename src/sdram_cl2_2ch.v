@@ -48,7 +48,8 @@
 module sdram_snes
 #(
     // Clock frequency, max 66.7Mhz with current set of T_xx/CAS parameters.
-    parameter         FREQ = 64_800_000,  
+    parameter         FREQ = 64_800_000,
+    parameter         CPU_ROM_PORT = 0,
 
     // Time delays for 66.7Mhz max clock (min clock cycle 15ns)
     // The SDRAM supports max 166.7Mhz (RP/RCD/RC need changes)
@@ -78,19 +79,25 @@ module sdram_snes
     input             clkref,       // main reference clock, half speed of clk
     input             resetn,
 
-    // CPU access (ROM and WRAM) uses bank 0 and 1 (total 16MB)
+    // CPU access uses bank 0: loader/legacy ROM and WRAM at its end.
 	input      [15:0] cpu_din /* synthesis syn_keep=1 */,
 	input             cpu_port,
-	output reg [15:0] cpu_port0,    // output register for bank 0
-	output reg [15:0] cpu_port1,    // output register for bank 1
+	output reg [15:0] cpu_port0,    // sticky ROM word
+	output reg [15:0] cpu_port1,    // sticky WRAM word
 	input      [22:1] cpu_addr,     // 8MB SNES memory, with WRAM at end
     input             cpu_req,
     output reg        cpu_req_ack,
 	input             cpu_we,
 	input       [1:0] cpu_ds,       // which bytes to enable
 
-    // Second ROM reader (bank 0, reads only). Priority below the CPU, so the
-    // CPU still waits at most one rotation for its slot.
+    // Independent S-CPU ROM read mailbox. WRAM reads go first; ROM reads
+    // precede buffered WRAM writes, which can complete in the next slot.
+    // The host holds its address until the request is accepted.
+    input      [22:1] rom_addr,
+    input             rom_req,
+    output reg        rom_req_ack = 0,
+
+    // Coprocessor ROM reader (bank 0, reads only), below both S-CPU lanes.
     input      [22:1] cpu2_addr,
     output reg [15:0] cpu2_dout,
     input             cpu2_req,
@@ -171,12 +178,14 @@ localparam PORT_CPU   = 3'd1;
 localparam PORT_BSRAM = 3'd2;
 localparam PORT_RV    = 3'd3;
 localparam PORT_CPU2  = 3'd4;
+localparam PORT_ROM   = 3'd5;
 
 localparam PORT_ARAM  = 3'd1;
 
 reg  [2:0] port[2];
 reg  [2:0] next_port[2];
 reg [24:0] next_addr[2];        // 2-bit bank #, then 8MB byte address in bank
+reg        cpu_port_latch, cpu_req_latch, rom_req_latch;
 reg [15:0] next_din[2];
 reg  [1:0] next_ds[2];
 reg  [2:0] next_we;
@@ -206,7 +215,16 @@ always @(*) begin
 	next_ds[0] = 0;
 	next_din[0] = 0;
 	// if (refresh) next_port[0] = PORT_NONE; else 
-    if (cpu_req ^ cpu_req_ack) begin
+    // A WRAM read must meet its current sampling edge. A coeval ROM
+    // read also has a deadline (e.g. A-bus ROM -> B-bus WRAM DMA), while
+    // the captured WRAM write can wait one rotation without stalling it.
+    if (CPU_ROM_PORT && (rom_req ^ rom_req_ack) &&
+        !((cpu_req ^ cpu_req_ack) && !cpu_we)) begin
+        next_port[0] = PORT_ROM;
+        next_addr[0] = {2'b00, rom_addr, 1'b0};
+        next_ds[0] = 2'b11;
+        next_oe[0] = 1'b1;
+	end else if (cpu_req ^ cpu_req_ack) begin
 		next_port[0] = PORT_CPU;
 		next_addr[0] = { 2'b00, cpu_addr, 1'b0 };       // CPU uses bank 0, WRAM at the end
 		next_din[0]  = cpu_din;
@@ -318,6 +336,11 @@ always @(posedge clk) begin
             // RAS
             // bank 0,1 - ROM, WRAM, BSRAM and RV
             if (cycle[0]) begin
+                // Keep the response destination and ack token with the
+                // captured access, even if the host presents another one.
+                cpu_port_latch <= cpu_port;
+                cpu_req_latch <= cpu_req;
+                rom_req_latch <= rom_req;
     			port[0] <= next_port[0];
 	    		{ we_latch[0], oe_latch[0] } <= { next_we[0], next_oe[0] };
     			addr_latch[0] <= next_addr[0];
@@ -363,7 +386,8 @@ always @(posedge clk) begin
             end
             if (cycle[1]) begin
                 case (port[0])
-                PORT_CPU:   cpu_req_ack <= cpu_req;
+                PORT_CPU:   cpu_req_ack <= cpu_req_latch;
+                PORT_ROM:   rom_req_ack <= rom_req_latch;
                 PORT_BSRAM: bsram_req_ack <= bsram_req;
                 PORT_RV:    rv_req_ack <= rv_req;
                 default: ;
@@ -387,7 +411,8 @@ always @(posedge clk) begin
             // ROM, WRAM, BSRAM and RV
             if (cycle[4] && oe_latch[0]) begin
                 case (port[0])
-                PORT_CPU:   if (cpu_port) cpu_port1 <= dq_in; else cpu_port0 <= dq_in;
+                PORT_CPU:   if (cpu_port_latch) cpu_port1 <= dq_in; else cpu_port0 <= dq_in;
+                PORT_ROM:   cpu_port0 <= dq_in;
                 PORT_CPU2:  begin cpu2_dout <= dq_in; cpu2_req_ack <= ~cpu2_req_ack; end
                 PORT_BSRAM: bsram_dout_reg <= ds[0][0] ? dq_in[7:0] : dq_in[15:8];
                 PORT_RV:    rv_dout <= dq_in;

@@ -6,6 +6,7 @@
 // aram             |  req  |  ack  |  data |
 //                                  |  req  |  ack  |  data |
 module sdram_snes
+#(parameter CPU_ROM_PORT = 0)
 (
     input             clk,
     input             mclk,         // snes mclk
@@ -33,6 +34,10 @@ module sdram_snes
     output            cpu_req_ack,
 	input             cpu_we,
 	input       [1:0] cpu_ds,       // byte enable
+
+    input      [22:1] rom_addr,
+    input             rom_req,
+    output reg        rom_req_ack = 0,
 
     // Second ROM reader: ack toggles when cpu2_dout holds the word
     input      [22:1] cpu2_addr,
@@ -107,10 +112,12 @@ localparam PORT_NONE = 0;
 localparam PORT_CPU = 1;
 localparam PORT_BSRAM = 2;
 localparam PORT_CPU2 = 3;
+localparam PORT_ROM = 4;
 
 localparam PORT_ARAM = 1;
 
-reg [1:0] port [2];
+reg [2:0] port [2];
+reg cpu_port_latch, cpu_req_latch;
 reg cpu_req_r, bsram_req_r, aram_req_r;
 reg we_latch[2], oe_latch[2];
 reg [15:0] cpu_dout_pre, aram_dout_pre;
@@ -139,9 +146,17 @@ always @(posedge mclk) begin
 
         // RAS
         if (cycle == 1'b1) begin
-            if (cpu_req_new_t || cpu_req_new) begin                 // CPU
+            if (CPU_ROM_PORT && (rom_req ^ rom_req_ack) &&
+                !((cpu_req_new_t || cpu_req_new) && !cpu_we)) begin
+                port[0] <= PORT_ROM;
+                {we_latch[0], oe_latch[0]} <= 2'b01;
+                cpu_dout_pre <= mem_cpu[rom_addr];
+                rom_req_ack <= rom_req;
+            end else if (cpu_req_new_t || cpu_req_new) begin                 // CPU
                 cpu_req_new <= 0;
                 port[0] <= PORT_CPU;
+                cpu_port_latch <= cpu_port;
+                cpu_req_latch <= cpu_req;
                 {we_latch[0], oe_latch[0]} <= {cpu_we, ~cpu_we};
                 if (cpu_we) begin
                     case(cpu_ds)
@@ -204,11 +219,13 @@ always @(posedge mclk) begin
         // CAS
         if (cycle == 1'b0) begin
             if (port[0] == PORT_CPU) begin                  // CPU
-                cpu_req_ack <= cpu_req;
-                if (cpu_port)
+                cpu_req_ack <= cpu_req_latch;
+                if (cpu_port_latch)
                     cpu_port1 <= cpu_dout_pre; 
                 else
                     cpu_port0 <= cpu_dout_pre; 
+            end else if (port[0] == PORT_ROM) begin
+                cpu_port0 <= cpu_dout_pre;
             end else if (port[0] == PORT_CPU2) begin        // CPU2
                 cpu2_req_ack <= ~cpu2_req_ack;
                 cpu2_dout <= cpu_dout_pre;

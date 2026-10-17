@@ -60,7 +60,9 @@ GSU GSU(
 );
 
 assign ROM_ADDR = ({2'b00,ROM_A}) & ROM_MASK[22:0];
-assign ROM_CE_N = 1'b0;
+// RON uses CPU2. On the S-CPU side, request only the GSU's ROM windows;
+// WRAM and cartridge-RAM addresses otherwise generate unused ROM traffic.
+assign ROM_CE_N = ~(ROM_REQ | (CA[22] ? ~CA[21] : CA[15]));
 assign ROM_WORD = 1'b0;
 assign BSRAM_ADDR = {3'b000,RAM_A};	// full 17-bit RAM address: up to 128 KB GSU RAM
 assign BSRAM_OE_N =  ~RAM_WE_N;

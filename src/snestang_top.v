@@ -434,6 +434,10 @@ reg         cpu_we;
 
 wire [22:0] rom_addr = loading ? loader_addr : ROM_ADDR[22:0];
 reg [22:0]  rom_addr_sd;
+`ifndef SDRAM_3CH
+reg         rom_req = 0;
+wire        rom_req_ack;
+`endif
 
 // Second ROM reader on the controller's CPU2 lane (the SA-1's ROM fetches,
 // served below the S-CPU; driven by the word cache below). The CX4's own
@@ -474,19 +478,27 @@ always @(posedge mclk) begin
     end else begin
         
         // ROM read and load. While the CX4 owns the ROM bus its fetch address
-        // is on ROM_ADDR: the CPU lane skips it (the CX4 reads the same word
-        // through the CPU2 cache instead), so a coinciding S-CPU WRAM request
-        // can no longer cancel the ROM fetch. S-CPU ROM reads while the CX4
-        // is idle still use this lane exactly as before.
+        // is on ROM_ADDR: its word comes through the CPU2 cache instead.
+        // On the two-channel controller, S-CPU ROM and WRAM have independent
+        // toggles, so a coeval WRAM access cannot overwrite a ROM request.
+        // Loading still uses the writable CPU port while the SNES is reset.
         if (loading && loader_do_valid && header_finished && loader_addr[0]
             || ~loading && ~ROM_CE_N && rom_addr_sd != rom_addr && ~cx4_owns_rom && ~gsu_owns_rom) begin
             rom_addr_sd <= rom_addr;
-            cpu_addr <= rom_addr;
-            cpu_req <= ~cpu_req;
-            cpu_we <= loading;
-            cpu_din <= {loader_do, loader_do_r};    // write 16 bits on odd addresses
-            cpu_ds <= 2'b11;
-            cpu_port <= 0;
+`ifndef SDRAM_3CH
+            if (~loading) begin
+                rom_req <= ~rom_req;
+            end else begin
+`endif
+                cpu_addr <= rom_addr;
+                cpu_req <= ~cpu_req;
+                cpu_we <= loading;
+                cpu_din <= {loader_do, loader_do_r};    // write 16 bits on odd addresses
+                cpu_ds <= 2'b11;
+                cpu_port <= 0;
+`ifndef SDRAM_3CH
+            end
+`endif
         end
         
         // WRAM read/write
@@ -819,7 +831,11 @@ always @(posedge mclk) begin
     end
 end
 
-sdram_snes sdram(
+sdram_snes
+`ifndef SDRAM_3CH
+    #(.CPU_ROM_PORT(1))
+`endif
+    sdram(
     .clk(fclk), .mclk(mclk), .clkref(DOT_CLK_CE), .resetn(resetn), .busy(sdram_busy),
 
     // SDRAM pins
@@ -833,6 +849,8 @@ sdram_snes sdram(
     .cpu_we(cpu_we), .cpu_ds(cpu_ds),
 
 `ifndef SDRAM_3CH
+    // Independent S-CPU ROM mailbox; a tied WRAM request stays pending.
+    .rom_addr(rom_addr_sd[22:1]), .rom_req(rom_req), .rom_req_ack(rom_req_ack),
     // Second ROM reader
     .cpu2_addr(cpu2_addr), .cpu2_dout(cpu2_dout), .cpu2_req(cpu2_req), .cpu2_req_ack(cpu2_req_ack),
 `endif

@@ -30,6 +30,7 @@ always #23271 mclk = ~mclk;
 // 6-clock dots of an NTSC line (1364 = 338*4 + 2*6)
 reg dot_ce = 0;
 integer dot_cnt = 0, dot_n = 0, dot_delay = 0;
+integer dot_phase = 0;
 always @(posedge mclk) begin
     dot_ce <= 0;
     if (dot_delay > 0) dot_delay <= dot_delay - 1;
@@ -51,6 +52,8 @@ reg  [23:0] ROM_ADDR = 0;
 wire        ROM_WORD = 1'b0;                                // CX4Map: ROM_WORD <= '0'
 wire [22:0] rom_addr = loading ? loader_addr : ROM_ADDR[22:0];
 reg  [22:0] rom_addr_sd = 0;                                // flip-flops power up as 0 on the FPGA
+reg         rom_req = 0;
+wire        rom_req_ack;
 reg  [16:0] WRAM_ADDR = 0, wram_addr_sd = 0;
 reg   [7:0] WRAM_D = 0;
 reg         wram_rd = 0, wram_wr = 0, wram_rd_r = 0, wram_wr_r = 0;
@@ -104,7 +107,7 @@ wire [12:0] sdram_a;
 wire [1:0]  sdram_ba, sdram_dqm;
 wire        sdram_ncs, sdram_nwe, sdram_nras, sdram_ncas, sdram_cke;
 
-sdram_snes sdram (
+sdram_snes #(.CPU_ROM_PORT(1)) sdram (
     .clk(fclk), .mclk(mclk), .clkref(dot_ce), .resetn(resetn), .busy(sdram_busy),
     .SDRAM_DQ(sdram_dq), .SDRAM_A(sdram_a), .SDRAM_BA(sdram_ba),
     .SDRAM_nCS(sdram_ncs), .SDRAM_nWE(sdram_nwe), .SDRAM_nRAS(sdram_nras),
@@ -112,6 +115,7 @@ sdram_snes sdram (
     .cpu_addr(cpu_addr[22:1]), .cpu_din(cpu_din), .cpu_port(cpu_port),
     .cpu_port0(cpu_port0), .cpu_port1(cpu_port1), .cpu_req(cpu_req),
     .cpu_req_ack(), .cpu_we(cpu_we), .cpu_ds(cpu_ds),
+    .rom_addr(rom_addr_sd[22:1]), .rom_req(rom_req), .rom_req_ack(rom_req_ack),
     .cpu2_addr(cpu2_addr), .cpu2_dout(cpu2_dout),
     .cpu2_req(cpu2_req), .cpu2_req_ack(cpu2_req_ack),
     .bsram_addr(20'h0), .bsram_dout(), .bsram_din(8'h0),
@@ -143,12 +147,23 @@ sdram_chip chip (
 // The CX4 no longer uses this lane, so ROM+WRAM coincidences are gone by construction.
 reg cpu_req_d = 0;
 integer lost = 0, req_total = 0;
+reg rom_req_d = 0;
+integer rom_lost = 0, rom_total = 0, rom_accepted = 0, cpu_accepted = 0;
 always @(posedge mclk) begin
     cpu_req_d <= cpu_req;
     if (cpu_req != cpu_req_d) begin
         req_total <= req_total + 1;
         if (sdram.cpu_req_ack != cpu_req_d) lost <= lost + 1;   // previous toggle not yet acknowledged
     end
+    rom_req_d <= rom_req;
+    if (rom_req != rom_req_d) begin
+        rom_total <= rom_total + 1;
+        if (rom_req_ack != rom_req_d) rom_lost <= rom_lost + 1;
+    end
+end
+always @(posedge fclk) if (sdram.normal && sdram.cycle[0]) begin
+    if (sdram.next_port[0] == 5) rom_accepted <= rom_accepted + 1;
+    if (sdram.next_port[0] == 1) cpu_accepted <= cpu_accepted + 1;
 end
 
 // ---- the CPU2 lane is acked (the cache waits), so nothing is lost there; count to prove it
@@ -302,12 +317,30 @@ always @(posedge mclk) begin
     end
 end
 
+time rom_launch, cpu_launch;
+integer rom_latency = 0, wram_latency = 0;
+integer latency;
+always @(rom_req) rom_launch = $time;
+always @(cpu_req) cpu_launch = $time;
+always @(posedge fclk) if (sdram.normal && sdram.cycle[4] && sdram.oe_latch[0]) begin
+    if (sdram.port[0] == 5) begin
+        latency = ($time - rom_launch) / 15514;
+        if (latency > rom_latency) rom_latency = latency;
+    end
+    if (sdram.port[0] == 1 && sdram.cpu_port_latch) begin
+        latency = ($time - cpu_launch) / 15514;
+        if (latency > wram_latency) wram_latency = latency;
+    end
+end
 integer i;
+integer lane_errors = 0, lane_checks = 0;
+reg [7:0] lane_shadow [0:15];
 initial begin
     if (!$value$plusargs("ws=%d", WS1)) WS1 = 3;
     if (!$value$plusargs("steps=%d", steps)) steps = 4000;
     if (!$value$plusargs("wram=%d", wram_pct)) wram_pct = 0;
     if (!$value$plusargs("phase=%d", dot_delay)) dot_delay = 0;
+    dot_phase = dot_delay;
     verbose = $test$plusargs("verbose");
     for (i = 0; i < 64; i = i + 1) lat_hist[i] = 0;
     for (i = 0; i < 32; i = i + 1) valid[i] = 0;
@@ -324,6 +357,54 @@ initial begin
         #100; ROM_ADDR = 24'h000100 + i * 9;
         repeat (20) @(posedge mclk);
         if (ROM_Q[7:0] !== pat(ROM_ADDR[22:0])) $display("FAIL: image check at %h: got %h want %h", ROM_ADDR, ROM_Q[7:0], pat(ROM_ADDR[22:0]));
+    end
+
+    // FastROM alone at six master clocks, then coeval ROM plus WRAM at
+    // WRAM's eight-master-clock cadence. Each
+    // write is followed immediately by a read of the same WRAM byte;
+    // different ROM words make a stale/misrouted response observable.
+    for (i = 0; i < 128; i = i + 1) begin
+        #100; ROM_ADDR = 24'h002000 + i * 3;
+        repeat (6) @(posedge mclk);
+        #100;
+        if (ROM_Q[7:0] !== pat(ROM_ADDR[22:0])) lane_errors = lane_errors + 1;
+        lane_checks = lane_checks + 1;
+    end
+    for (i = 0; i < 512; i = i + 1) begin
+        #100;
+        ROM_ADDR = 24'h000200 + i * 3;
+        WRAM_ADDR = (i >> 1) & 15;
+        WRAM_D = (i * 7) ^ 8'hA9;
+        wram_wr = !i[0];
+        wram_rd = i[0];
+        if (!i[0]) lane_shadow[WRAM_ADDR] = WRAM_D;
+        // A-bus ROM data must already be valid for a B-bus WRAM write;
+        // waiting until the end of the eight-clock cycle hides a late read.
+        repeat (5) @(posedge mclk);
+        #100;
+        if (!i[0] && ROM_Q[7:0] !== pat(ROM_ADDR[22:0])) lane_errors = lane_errors + 1;
+        repeat (2) @(posedge mclk);
+        #100;
+        wram_rd = 0;
+        wram_wr = 0;
+        @(posedge mclk);
+        #100;
+        if (i[0] && ROM_Q[7:0] !== pat(ROM_ADDR[22:0])) begin
+            lane_errors = lane_errors + 1;
+            if (lane_errors < 8) $display("ROM_BAD i=%0d addr=%h", i, ROM_ADDR);
+        end
+        if (i[0] && WRAM_SD_Q !== lane_shadow[WRAM_ADDR]) lane_errors = lane_errors + 1;
+        lane_checks = lane_checks + 1 + i[0];
+    end
+    repeat (8) @(posedge mclk);
+    $display("LANES phase=%0d checks=%0d errors=%0d ROM=%0d/%0d WRAM+loader=%0d/%0d overruns=%0d/%0d",
+             dot_phase, lane_checks, lane_errors, rom_accepted, rom_total, cpu_accepted, req_total, rom_lost, lost);
+    $display("LATENCY ROM=%0d WRAM=%0d fclk from request to read-data capture", rom_latency, wram_latency);
+    if (lane_errors || rom_lost || lost || rom_accepted != rom_total || cpu_accepted != req_total)
+        $fatal(1, "CPU lane regression");
+    if ($test$plusargs("lanes")) begin
+        $display("RESULT: PASS");
+        $finish;
     end
 
     // WRAM must hold the shadow before the run
@@ -349,7 +430,7 @@ initial begin
         if (lat_hist[i] != 0) $display("     %2d (%0d.%0d mclk): %0d", i, i / 3, (i % 3) * 33 / 10, lat_hist[i]);
     $display("   S-CPU WRAM reads: %0d, wrong: %0d; CPU-lane requests: %0d, lost: %0d; CPU2 requests: %0d, lost: %0d",
              wram_reads, wram_bad, req_total, lost, req_total2, lost2);
-    if (bad !== 0 || lost !== 0 || lost2 !== 0 || wram_bad !== 0) $display("RESULT: FAIL");
+    if (bad !== 0 || lost !== 0 || lost2 !== 0 || rom_lost !== 0 || wram_bad !== 0) $fatal(1, "RESULT: FAIL");
     else $display("RESULT: PASS");
     $finish;
 end
