@@ -126,13 +126,14 @@ defparam PLL_inst.CLKOUT0_PE_FINE = 0;
 defparam PLL_inst.CLKOUT1_PE_COARSE = 0;
 defparam PLL_inst.CLKOUT1_PE_FINE = 0;
 // CLKOUT2 is O_sdram_clk. Phase is (COARSE+FINE/8)/ODIV*360 (UG306).
-// 12/31*360 = 139.355 degrees = 6.000 ns behind fclk at 15.5 ns.
-// The old 19+3/8 setting was 225 degrees (9.6875 ns). CL2 data is then
-// only 5.8125 ns old at the fclk sample, short of the 6 ns tAC, so a
-// long route from the DQ pin missed. 6.000 ns of lag leaves 9.500 ns
-// for tAC plus the pad-to-flop path, and still covers command tCO.
-defparam PLL_inst.CLKOUT2_PE_COARSE = 12;
-defparam PLL_inst.CLKOUT2_PE_FINE = 0;
+// 19+3/8 = 225 degrees = 9.6875 ns behind fclk. A 6 ns lag was tried
+// and cannot meet command setup: the global clock to the flop is about
+// 3.7 ns and the output pad is 2.6 ns, before the 1.5 ns tCMS.
+// 9.6875 ns covers that when the flop sits in the IOB (build.tcl
+// oreg_in_iob). This is the same phase nestang, mdtang, smstang and
+// gbatang use.
+defparam PLL_inst.CLKOUT2_PE_COARSE = 19;
+defparam PLL_inst.CLKOUT2_PE_FINE = 3;
 defparam PLL_inst.CLKOUT3_PE_COARSE = 0;
 defparam PLL_inst.CLKOUT3_PE_FINE = 0;
 defparam PLL_inst.CLKOUT4_PE_COARSE = 0;
