@@ -85,8 +85,8 @@ module sdram_snes
     // CPU access (ROM and WRAM) uses bank 0 and 1 (total 16MB)
 	input      [15:0] cpu_din /* synthesis syn_keep=1 */,
 	input             cpu_port,
-	output reg [15:0] cpu_port0,    // output register for bank 0
-	output reg [15:0] cpu_port1,    // output register for bank 1
+	output     [15:0] cpu_port0,    // bank 0, held after the capture
+	output     [15:0] cpu_port1,    // bank 1, held after the capture
 	input      [22:1] cpu_addr,     // 8MB SNES memory, with WRAM at end
     input             cpu_req,
     output reg        cpu_req_ack,
@@ -96,7 +96,7 @@ module sdram_snes
     // Second ROM reader (bank 0, reads only). Priority below the CPU, so the
     // CPU still waits at most one rotation for its slot.
     input      [22:1] cpu2_addr,
-    output reg [15:0] cpu2_dout,
+    output     [15:0] cpu2_dout,
     input             cpu2_req,
     output reg        cpu2_req_ack, // toggles once cpu2_dout holds the word
 
@@ -111,7 +111,7 @@ module sdram_snes
 	input             aram_16,      // 16-bit access
 	input      [15:0] aram_addr,
 	input      [15:0] aram_din,
-	output reg [15:0] aram_dout,
+	output     [15:0] aram_dout,
     input             aram_req,
     output reg        aram_req_ack,
 	input             aram_we,
@@ -120,7 +120,7 @@ module sdram_snes
     input      [22:1] rv_addr,      // 8MB RV memory space
     input      [15:0] rv_din,       // 16-bit accesses
     input      [1:0]  rv_ds,
-    output reg [15:0] rv_dout,
+    output     [15:0] rv_dout,
     input             rv_req,
     output reg        rv_req_ack,   // ready for new requests. read data available on NEXT mclk
     input             rv_we,
@@ -137,8 +137,12 @@ assign SDRAM_DQ = dq_oen ? {16{1'bz}} : dq_out;
 wire [15:0] dq_in = SDRAM_DQ;     // DQ input
 reg [3:0] cmd;
 reg [12:0] a;
+// Pin copy of the address. `a` holds across clocks, so its Q feeds back
+// and cannot sit in the IOB. a_pin is assigned the same value on the
+// same edge and drives only the pin.
+(* syn_useioff = 1 *) reg [12:0] a_pin;
 assign {SDRAM_nCS, SDRAM_nRAS, SDRAM_nCAS, SDRAM_nWE} = cmd;
-assign SDRAM_A = a;
+assign SDRAM_A = a_pin;
 
 assign SDRAM_CKE = 1'b1;
 
@@ -258,11 +262,21 @@ always @* begin
 	end
 end
 
+// The only flop fed by the pin. It is packed into the IOB. The first
+// mclk after a capture reads it through the fwd mux (the fwd flag clears
+// on that mclk, so the mclk still sees it). The hold regs copy it on
+// that same edge for every later mclk, after the pin is reused.
+(* syn_useioff = 1 *) reg [15:0] dq_cap;
+reg cpu0_fwd, cpu1_fwd, cpu2_fwd, bsram_fwd, rv_fwd, aram_fwd;
+reg bsram_lo;
+reg [15:0] cpu_port0_h, cpu_port1_h, cpu2_dout_h, rv_h, aram_dout_h;
 reg [7:0] bsram_dout_reg;
-// The pin is only copied into bsram_dout_reg. A combo bypass of dq_in
-// during cycle[4] does not overlap an mclk edge, and it would make STA
-// time the pad through the CPU.
-assign bsram_dout = bsram_dout_reg;
+assign cpu_port0 = cpu0_fwd ? dq_cap : cpu_port0_h;
+assign cpu_port1 = cpu1_fwd ? dq_cap : cpu_port1_h;
+assign cpu2_dout = cpu2_fwd ? dq_cap : cpu2_dout_h;
+assign rv_dout   = rv_fwd   ? dq_cap : rv_h;
+assign aram_dout = aram_fwd ? dq_cap : aram_dout_h;
+assign bsram_dout = bsram_fwd ? (bsram_lo ? dq_cap[7:0] : dq_cap[15:8]) : bsram_dout_reg;
 
 //
 // SDRAM state machine
@@ -274,6 +288,12 @@ always @(posedge clk) begin
         SDRAM_DQM <= 2'b0;
         normal <= 0;
         setup <= 0;
+        cpu0_fwd <= 0;
+        cpu1_fwd <= 0;
+        cpu2_fwd <= 0;
+        bsram_fwd <= 0;
+        rv_fwd <= 0;
+        aram_fwd <= 0;
     end else begin
         // defaults
         dq_oen <= 1'b1;
@@ -294,6 +314,7 @@ always @(posedge clk) begin
                 // precharge all
                 cmd <= CMD_PreCharge;
                 a[10] <= 1'b1;
+                a_pin[10] <= 1'b1;
             end
             if (cycle[T_RP]) begin
                 // 1st AutoRefresh
@@ -307,6 +328,7 @@ always @(posedge clk) begin
                 // set register
                 cmd <= CMD_SetModeReg;
                 a[10:0] <= MODE_REG;
+                a_pin[10:0] <= MODE_REG;
             end
             if (cycle[T_RP+T_RC+T_RC+T_MRD]) begin
                 setup <= 0;
@@ -329,6 +351,7 @@ always @(posedge clk) begin
 	    		{ we_latch[0], oe_latch[0] } <= { next_we[0], next_oe[0] };
     			addr_latch[0] <= next_addr[0];
 	    		a <= next_addr[0][22:10];
+                a_pin <= next_addr[0][22:10];
                 SDRAM_BA <= next_addr[0][24:23];
                 din_latch[0] <= next_din[0];
                 ds[0] <= next_ds[0];
@@ -341,6 +364,7 @@ always @(posedge clk) begin
                 { we_latch[1], oe_latch[1] } <= { next_we[1], next_oe[1] };
                 addr_latch[1] <= next_addr[1];
                 a <= next_addr[1][22:10];
+                a_pin <= next_addr[1][22:10];
                 SDRAM_BA <= 2'b10;
                 din_latch[1] <= next_din[1];
                 ds[1] <= next_ds[1];
@@ -366,6 +390,7 @@ always @(posedge clk) begin
                 end else
                     SDRAM_DQM <= 2'b00;
                 a <= { 4'b0010, addr_latch[0][9:1] };  // auto precharge
+                a_pin <= { 4'b0010, addr_latch[0][9:1] };
                 SDRAM_BA <= addr_latch[0][24:23];                
             end
             if (cycle[1]) begin
@@ -387,27 +412,48 @@ always @(posedge clk) begin
                 end else
                     SDRAM_DQM <= 2'b00;
                 a <= { 4'b0010, addr_latch[1][9:1] };  // auto precharge
+                a_pin <= { 4'b0010, addr_latch[1][9:1] };
 			    SDRAM_BA <= 2'b10;
             end
 
-            // Read capture. Each flop's D is the pin; the select is a clock
-            // enable. That is the form Gowin can pack into the IOB, and it
-            // is the same edge as the old case (cycle[4] channel 0, cycle[1]
-            // ARAM), so the word shows up on the same mclk as before.
+            // Capture into the IOB register. The first mclk reads dq_cap
+            // (fwd is still set). The hold copy happens on that mclk.
+            if ((cycle[4] && oe_latch[0]) || (cycle[1] && oe_latch[1]))
+                dq_cap <= dq_in;
             if (cycle[4] && oe_latch[0] && port[0] == PORT_CPU && !cpu_port)
-                cpu_port0 <= dq_in;
+                cpu0_fwd <= 1;
             if (cycle[4] && oe_latch[0] && port[0] == PORT_CPU && cpu_port)
-                cpu_port1 <= dq_in;
+                cpu1_fwd <= 1;
             if (cycle[4] && oe_latch[0] && port[0] == PORT_CPU2) begin
-                cpu2_dout <= dq_in;
+                cpu2_fwd <= 1;
                 cpu2_req_ack <= ~cpu2_req_ack;
             end
-            if (cycle[4] && oe_latch[0] && port[0] == PORT_BSRAM)
-                bsram_dout_reg <= ds[0][0] ? dq_in[7:0] : dq_in[15:8];
+            if (cycle[4] && oe_latch[0] && port[0] == PORT_BSRAM) begin
+                bsram_fwd <= 1;
+                bsram_lo <= ds[0][0];
+            end
             if (cycle[4] && oe_latch[0] && port[0] == PORT_RV)
-                rv_dout <= dq_in;
+                rv_fwd <= 1;
             if (cycle[1] && oe_latch[1])
-                aram_dout <= dq_in;
+                aram_fwd <= 1;
+            // cycle[0] is the mclk that first sees a channel-0 word.
+            if (cycle[0]) begin
+                if (cpu0_fwd) cpu_port0_h <= dq_cap;
+                if (cpu1_fwd) cpu_port1_h <= dq_cap;
+                if (cpu2_fwd) cpu2_dout_h <= dq_cap;
+                if (bsram_fwd) bsram_dout_reg <= bsram_lo ? dq_cap[7:0] : dq_cap[15:8];
+                if (rv_fwd) rv_h <= dq_cap;
+                cpu0_fwd <= 0;
+                cpu1_fwd <= 0;
+                cpu2_fwd <= 0;
+                bsram_fwd <= 0;
+                rv_fwd <= 0;
+            end
+            // cycle[3] is the mclk that first sees an ARAM word.
+            if (cycle[3]) begin
+                if (aram_fwd) aram_dout_h <= dq_cap;
+                aram_fwd <= 0;
+            end
         end
     end
 end
