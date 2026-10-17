@@ -402,9 +402,8 @@ always @(posedge mclk) if (running) begin
     0: if (a_gap > 0)
         a_gap <= a_gap - 1;
     else begin
-        // address/data and the toggle launch on the same mclk edge from
-        // flops, like the top-level toggle-edge snapshots
-        // (snestang_top.v aram_req/aram_addr_sd/aram_din_sd/aram_we_sd)
+        // address/data and the toggle launch on the same mclk edge, like
+        // the top-level edge detectors (snestang_top.v:419-471)
         a_nxt = {$urandom(seed)} % 65536;
         a_wtmp = $urandom(seed);
         a_wwr = $urandom(seed) % 3 == 0;
