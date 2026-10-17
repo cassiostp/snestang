@@ -54,6 +54,9 @@ reg  [22:0] rom_addr_sd = 0;                                // flip-flops power 
 reg  [16:0] WRAM_ADDR = 0, wram_addr_sd = 0;
 reg   [7:0] WRAM_D = 0;
 reg         wram_rd = 0, wram_wr = 0, wram_rd_r = 0, wram_wr_r = 0;
+reg         wram_pend = 0;                              // pending WRAM write (serialize fix)
+reg  [16:0] wram_pend_addr = 0;
+reg   [7:0] wram_pend_din = 0;
 
 wire [15:0] cpu_port0, cpu_port1;
 reg         cpu_port;

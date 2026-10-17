@@ -451,6 +451,12 @@ wire [15:0] cpu2_dout;
 
 reg [16:0]  wram_addr_sd;
 reg         wram_wr_r, wram_rd_r;
+// Pending S-CPU WRAM write (see the lane below): latched when a ROM fetch
+// wins its tie, issued on the first ROM-free edge. One deep; a second
+// tied write overwrites it (far rarer than the drops this replaces).
+reg         wram_pend = 0;
+reg [16:0]  wram_pend_addr = 0;
+reg  [7:0]  wram_pend_din = 0;
 
 reg [19:0]  bsram_addr;             // last cartridge-bus BSRAM address queued
 wire        bsram_rd = ~BSRAM_CE_N & (~BSRAM_RD_N || rom_type[7:4] == 4'hC || rom_type[7:4] == 4'h7);	// OBC-1/GSU read BSRAM outside CPU read cycles
@@ -478,6 +484,15 @@ always @(posedge mclk) begin
         // through the CPU2 cache instead), so a coinciding S-CPU WRAM request
         // can no longer cancel the ROM fetch. S-CPU ROM reads while the CX4
         // is idle still use this lane exactly as before.
+        // The lane carries one access per toggle, shared by ROM and WRAM.
+        // The ROM side always wins its tie (its toggle pattern and addresses
+        // are then identical to the old overwrite behaviour, so coprocessor
+        // timing on the shared controller is undisturbed); a tied S-CPU
+        // WRAM write is latched above and issued on the first ROM-free edge
+        // instead of being silently lost with its consumed edge. (Letting
+        // both bodies run lost the ROM fetch; serving WRAM instead jittered
+        // the shared lane with refetch toggles and hung GSU games.)
+        wram_rd_r <= wram_rd; wram_wr_r <= wram_wr;
         if (loading && loader_do_valid && header_finished && loader_addr[0]
             || ~loading && ~ROM_CE_N && rom_addr_sd != rom_addr && ~cx4_owns_rom && ~gsu_owns_rom) begin
             rom_addr_sd <= rom_addr;
@@ -487,19 +502,37 @@ always @(posedge mclk) begin
             cpu_din <= {loader_do, loader_do_r};    // write 16 bits on odd addresses
             cpu_ds <= 2'b11;
             cpu_port <= 0;
-        end
-        
-        // WRAM read/write
-        wram_rd_r <= wram_rd; wram_wr_r <= wram_wr;
-        if ((wram_rd && WRAM_ADDR[16:1] != wram_addr_sd[16:1]) || (wram_rd & ~wram_rd_r) || (wram_wr & ~wram_wr_r)) begin
+            if ((wram_wr & ~wram_wr_r) && ~loading) begin
+                wram_pend <= 1'b1;
+                wram_pend_addr <= WRAM_ADDR;
+                wram_pend_din <= WRAM_D;
+            end
+        end else if (~loading && wram_pend) begin
+            wram_addr_sd <= wram_pend_addr;
+            cpu_req <= ~cpu_req;
+            cpu_addr <= {6'b111_111, wram_pend_addr[16:0]};  // 7E,7F:0000-FFFF, total 128KB
+            cpu_we <= 1'b1;
+            cpu_ds <= {wram_pend_addr[0], ~wram_pend_addr[0]};
+            cpu_din <= {wram_pend_din, wram_pend_din};
+            cpu_port <= 1;
+            wram_pend <= 1'b0;
+            // A new write edge on the same cycle is captured (overwrites the
+            // just-issued entry, oldest-first); a read defers via its level.
+            if (wram_wr & ~wram_wr_r) begin
+                wram_pend <= 1'b1;
+                wram_pend_addr <= WRAM_ADDR;
+                wram_pend_din <= WRAM_D;
+            end
+        end else if ((wram_rd && WRAM_ADDR[16:1] != wram_addr_sd[16:1]) || (wram_rd & ~wram_rd_r) || (wram_wr & ~wram_wr_r)) begin
+            // WRAM read/write
             wram_addr_sd <= WRAM_ADDR;
             cpu_req <= ~cpu_req;
             cpu_addr <= {6'b111_111, WRAM_ADDR[16:0]};  // 7E,7F:0000-FFFF, total 128KB
             cpu_we <= wram_wr;
             cpu_ds <= {WRAM_ADDR[0], ~WRAM_ADDR[0]};
-            cpu_din <= {WRAM_D, WRAM_D};        
+            cpu_din <= {WRAM_D, WRAM_D};
             cpu_port <= 1;
-        end 
+        end
 
         // BSRAM read/write. The save-RAM bridge below serializes these with
         // the save channel's accesses; bs_det_new (in the bridge) marks a
