@@ -14,7 +14,7 @@
 // (532.44 samples per HDMI frame); the snes2hdmi FIFO servo trims the
 // residual frame jitter.
 // The count is in clock cycles, so one value serves every board's mclk.
-parameter ACLK_FREQ = 409584;
+parameter ACLK_FREQ = 411904;           // diag: the qa/round4 value
 
 
 parameter V0VOLL = 8'h00;

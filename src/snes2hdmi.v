@@ -224,30 +224,18 @@ module snes2hdmi (
     // mid-FIFO and samples are neither dropped nor repeated.
     localparam AUDIO_OUT_RATE = 32000;
     localparam AUDIO_DELAY = CLKFRQ * 1000 / AUDIO_OUT_RATE / 2;
-    localparam [10:0] AUDIO_PERIOD = AUDIO_DELAY - 1;    // pixel clocks per half audio clock
-    localparam FIFO_ADDRSIZE = 6;       // 64 samples, ~2 ms at 32 kHz
-    localparam [FIFO_ADDRSIZE:0] FIFO_LO = 20;
-    localparam [FIFO_ADDRSIZE:0] FIFO_HI = 44;
     reg [15:0] audio_sample_word [1:0];
-    reg [10:0] audio_divider;
+    reg [$clog2(AUDIO_DELAY)-1:0] audio_divider;
     reg clk_audio;
     reg audio_rinc;
     wire audio_full, audio_empty;
-    wire [FIFO_ADDRSIZE:0] audio_used;
     wire [31:0] audio_sample;
-    wire [10:0] audio_limit = (audio_used >= FIFO_HI) ? AUDIO_PERIOD - 11'd1 :
-                              (audio_used <= FIFO_LO) ? AUDIO_PERIOD + 11'd1 : AUDIO_PERIOD;
 
+    // diag: the qa/round4 audio output (16-deep FIFO, no servo, no resets)
     always @(posedge clk_pixel) begin
-        if (!resetn) begin
-            audio_divider <= 0;
-            clk_audio <= 0;
+        if (resetn) begin
             audio_rinc <= 0;
-            audio_sample_word[0] <= 0;
-            audio_sample_word[1] <= 0;
-        end else begin
-            audio_rinc <= 0;
-            if (audio_divider < audio_limit)
+            if (audio_divider != AUDIO_DELAY - 1)
                 audio_divider <= audio_divider + 1;
             else begin
                 audio_divider <= 0;
@@ -263,13 +251,13 @@ module snes2hdmi (
         end
     end
 
-    // Audio sample FIFO for 64 samples
-    dual_clk_fifo #(.DATESIZE(32), .ADDRSIZE(FIFO_ADDRSIZE)) audio_fifo (
-        .clk(clk), .wrst_n(resetn),
+    // Audio sample FIFO for 16 samples
+    dual_clk_fifo #(.DATESIZE(32), .ADDRSIZE(4)) audio_fifo (
+        .clk(clk), .wrst_n(1'b1),
         .winc(audio_ready), .wdata({audio_l, audio_r}), .wfull(audio_full),
-        .rclk(clk_pixel), .rrst_n(resetn),
+        .rclk(clk_pixel), .rrst_n(1'b1),
         .rinc(audio_rinc), .rdata(audio_sample), .rempty(audio_empty),
-        .almost_full(), .almost_empty(), .rdusedw(audio_used)
+        .almost_full(), .almost_empty(), .rdusedw()
     );
 
     //
