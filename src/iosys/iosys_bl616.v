@@ -163,10 +163,11 @@ reg [7:0] recv_state = RECV_IDLE;
 // Abandon the partial frame (the same resync the firmware's parser does on its side)
 // instead of swallowing core-ID polls as parameters for up to 2047
 // bytes, which at the in-game poll rate deafens the link for minutes.
-// 2^14 clocks is 0.3-1.5 ms across the cores' iosys clocks: keep the
-// bound a power of two so the check is the counter's top bit, not a
-// comparator on the state machine's clock enable.
-reg [14:0] rx_gap = 0;
+// The gap counter is prescaled by 16 (rx_pre wraps) so the state
+// machine's clock enable sees only the top bit of an 11-bit count:
+// 2^14 clocks to time out, 0.3-1.5 ms across the cores' iosys clocks.
+reg [3:0]  rx_pre = 0;
+reg [10:0] rx_gap = 0;
 
 
 // UART command buffer
@@ -268,6 +269,7 @@ reg fdd_read_start, fdd_read_finish, fdd_write_finish;
 always @(posedge clk) begin
     if (!resetn) begin
         recv_state <= RECV_IDLE;
+        rx_pre <= 0;
         rx_gap <= 0;
         cmd_reg <= 0;
         data_reg <= 0;
@@ -300,13 +302,18 @@ always @(posedge clk) begin
         kbd_data_valid <= 0;
         sv_req_d <= sv_req;         // keeps sv_w_pulse a single clock when SAVE_RDY=0
 
-        if (rx_valid || recv_state == RECV_IDLE)
+        if (rx_valid || recv_state == RECV_IDLE) begin
+            rx_pre <= 0;
             rx_gap <= 0;
-        else if (rx_gap[14]) begin
+        end else if (rx_gap[10]) begin
             recv_state <= RECV_IDLE;   // desynced partial frame: drop it
+            rx_pre <= 0;
             rx_gap <= 0;
-        end else
-            rx_gap <= rx_gap + 1'd1;
+        end else begin
+            rx_pre <= rx_pre + 1'd1;
+            if (&rx_pre)
+                rx_gap <= rx_gap + 1'd1;
+        end
         case (recv_state)
 
             RECV_IDLE: if (rx_valid && rx_data == 8'hAA) begin
