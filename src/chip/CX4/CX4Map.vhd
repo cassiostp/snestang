@@ -57,12 +57,6 @@ architecture rtl of CX4Map is
 
 	signal CX4_A : std_logic_vector(23 downto 0);
 	signal CX4_DI : std_logic_vector(7 downto 0);
-	-- Duplicate of CX4_DI for the S-CPU data bypass only. syn_keep so it is
-	-- not the same net as the core's copy (see CPU_DI on the CX4).
-	signal CPU_DI_BUS : std_logic_vector(7 downto 0);
-	attribute syn_keep : boolean;
-	attribute syn_keep of CPU_DI_BUS : signal is true;
-	attribute syn_keep of CX4_DI : signal is true;
 	signal SRAM_CE_N, ROM_CE1_N, ROM_CE2_N : std_logic;
 	signal CART_ADDR : std_logic_vector(21 downto 0);
 	signal BRAM_ADDR : std_logic_vector(19 downto 0);
@@ -102,7 +96,6 @@ begin
 		
 		BUS_A			=> CX4_A,
 		BUS_DI		=> CX4_DI,
-		CPU_DI		=> CPU_DI_BUS,
 		BUS_DO		=> BSRAM_D,
 		BUS_OE_N		=> BSRAM_OE_N,
 		BUS_WE_N		=> BSRAM_WE_N,
@@ -130,6 +123,5 @@ begin
 	BSRAM_CE_N <= SRAM_CE_N;
 
 	CX4_DI <= BSRAM_Q when SRAM_CE_N = '0' else ROM_Q(7 downto 0);
-	CPU_DI_BUS <= BSRAM_Q when SRAM_CE_N = '0' else ROM_Q(7 downto 0);
 
 end rtl;

@@ -50,6 +50,8 @@ set_multicycle_path 3 -setup -start -from [get_clocks {fclk}] -to [get_clocks {m
 set_multicycle_path 2 -hold -start -from [get_clocks {fclk}] -to [get_clocks {mclk}]
 
 // cycle[1] and cycle[4] data and acks meet the next mclk 2 fclk later.
+// cpu_port0 is one of those: it samples the pin at cycle[4] and holds, so
+// its window really is 2, not the 3 of a flop launched on the mclk.
 // Listed after the general exception so they override it.
 set_multicycle_path 2 -setup -start -from [get_regs {sdram/dq_cap*}] -to [get_clocks {mclk}]
 set_multicycle_path 1 -hold -start -from [get_regs {sdram/dq_cap*}] -to [get_clocks {mclk}]

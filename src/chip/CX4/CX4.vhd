@@ -31,11 +31,6 @@ entity CX4 is
 		
 		BUS_A   		: out std_logic_vector(23 downto 0);
 		BUS_DI		: in std_logic_vector(7 downto 0);
-		-- Same byte as BUS_DI, on its own net. The S-CPU ROM bypass (DO <= this)
-		-- must not share the core's copy: that net fans out across the CX4 and
-		-- the placer hauls it to the far side of the chip, which misses the
-		-- 31 ns window from the SDRAM capture flop.
-		CPU_DI		: in std_logic_vector(7 downto 0);
 		BUS_DO		: out std_logic_vector(7 downto 0);
 		BUS_OE_N		: out std_logic;
 		BUS_WE_N		: out std_logic;
@@ -283,7 +278,7 @@ begin
 	BUSY <= CPU_RUN or CACHE_RUN or DMA_RUN;
 
 	process( MMIO_SEL, RAMIO_SEL, ADDR, DMA_SRC, DMA_LEN, DMA_DST, PAGE_SEL, PAGE_LOCK, ROM_BASE, ROM_PAGE, WS1, WS2, IRQ_EN, ROM_MODE, 
-			   ROM_ACCESS, SRAM_ACCESS, VEC_MEM, GPR, CPU_RUN, DATA_RAM_Q_B, CPU_DI, IRQ_FLAG, SUSPEND, BUSY )
+			   ROM_ACCESS, SRAM_ACCESS, VEC_MEM, GPR, CPU_RUN, DATA_RAM_Q_B, BUS_DI, IRQ_FLAG, SUSPEND, BUSY )
 	begin
 		DO <= x"00";
 		if MMIO_SEL = '1' then
@@ -397,7 +392,7 @@ begin
 		elsif ADDR(23 downto 16) = x"00" and ADDR(15 downto 5) = "11111111111" and BUSY = '1' then	--00:FFE0-FFFF
 			DO <= VEC_MEM(to_integer(unsigned(ADDR(4 downto 0))));
 		else
-			DO <= CPU_DI;
+			DO <= BUS_DI;
 		end if;
 	end process;
 	
