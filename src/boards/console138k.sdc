@@ -91,10 +91,15 @@ set_multicycle_path 1 -hold -start -from [get_regs {sdram/bsram_req_ack*}] -to [
 // tCMH and tDH 0.8. Board skew is taken as 0.5 ns each way. That number
 // is an assumption, not a measurement of this board.
 create_generated_clock -name sdram_clk -source [get_nets {fclk}] -master_clock fclk -phase 139.355 -divide_by 1 [get_ports {O_sdram_clk}]
-set_input_delay -clock sdram_clk -max 6.5 -min 2.5 [get_ports {IO_sdram_dq*}]
-set_output_delay -clock sdram_clk -max 2.0 -min -0.3 [get_ports {O_sdram_cs_n O_sdram_ras_n O_sdram_cas_n O_sdram_wen_n O_sdram_cke}]
-set_output_delay -clock sdram_clk -max 2.0 -min -0.3 [get_ports {O_sdram_addr* O_sdram_ba* O_sdram_dqm*}]
-set_output_delay -clock sdram_clk -max 2.0 -min -0.3 [get_ports {IO_sdram_dq*}]
+# Gowin TA1012: -max and -min are mutually exclusive, so each is its own line.
+set_input_delay -clock sdram_clk -max 6.5 [get_ports {IO_sdram_dq*}]
+set_input_delay -clock sdram_clk -min 2.5 [get_ports {IO_sdram_dq*}]
+set_output_delay -clock sdram_clk -max 2.0 [get_ports {O_sdram_cs_n O_sdram_ras_n O_sdram_cas_n O_sdram_wen_n O_sdram_cke}]
+set_output_delay -clock sdram_clk -min -0.3 [get_ports {O_sdram_cs_n O_sdram_ras_n O_sdram_cas_n O_sdram_wen_n O_sdram_cke}]
+set_output_delay -clock sdram_clk -max 2.0 [get_ports {O_sdram_addr* O_sdram_ba* O_sdram_dqm*}]
+set_output_delay -clock sdram_clk -min -0.3 [get_ports {O_sdram_addr* O_sdram_ba* O_sdram_dqm*}]
+set_output_delay -clock sdram_clk -max 2.0 [get_ports {IO_sdram_dq*}]
+set_output_delay -clock sdram_clk -min -0.3 [get_ports {IO_sdram_dq*}]
 
 // false paths
 //set_false_path -from [get_regs {main/SNES/smp/CPUO*}] -to [get_regs {sdram/dq_out*}]
