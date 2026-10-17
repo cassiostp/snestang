@@ -238,7 +238,11 @@ add_file -type verilog "src/uart_tx_V2.v"
 # console138k/mega138k run the snes PLL at 3:1, the other boards at 4:1;
 # Gowin reads only one SDC per project.
 if {$dev eq "console138k" || $dev eq "mega138k"} {
+if {$variant eq "hz120"} {
+add_file -type sdc "src/boards/console138k_hz120.sdc"
+} else {
 add_file -type sdc "src/boards/console138k.sdc"
+}
 } else {
 add_file -type sdc "src/snestang.sdc"
 }
