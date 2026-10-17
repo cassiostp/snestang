@@ -17,18 +17,18 @@ entity CX4Map is
 		DO				: out std_logic_vector(7 downto 0);
 		CPURD_N		: in std_logic;
 		CPUWR_N		: in std_logic;
-		
+
 		PA				: in std_logic_vector(7 downto 0);
 		PARD_N		: in std_logic;
 		PAWR_N		: in std_logic;
-		
+
 		ROMSEL_N		: in std_logic;
 		RAMSEL_N		: in std_logic;
-		
+
 		SYSCLKF_CE	: in std_logic;
 		SYSCLKR_CE	: in std_logic;
 		REFRESH		: in std_logic;
-		
+
 		IRQ_N			: out std_logic;
 
 		ROM_ADDR		: out std_logic_vector(22 downto 0);
@@ -38,7 +38,7 @@ entity CX4Map is
 		ROM_WORD		: out std_logic;
 		ROM_REQ		: out std_logic;							-- snestang: CX4 side wants the byte on ROM_ADDR
 		ROM_WAIT		: in std_logic := '0';				-- snestang: that byte is not in ROM_Q yet
-		
+
 		BSRAM_ADDR	: out std_logic_vector(19 downto 0);
 		BSRAM_D		: out std_logic_vector(7 downto 0);
 		BSRAM_Q		: in  std_logic_vector(7 downto 0);
@@ -62,8 +62,11 @@ architecture rtl of CX4Map is
 	signal BRAM_ADDR : std_logic_vector(19 downto 0);
 	signal CX4_CE : std_logic;
 	signal MAP_SEL	  : std_logic;
+    -- Replicate the shared memory byte near its consumers (Gowin SUG550).
+    attribute syn_maxfan : integer;
+    attribute syn_maxfan of CX4_DI : signal is 32;
 begin
-	
+
 	MAP_SEL <= '1' when MAP_CTRL(7 downto 4) = X"4" else '0';
 	MAP_ACTIVE <= MAP_SEL;
 
@@ -88,12 +91,12 @@ begin
 		DI				=> DI,
 		RD_N			=> CPURD_N,
 		WR_N			=> CPUWR_N,
-		
+
 		SYSCLKF_CE	=> SYSCLKF_CE,
 		SYSCLKR_CE	=> SYSCLKR_CE,
-		
+
 		IRQ_N			=> IRQ_N,
-		
+
 		BUS_A			=> CX4_A,
 		BUS_DI		=> CX4_DI,
 		BUS_DO		=> BSRAM_D,
@@ -102,7 +105,7 @@ begin
 		ROM_CE1_N	=> ROM_CE1_N,
 		ROM_CE2_N	=> ROM_CE2_N,
 		SRAM_CE_N	=> SRAM_CE_N,
-		
+
 		BUS_RD_N		=> ROM_OE_N,
 
 		ROM_REQ		=> ROM_REQ,
@@ -110,7 +113,7 @@ begin
 
 		MAPPER		=> MAP_CTRL(0)
 	);
-	
+
 	CART_ADDR <= CX4_A(22) & not ROM_CE2_N & CX4_A(20 downto 16) & CX4_A(14 downto 0);
 	BRAM_ADDR <= CX4_A(20 downto 16) & CX4_A(14 downto 0);
 
