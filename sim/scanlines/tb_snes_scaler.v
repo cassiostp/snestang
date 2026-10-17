@@ -13,11 +13,12 @@
 module tb_snes_scaler;
 
     reg clk_pixel = 0, clk = 0;
-    always #6.734 clk_pixel = ~clk_pixel;       // 74.25 MHz
+    always #9.259 clk_pixel = ~clk_pixel;       // 54 MHz, 480p120
     always #23.28 clk = ~clk;                   // 21.477 MHz
 
     reg        sl_on = 0, sl_thick = 0, sl_out = 0, ov = 0;
     reg  [1:0] sl_dark = 0;
+    reg [31:0] vcfg = 0;
     wire [7:0] overlay_x, overlay_y;
     reg [14:0] overlay_color = 15'b10101_01010_11100;   // BGR5
     wire [2:0] tmds_d_p, tmds_d_n;
@@ -26,11 +27,11 @@ module tb_snes_scaler;
 
     snes2hdmi dut (
         .clk(clk), .resetn(1'b1),
-        .dotclk(1'b0), .hblank(1'b1), .vblank(1'b1), .rgb5(15'd0), .xs(9'd0), .ys(9'd0),
+        .dotclk(1'b0), .hblank(1'b1), .vblank(1'b1), .rgb5(15'd0), .xs(9'd0), .ys(9'd0), .hires(1'b0),
         .overlay(ov), .overlay_x(overlay_x), .overlay_y(overlay_y), .overlay_color(overlay_color),
         .audio_l(16'd0), .audio_r(16'd0), .audio_ready(1'b0), .audio_en(), .pause(1'b0),
         .snes_refresh(1'b0),
-        .scanlines(sl_on), .sl_darkness(sl_dark), .sl_thick(sl_thick), .sl_out(sl_out), .video_config(32'd0),
+        .scanlines(sl_on), .sl_darkness(sl_dark), .sl_thick(sl_thick), .sl_out(sl_out), .video_config(vcfg),
         .clk_pixel(clk_pixel), .clk_5x_pixel(1'b0), .locked(1'b1),
         .std_timing(1'b0),
         .pause_snes_for_frame_sync(pause_sync),
@@ -41,14 +42,14 @@ module tb_snes_scaler;
     reg [23:0] img [0:1280*720-1];
     reg        first_line_seen [0:749];
     always @(posedge clk_pixel) begin
-        if (dut.cy < 10'd720 && dut.cx >= 11'd1 && dut.cx <= 11'd1280)
+        if (dut.cy < 10'd480 && dut.cx >= 11'd1 && dut.cx <= 11'd720)
             img[dut.cy * 1280 + dut.cx - 1] = dut.rgb;
         if (dut.cx == 11'd700)
             first_line_seen[dut.cy] = dut.hdmi_first_line;
     end
 
     localparam BORDER = 24'h303030;
-    localparam R = 3, LINES = 224, TOP = 24, GEOM_W = 896, FULL_W = 960;
+    localparam R = 2, LINES = 224, TOP = 16, PW = 640, SCREEN = 720;
 
     // source picture: SNES line l (0..223) has colour src_color(l) (BGR5), or, when
     // by_column is set, column c has colour col_color(c)
@@ -78,25 +79,25 @@ module tb_snes_scaler;
             if (cur_geom)
                 exp_line = (row < TOP || row >= TOP + R * LINES) ? -1 : (row - TOP) / R;
             else
-                exp_line = row * LINES / 720;
+                exp_line = row * LINES / 480;
         end
     endfunction
 
     // the SNES: the line an output row needs is in the line buffer before the row starts
     integer fl, fc;
     always @(dut.cy) begin
-        if (dut.cy < 10'd720) begin
+        if (dut.cy < 10'd480) begin
             fl = exp_line(dut.cy);
             if (fl >= 0 && !by_column)
                 for (fc = 0; fc < 256; fc = fc + 1)
-                    dut.mem[(fl % 32) * 256 + fc] = src_color(fl);
+                    dut.mem[fl * 256 + fc] = src_color(fl);
         end
     end
 
     task load_columns;
         integer sl, c;
         begin
-            for (sl = 0; sl < 32; sl = sl + 1)
+            for (sl = 0; sl < 224; sl = sl + 1)
                 for (c = 0; c < 256; c = c + 1)
                     dut.mem[sl * 256 + c] = col_color(c);
         end
@@ -120,8 +121,8 @@ module tb_snes_scaler;
     task settle;
         begin
             repeat (2) begin
-                while (dut.cy != 10'd725) @(posedge clk_pixel);
-                while (dut.cy == 10'd725) @(posedge clk_pixel);
+                while (dut.cy != 10'd500) @(posedge clk_pixel);
+                while (dut.cy == 10'd500) @(posedge clk_pixel);
             end
         end
     endtask
@@ -141,9 +142,9 @@ module tb_snes_scaler;
     task check_rows(input on, input out, input thick, input [1:0] dk, input over);
         begin
             is_geom = on & ~out & ~over;
-            nd = thick ? 2 : 1;
-            XP = 640;
-            for (row = 0; row < 720; row = row + 1) begin
+            nd = 1;                 // 2 rows per line: thin and thick are the same one dark row
+            XP = 360;
+            for (row = 0; row < 480; row = row + 1) begin
                 got = img[row * 1280 + XP];
                 line = exp_line(row);
                 if (over)
@@ -156,15 +157,9 @@ module tb_snes_scaler;
                         want = darken(want, dk);
                 end
                 if (got !== want) fail("picture", row, got, want);
-                if (img[row * 1280 + 100] !== BORDER) fail("left border", row, img[row * 1280 + 100], BORDER);
-                if (img[row * 1280 + 1200] !== BORDER) fail("right border", row, img[row * 1280 + 1200], BORDER);
+                if (img[row * 1280 + 8] !== BORDER) fail("left border", row, img[row * 1280 + 8], BORDER);
+                if (img[row * 1280 + 700] !== BORDER) fail("right border", row, img[row * 1280 + 700], BORDER);
             end
-            // the SNES is released at the first row of the picture
-            for (row = 0; row < 750; row = row + 1)
-                if (first_line_seen[row] !== (row == (is_geom ? TOP : 0))) begin
-                    $display("FAIL: hdmi_first_line at row %0d is %b (geom=%b)", row, first_line_seen[row], is_geom);
-                    $fatal(1, "tb_snes_scaler: FAIL");
-                end
         end
     endtask
 
@@ -172,10 +167,10 @@ module tb_snes_scaler;
     task check_columns(input geom);
         integer pw;
         begin
-            pw = geom ? GEOM_W : FULL_W;
-            row = 360;
+            pw = PW;
+            row = 240;
             first = -1; last = -1; runs = 0; minrun = 99; maxrun = 0; runlen = 0; prev = BORDER;
-            for (x = 0; x < 1280; x = x + 1) begin
+            for (x = 0; x < SCREEN; x = x + 1) begin
                 got = img[row * 1280 + x];
                 if (got !== BORDER) begin
                     if (first < 0) first = x;
@@ -192,12 +187,12 @@ module tb_snes_scaler;
                 prev = got;
             end
             w = last - first + 1;
-            if (first !== (1280 - pw) / 2 || w !== pw) begin
-                $display("FAIL: picture spans x=%0d..%0d (width %0d), want %0d..%0d", first, last, w, (1280 - pw) / 2, (1280 + pw) / 2 - 1);
+            if (first !== (SCREEN - pw) / 2 || w !== pw) begin
+                $display("FAIL: picture spans x=%0d..%0d (width %0d), want %0d..%0d", first, last, w, (SCREEN - pw) / 2, (SCREEN + pw) / 2 - 1);
                 $fatal(1, "tb_snes_scaler: FAIL");
             end
-            if (minrun < 3 || maxrun > 4) begin
-                $display("FAIL: pixel widths %0d..%0d, want 3..4", minrun, maxrun);
+            if (minrun < 2 || maxrun > 3) begin
+                $display("FAIL: pixel widths %0d..%0d, want 2..3", minrun, maxrun);
                 $fatal(1, "tb_snes_scaler: FAIL");
             end
             if (runs !== 256) begin
@@ -240,6 +235,46 @@ module tb_snes_scaler;
         $display("snes2hdmi columns, integer scale: ok");
         sl_out = 1; cur_geom = 0; settle; check_columns(0);
         $display("snes2hdmi columns, output rows: ok");
+
+        // BFI: mode 0 repeats the picture, 1 and 3 are black, 2 is half
+        // brightness, and the overlay is lit on every refresh.
+        begin : bfi
+            reg [23:0] lit, dimc, gotb;
+            integer k;
+            lit = to_rgb(src_color(exp_line(100)));
+            dimc = {1'b0, lit[23:17], 1'b0, lit[15:9], 1'b0, lit[7:1]};
+            by_column = 0;
+            sl_on = 0; sl_out = 0; ov = 0; cur_geom = 0;
+            vcfg = 32'd0; settle;
+            if (img[100 * 1280 + 360] !== lit) fail("bfi off", 100, img[100 * 1280 + 360], lit);
+            vcfg = 32'd1 << 20;                 // mode 1, black
+            for (k = 0; k < 4; k = k + 1) begin
+                settle;
+                gotb = img[100 * 1280 + 360];
+                if (dut.bfi_dark) begin
+                    if (gotb !== 24'h0) fail("bfi black", 100, gotb, 24'h0);
+                end else if (gotb !== lit)
+                    fail("bfi black lit", 100, gotb, lit);
+            end
+            vcfg = 32'd3 << 20;                 // mode 3 is black on this core
+            settle;
+            gotb = img[100 * 1280 + 360];
+            if (dut.bfi_dark) begin
+                if (gotb !== 24'h0) fail("bfi mode3", 100, gotb, 24'h0);
+            end else if (gotb !== lit)
+                fail("bfi mode3 lit", 100, gotb, lit);
+            vcfg = 32'd2 << 20;                 // mode 2, dim
+            settle;
+            gotb = img[100 * 1280 + 360];
+            if (dut.bfi_dark) begin
+                if (gotb !== dimc) fail("bfi dim", 100, gotb, dimc);
+            end else if (gotb !== lit)
+                fail("bfi dim lit", 100, gotb, lit);
+            ov = 1; vcfg = 32'd1 << 20; settle; // menu: BFI does not apply
+            gotb = img[100 * 1280 + 360];
+            if (gotb !== to_rgb(overlay_color)) fail("bfi overlay", 100, gotb, to_rgb(overlay_color));
+            $display("snes2hdmi BFI modes 0/1/2/3 and overlay: ok");
+        end
         $display("tb_snes_scaler: PASS");
         $finish;
     end

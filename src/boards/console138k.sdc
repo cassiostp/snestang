@@ -8,7 +8,7 @@ create_clock -name sys_clk -period 20 -waveform {0 10} [get_ports {sys_clk}]
 create_clock -name fclk -period 15.5 -waveform {0 7.75} [get_nets {fclk}]
 create_generated_clock -name mclk -source [get_nets {fclk}] -divide_by 3 [get_nets {mclk}]
 
-create_clock -name hclk5 -period 2.694 -waveform {0 1.347} [get_nets {hclk5}]
+create_clock -name hclk5 -period 3.7037 -waveform {0 1.85185} [get_nets {hclk5}]   // 270 MHz, 480p120 x5
 create_generated_clock -name hclk -source [get_nets {hclk5}] -master_clock hclk5 -divide_by 5 [get_nets {hclk}]
 
 // see start of sdram_cl2_2ch.v for detailed timing of sdram

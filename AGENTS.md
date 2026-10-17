@@ -28,14 +28,14 @@ Fails on any setup/hold violation; artifact holds the `.bin` and timing/utilisat
 
 ## Clocks and constraints
 
-- `console60k` (and primer/mega60k/nano): `src/snestang.sdc` — `sys_clk` 50 MHz, `fclk` 85.94 MHz, `mclk = fclk/4` ~21.48 MHz, `hclk5` 371.25 MHz, `hclk = hclk5/5`.
-- `console138k`/`mega138k`: `src/boards/console138k.sdc` — same `sys_clk`/`hclk5`, but `fclk` 64.5161 MHz and `mclk = fclk/3` ~21.505 MHz. Gowin reads one SDC per project; `build.tcl` picks one or the other, never both. `src/boards/mega138k.sdc` exists but is not referenced.
+- `console60k` (and primer/mega60k/nano): `src/snestang.sdc` — `sys_clk` 50 MHz, `fclk` 85.94 MHz, `mclk = fclk/4` ~21.48 MHz, `hclk5` 371.25 MHz, `hclk = hclk5/5`. This branch's scaler is 480p, so a 60K build of it does not match that pixel clock and cannot lock the rate.
+- `console138k`/`mega138k`: `src/boards/console138k.sdc` — same `sys_clk`, `fclk` 64.5161 MHz and `mclk = fclk/3` ~21.505 MHz, `hclk5` 270 MHz (period 3.7037 ns), `hclk = hclk5/5` = 54 MHz. Gowin reads one SDC per project; `build.tcl` picks one or the other, never both. `src/boards/mega138k.sdc` exists but is not referenced.
 - PLLs: `gowin_pll_snes` (`sys_clk -> mclk/fclk`), `gowin_pll_27` (`sys_clk -> 27 MHz`), `gowin_pll_hdmi` (`27 MHz -> hclk5/hclk`). The top comments the two rate pairs (`snestang_top.v`).
 
 ## Native-rate lock
 
-HDMI uses a 1647-pixel native line (`NATIVE_FRAME_WIDTH 1647` in `src/snes2hdmi.v`; 74.25 MHz/(1647x750) = 60.1093 Hz vs SNES 60.0988 Hz). `std_timing = 1` selects the standard 1650 line; `video_std_timing` is tied `1'b0` in `src/snestang_top.v`, so the build is native-only.
-The scaler sets `pause_snes_for_frame_sync` after the first line is buffered and clears it at HDMI `hdmi_first_line`; the top gates `ENABLE` on it (`snestang_top.v`). Interlace and slow-crystal behaviour is documented in `sim/framelock/README.md`.
+This branch is the 120 Hz build: 480p (VIC 48) at 54 MHz, native line 855 (`NATIVE_FRAME_WIDTH` in `src/snes2hdmi.v`). 54 MHz/(855x525) = 120.3008 Hz, so the locked game runs at 60.1504 Hz (0.068 % faster than the 60 Hz build's 60.1093 Hz, 0.086 % faster than the SNES 60.0988 Hz). `std_timing = 1` selects the standard 858-pixel 120 Hz line; `video_std_timing` is tied `1'b0` in `src/snestang_top.v`.
+The scaler sets `pause_snes_for_frame_sync` when the picture is in the frame buffer (OUT_Y 224) and clears it at HDMI row 64 of every second frame; the top gates `ENABLE` on it (`snestang_top.v`). Interlace and a clock that cannot lock free-run, documented in `sim/framelock/README.md`. `video_config[21:20]` is BFI (0 off, 1 black, 2 dim, 3 treated as black).
 
 ## Firmware link
 
@@ -49,7 +49,7 @@ The scaler sets `pause_snes_for_frame_sync` after the first line is buffered and
 - `cosim`: Verilator model of `iosys_bl616`+SDRAM+save bridge for firmware co-sim.
 - `cx4`: GHDL `tb_cx4.vhd` vs known results (regs, LoROM map, hand-assembled CX4 program).
 - `dsp_rain`: Zelda rain (noise/music/sfx, `ENDX`, `TPITCH`, `FLG` mute, echo).
-- `framelock`: native-1647 vs 1364-clock SNES line; 1 halt/frame locked, interlace/slow-crystal must free-run.
+- `framelock`: 855-pixel 120 Hz line vs the 1364-clock SNES line; one halt per game frame when locked (two HDMI frames), interlace/slow-crystal/60K must free-run.
 - `gsu_boot`: PeterLemon `GSU2BPP FillPoly` on full-chip Verilator; tables + picture match.
 - `gsu_halt`: NOP sled with `ENABLE` low; PC/ROM/RAM frozen.
 - `ppu_sprite`: left-edge 16x16 sprite slivers (regression `tangcore#19`).

@@ -280,9 +280,9 @@ def lerp(c, n, w):
 
 
 def smooth_geometry(geom):
-    """(columns, left column of the picture, rows, top row of the picture) of the output; the
-    picture is 960 x 720 and 896 x 672 with 3 rows per source line in the integer geometry"""
-    return (896, 192, 672, 24) if geom else (960, 160, 720, 0)
+    """(columns, left column of the picture, rows, top row of the picture). 480p120:
+    640 x 480 stretched, or 640 x 448 (top 16) at 2 rows per source line."""
+    return (640, 40, 448, 16) if geom else (640, 40, 480, 0)
 
 
 class Smooth:
@@ -298,9 +298,18 @@ class Smooth:
         key = (mode, geom, n)
         if key not in self.vrows:
             if geom:
-                cur, nbr, w = blend_weight(n, 1, 3, mode == 2, LINES)
+                # 2 rows per source line. Soft blends each of them halfway
+                # toward the neighbour (the first row of line 0 and the last
+                # row of the last line have nowhere to blend).
+                line, sub = divmod(n, 2)
+                if mode == 2 and sub == 0 and line > 0:
+                    cur, nbr, w = line, line - 1, 128
+                elif mode == 2 and sub == 1 and line < LINES - 1:
+                    cur, nbr, w = line, line + 1, 128
+                else:
+                    cur, nbr, w = line, line, 0
             else:
-                cur, nbr, w = blend_weight(n, LINES, 720, mode == 2, LINES)
+                cur, nbr, w = blend_weight(n, LINES, 480, mode == 2, LINES)
             if mode not in (1, 2):
                 w = 0
             a, b = self.src[cur], self.src[nbr]
@@ -431,13 +440,13 @@ def check_smooth(logpath, srcpath):
                 if rgb != (0x30, 0x30, 0x30):
                     fail("border", t, "303030", "%02x%02x%02x" % rgb)
             # the scanline darkening: the last dark rows of each source line (integer scale) or of every 3 output rows
-            dthin = 2 if f_thick else 1
+            # 2 rows per source line: thin and thick both darken the last row
             if f_over or not in_pic:
                 want_dark = 0
             elif f_on and not f_out:
-                want_dark = int(r % 3 >= 3 - dthin)
+                want_dark = int(r % 2 == 1)
             elif f_on and f_out:
-                want_dark = int(y % 3 >= 3 - dthin)
+                want_dark = int(y % 2 == 1)
             else:
                 want_dark = 0
             if not f_over and (dark != want_dark or (in_pic and darkness != f_dk)):

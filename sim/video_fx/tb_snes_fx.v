@@ -60,7 +60,7 @@ module tb_snes_fx;
     initial begin
         #1;
         h = 32'h7654321;
-        for (i = 0; i < 32 * 256; i = i + 1) begin
+        for (i = 0; i < 224 * 256; i = i + 1) begin
             h = h * 1664525 + 1013904223;
             dut.mem[i] = no_border(h[29:15]);
         end
@@ -71,7 +71,7 @@ module tb_snes_fx;
             for (fc = 0; fc < 256; fc = fc + 1) begin
                 h = ({16'd0, fl, fc[7:0]} + 32'h7654321) * 32'd2654435761;
                 h = (h ^ (h >> 15)) * 32'd2246822519;
-                dut.mem[{fl[4:0], fc[7:0]}] = no_border(h[29:15]);
+                dut.mem[fl * 256 + fc] = no_border(h[29:15]);
             end
         end
     end
@@ -93,8 +93,8 @@ module tb_snes_fx;
             if (nbad_pic <= 5)
                 $display("pic flag %b with rgb_pre=%h overlay=%b at cx=%0d cy=%0d", dut.pic_pre, dut.rgb_pre, ov, dut.cx, dut.cy);
         end
-        in_row = (dut.cy % 100 < 4) && dut.cy < 10'd720 && dut.cy >= 10'd40;
-        if (logging && in_row && dut.cx < 11'd1280) begin
+        in_row = (dut.cy % 100 < 4) && dut.cy < 10'd480 && dut.cy >= 10'd40;
+        if (logging && in_row && dut.cx < 11'd720) begin
             $fwrite(fd, "%h %0d %0d %0d %0d %0d 0 0 %h %h\n", vcfg, dut.cx, dut.cy,
                     old_in[24], old_in[25], old_in[27:26], old_in[23:0], dut.rgb);
             nlog = nlog + 1;
@@ -103,8 +103,8 @@ module tb_snes_fx;
 
     task wait_row730;
         begin
-            while (dut.cy == 10'd730) @(posedge clk_pixel);
-            while (dut.cy != 10'd730) @(posedge clk_pixel);
+            while (dut.cy == 10'd500) @(posedge clk_pixel);
+            while (dut.cy != 10'd500) @(posedge clk_pixel);
         end
     endtask
 

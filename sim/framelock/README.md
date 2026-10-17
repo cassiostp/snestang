@@ -1,13 +1,16 @@
 # sim/framelock: frame-sync halt-lock timing
 
 `tb_snes_framelock.v` runs the real `snes2hdmi` halt-lock at the
-native 1647-clock HDMI line against a behavioral SNES with the real
-1364-master-clock scanline (1360 on line 240 of odd frames). It runs
-both boards' master clocks in 262-line mode (the lock must hold: one
-SNES frame and one halt per HDMI frame) and in interlaced 263/262-line
-mode plus a slow-crystal case (the SNES free-runs slower than HDMI, so
-the lock cannot hold: the SNES must keep running freely, and no halt
-may stretch to a whole frame).
+480p120 native line (855 pixel clocks, 525 rows, 54 MHz) against a
+behavioral SNES with the real 1364-master-clock scanline (1360 on line
+240 of odd frames). The lock shows each game frame on two HDMI frames
+and halts once per game frame.
+
+console138k's master clock (~21.505 MHz, free-run ~60.177 Hz) locks
+60.1504 Hz. console60k (~21.484 MHz) free-runs slower than that, so
+it cannot lock this line length: the SNES must keep running, and no
+halt may stretch to a whole frame. Interlaced 263/262-line mode and a
+slow crystal are the same free-run case.
 
 Run (from this directory, inside the container):
 

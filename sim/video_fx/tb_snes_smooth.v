@@ -68,17 +68,17 @@ module tb_snes_smooth;
         for (i = 0; i < 224 * 256; i = i + 1)
             src[i] = pix(i[15:8], i[7:0]);
         $writememh("snes_src.hex", src);
-        for (i = 0; i < 32 * 256; i = i + 1)
-            dut.mem[i] = pix(i[12:8], i[7:0]);
+        for (i = 0; i < 224 * 256; i = i + 1)
+            dut.mem[i] = pix(i[15:8], i[7:0]);
         dut.pause_snes_for_frame_sync = 1'b0;      // no reset value in the scaler (the FPGA starts it at 0)
     end
     always @(posedge clk_pixel) begin
         if (dut.cx == 11'd100) begin
             for (fk = -1; fk <= 1; fk = fk + 1) begin
                 fx = dut.yy_s + fk;
-                if (fx < 8'd224)
+                if (fx >= 0 && fx < 224)
                     for (fc = 0; fc < 256; fc = fc + 1)
-                        dut.mem[{fx[4:0], fc[7:0]}] = pix(fx, fc[7:0]);
+                        dut.mem[fx * 256 + fc] = pix(fx, fc[7:0]);
             end
         end
     end
@@ -94,8 +94,8 @@ module tb_snes_smooth;
         old_in = hist[FX_LAT - 1];
         for (k = 15; k > 0; k = k - 1) hist[k] = hist[k - 1];
         hist[0] = now_in;
-        in_row = dut.cy < 10'd720 && (dut.cy < 10'd50 || dut.cy >= 10'd670 || dut.cy % 7 == 0);
-        if (logging && in_row && dut.cx < 11'd1280) begin
+        in_row = dut.cy < 10'd480 && (dut.cy < 10'd40 || dut.cy >= 10'd440 || dut.cy % 7 == 0);
+        if (logging && in_row && dut.cx < 11'd720) begin
             $fwrite(fd, "%h %0d %0d %0d %0d %0d 0 0 %h %h\n", vcfg, dut.cx, dut.cy,
                     old_in[24], old_in[25], old_in[27:26], old_in[23:0], dut.rgb);
             nlog = nlog + 1;
@@ -104,8 +104,8 @@ module tb_snes_smooth;
 
     task wait_row730;
         begin
-            while (dut.cy == 10'd730) @(posedge clk_pixel);
-            while (dut.cy != 10'd730) @(posedge clk_pixel);
+            while (dut.cy == 10'd500) @(posedge clk_pixel);
+            while (dut.cy != 10'd500) @(posedge clk_pixel);
         end
     endtask
 

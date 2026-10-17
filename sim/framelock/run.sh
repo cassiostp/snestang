@@ -18,7 +18,8 @@ run() {
 
 # mclk half-periods: 138K 21.5053763 MHz -> 23.2498 ns; 60K 21.484375 -> 23.2727
 run "console138k 262-line"    -DMCLK_HALF_NS=23.2498 -DLINES_EVEN=262 -DLINES_ODD=262 -DLOCKED=1
-run "console60k 262-line"     -DMCLK_HALF_NS=23.2727 -DLINES_EVEN=262 -DLINES_ODD=262 -DLOCKED=1
+# 60K free-runs slower than 60.1504 Hz, so this line length cannot lock
+run "console60k 262-line"     -DMCLK_HALF_NS=23.2727 -DLINES_EVEN=262 -DLINES_ODD=262 -DLOCKED=0
 run "console138k interlaced"  -DMCLK_HALF_NS=23.2498 -DLINES_EVEN=263 -DLINES_ODD=262 -DLOCKED=0
 run "console60k interlaced"   -DMCLK_HALF_NS=23.2727 -DLINES_EVEN=263 -DLINES_ODD=262 -DLOCKED=0
 run "slow crystal 262-line"   -DMCLK_HALF_NS=23.28   -DLINES_EVEN=262 -DLINES_ODD=262 -DLOCKED=0

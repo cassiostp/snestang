@@ -23,7 +23,7 @@
 module tb_snes_hires;
 
     reg clk_pixel = 0, clk = 0;
-    always #6.734 clk_pixel = ~clk_pixel;       // 74.25 MHz
+    always #9.259 clk_pixel = ~clk_pixel;       // 54 MHz, 480p120
     always #23.28 clk = ~clk;                   // 21.477 MHz
 
     reg        dotclk = 0, hblank = 1, vblank = 0, hires = 0;
@@ -54,7 +54,7 @@ module tb_snes_hires;
     // what the HDMI sink would show: rgb while cx = x + 1 (as in tb_snes_scaler)
     reg [23:0] img [0:1280*720-1];
     always @(posedge clk_pixel)
-        if (dut.cy < 10'd720 && dut.cx >= 11'd1 && dut.cx <= 11'd1280)
+        if (dut.cy < 10'd480 && dut.cx >= 11'd1 && dut.cx <= 11'd720)
             img[dut.cy * 1280 + dut.cx - 1] = dut.rgb;
 
     // BGR5 as the PPU sends it: [14:10] B, [9:5] G, [4:0] R
@@ -80,7 +80,7 @@ module tb_snes_hires;
     task expect_mem(input integer line, input integer x, input [14:0] want, input [8*40-1:0] what);
         reg [14:0] got;
         begin
-            got = dut.mem[(line % 32) * 256 + x];
+            got = dut.mem[line * 256 + x];
             checks = checks + 1;
             if (got !== want) begin
                 errors = errors + 1;
@@ -131,7 +131,7 @@ module tb_snes_hires;
         begin
             while (dut.cy == 10'd0) @(posedge clk_pixel);
             while (dut.cy != 10'd0) @(posedge clk_pixel);
-            while (dut.cy != 10'd730) @(posedge clk_pixel);
+            while (dut.cy != 10'd500) @(posedge clk_pixel);
         end
     endtask
 
@@ -208,7 +208,7 @@ module tb_snes_hires;
 
         // ---- hblank: nothing is written, hi-res or not
         line = 8;
-        for (x = 0; x < 256; x = x + 1) dut.mem[(line % 32) * 256 + x] = bgr(3, 5, 7);
+        for (x = 0; x < 256; x = x + 1) dut.mem[line * 256 + x] = bgr(3, 5, 7);
         @(negedge clk); ys = line[8:0]; hblank = 1;
         for (x = 0; x < 256; x = x + 1) send_pair(x, WHITE, WHITE, 1, 1);
         end_line;
@@ -224,7 +224,7 @@ module tb_snes_hires;
         // ---- end to end: every buffer slot holds the blended grey, so the whole
         // picture must render as uniform grey whatever the scaler does, with
         // smoothing off and then sharp.
-        for (line = 0; line < 32; line = line + 1) begin
+        for (line = 0; line < 224; line = line + 1) begin
             start_line(line);
             for (x = 0; x < 256; x = x + 1) send_pair(x, x[0] ? BLACK : WHITE, x[0] ? WHITE : BLACK, 1, 1);
             end_line;
@@ -233,9 +233,9 @@ module tb_snes_hires;
         wait_frame;
         for (x = 0; x < 9; x = x + 1) begin
             checks = checks + 1;
-            if (img[360 * 1280 + 200 + x * 100] !== GREY8) begin
+            if (img[200 * 1280 + 80 + x * 60] !== GREY8) begin
                 $display("MISMATCH rendered (smoothing off) at x %0d: got %h, want %h",
-                         200 + x * 100, img[360 * 1280 + 200 + x * 100], GREY8);
+                         80 + x * 60, img[200 * 1280 + 80 + x * 60], GREY8);
                 errors = errors + 1;
             end
         end
@@ -245,9 +245,9 @@ module tb_snes_hires;
         wait_frame;                             // the mode latch is at the frame start
         for (x = 0; x < 9; x = x + 1) begin
             checks = checks + 1;
-            if (img[360 * 1280 + 200 + x * 100] !== GREY8) begin
+            if (img[200 * 1280 + 80 + x * 60] !== GREY8) begin
                 $display("MISMATCH rendered (sharp) at x %0d: got %h, want %h",
-                         200 + x * 100, img[360 * 1280 + 200 + x * 100], GREY8);
+                         80 + x * 60, img[200 * 1280 + 80 + x * 60], GREY8);
                 errors = errors + 1;
             end
         end

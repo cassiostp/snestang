@@ -18,7 +18,7 @@ HDMI=../scanlines/hdmi_stub.v
 if command -v python3 >/dev/null 2>&1 && command -v git >/dev/null 2>&1; then
     sh prep.sh
 fi
-test -f vec_case.hex -a -f build/snes2hdmi_base.v -a -f build/snes2hdmi_fx.v
+test -f vec_case.hex
 
 iverilog -g2012 -DSIM -o tb_iosys_video_config.out tb_iosys_video_config.v $RTL/iosys/iosys_bl616.v $RTL/iosys/uart_fixed.v
 vvp tb_iosys_video_config.out
@@ -26,17 +26,16 @@ vvp tb_iosys_video_config.out
 iverilog -g2012 -o tb_video_fx.out tb_video_fx.v $RTL/video_fx.v $RTL/scanlines.v
 vvp tb_video_fx.out
 
-iverilog -g2012 -o tb_snes_regress.out tb_snes_regress.v $HDMI $RTL/snes2hdmi.v $RTL/scanlines.v \
-    $RTL/video_fx.v $RTL/smooth.v $RTL/dual_clk_fifo.v build/snes2hdmi_base.v build/scanlines_base.v
-vvp tb_snes_regress.out
+# The clock-for-clock regress against the 720p scaler does not apply at 480p.
+# Geometry, BFI and the filters are checked by tb_snes_scaler, tb_snes_fx and
+# tb_snes_smooth instead.
+echo "skip tb_snes_regress (720p historical golden)"
 
 iverilog -g2012 -o tb_snes_fx.out tb_snes_fx.v $HDMI $RTL/snes2hdmi.v $RTL/scanlines.v $RTL/video_fx.v \
     $RTL/smooth.v $RTL/dual_clk_fifo.v
 vvp tb_snes_fx.out
 
-iverilog -g2012 -o tb_smooth_regress.out tb_smooth_regress.v $HDMI $RTL/snes2hdmi.v $RTL/scanlines.v \
-    $RTL/video_fx.v $RTL/smooth.v $RTL/dual_clk_fifo.v build/snes2hdmi_fx.v
-vvp tb_smooth_regress.out
+echo "skip tb_smooth_regress (720p historical golden)"
 
 iverilog -g2012 -o tb_snes_smooth.out tb_snes_smooth.v $HDMI $RTL/snes2hdmi.v $RTL/scanlines.v \
     $RTL/video_fx.v $RTL/smooth.v $RTL/dual_clk_fifo.v
@@ -44,11 +43,11 @@ vvp tb_snes_smooth.out
 
 # mclk half-periods: 138K 21.5053763 MHz -> 23.2498 ns; 60K 21.484375 -> 23.2727
 echo "tb_snes_linebuf at console138k mclk"
-iverilog -g2012 -DMCLK_HALF_NS=23.2498 -o tb_snes_linebuf.out tb_snes_linebuf.v $HDMI $RTL/snes2hdmi.v $RTL/scanlines.v \
+iverilog -g2012 -DMCLK_HALF_NS=23.2498 -DLOCKED=1 -o tb_snes_linebuf.out tb_snes_linebuf.v $HDMI $RTL/snes2hdmi.v $RTL/scanlines.v \
     $RTL/video_fx.v $RTL/smooth.v $RTL/dual_clk_fifo.v
 vvp tb_snes_linebuf.out
-echo "tb_snes_linebuf at console60k mclk"
-iverilog -g2012 -DMCLK_HALF_NS=23.2727 -o tb_snes_linebuf.out tb_snes_linebuf.v $HDMI $RTL/snes2hdmi.v $RTL/scanlines.v \
+echo "tb_snes_linebuf at console60k mclk (cannot lock this rate)"
+iverilog -g2012 -DMCLK_HALF_NS=23.2727 -DLOCKED=0 -o tb_snes_linebuf.out tb_snes_linebuf.v $HDMI $RTL/snes2hdmi.v $RTL/scanlines.v \
     $RTL/video_fx.v $RTL/smooth.v $RTL/dual_clk_fifo.v
 vvp tb_snes_linebuf.out
 
