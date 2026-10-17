@@ -535,12 +535,16 @@ begin
 				BUS_WE_N <= WR_N;
 			end if;
 		elsif ROM_SEL = '1' then
-			if (MAPPER = '0' and ROM_MODE = '0') or (MAPPER = '1' and ROM_MODE = '1') then
+			-- snestang: ROM_MODE (7F52 bit 0) is stored and readable but
+			-- has no mapping effect (FBNeo/Ikari/Nocash CX4 research:
+			-- unknown config, previously thought to be a 2nd-ROM-chip
+			-- select). Mega Man X3's boot bulk-fill writes 7F52 <= FDh
+			-- as a pattern byte; letting it force chip 2 remaps every
+			-- upper-MB ROM read (S-CPU and CX4 alike) to the wrong
+			-- offset and wedges the boot program in a data loop.
+			if MAPPER = '0' then
 				ROM_CE1_N <= INT_ADDR(21);
 				ROM_CE2_N <= not INT_ADDR(21);
-			elsif MAPPER = '0' and ROM_MODE = '1' then
-				ROM_CE1_N <= '0';
-				ROM_CE2_N <= '1';
 			else
 				ROM_CE1_N <= INT_ADDR(20);
 				ROM_CE2_N <= not INT_ADDR(20);
