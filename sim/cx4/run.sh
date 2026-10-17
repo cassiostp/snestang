@@ -12,7 +12,7 @@ W=build
 rm -rf $W && mkdir -p $W
 OPTS="--std=08 -frelaxed -fsynopsys --workdir=$W"
 ghdl -a $OPTS $CHIP/CEGen.vhd $CHIP/cx4_drom_pkg.vhd $CHIP/spram.vhd $CHIP/dpram_difclk.vhd \
-	$CHIP/cx4cache.vhd $CHIP/CX4.vhd $CHIP/CX4Map.vhd tb_cx4.vhd 2>&1 | grep -v "shared\|\^" || true
+	$CHIP/cx4cache.vhd $CHIP/CX4.vhd lut4.vhd $CHIP/CX4Map.vhd tb_cx4.vhd 2>&1 | grep -v "shared\|\^" || true
 
 run() {  # run <rom_delay in ps> <ws>
 	ghdl --elab-run $OPTS tb_cx4 -gROM_DELAY_PS=$1 -gWS=$2 --stop-time=60ms 2>&1 | grep -v "metavalue\|^$\|numeric_std"
