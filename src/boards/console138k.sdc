@@ -27,8 +27,10 @@ set_multicycle_path 1 -setup -end -from [get_nets {aram_din_sd*}] -to [get_clock
 set_multicycle_path 1 -setup -end -from [get_nets {aram_we_sd}] -to [get_clocks {fclk}]
 
 // sdram to SNES, 3*fclk
-set_multicycle_path 3 -setup -start -from [get_clocks {fclk}] -to [get_clocks {mclk}]
-set_multicycle_path 2 -hold -start -from [get_clocks {fclk}] -to [get_clocks {mclk}]
+// diag: no fclk->mclk multicycle, so every sdram->SNES path meets the
+// worst-case 1-fclk (15.5 ns) window instead of 3 fclk
+//set_multicycle_path 3 -setup -start -from [get_clocks {fclk}] -to [get_clocks {mclk}]
+//set_multicycle_path 2 -hold -start -from [get_clocks {fclk}] -to [get_clocks {mclk}]
 
 // Last constraint takes precedence: PPU to sdram is even longer at 6 fclk cycles
 //set_multicycle_path 6 -setup -end -from [get_nets {main/SNES/PPU/BG*}] -to [get_clocks {fclk}]
