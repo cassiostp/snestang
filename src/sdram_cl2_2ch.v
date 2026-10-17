@@ -272,11 +272,12 @@ always @* begin
 	end
 end
 
-// The only flop fed by the pin. It is packed into the IOB. The first
-// mclk after a capture reads it through the fwd mux (the fwd flag clears
-// on that mclk, so the mclk still sees it). The hold regs copy it on
-// that same edge for every later mclk, after the pin is reused.
-(* syn_useioff = 1 *) reg [15:0] dq_cap;
+// The only flop fed by the pin. It stays in the fabric, beside the
+// CPU cone: an IOB capture meets the pin but then misses the 31 ns
+// path to the 65816. The first mclk after a capture reads it through
+// the fwd mux (the fwd flag clears on that mclk, so the mclk still
+// sees it). The hold regs copy it on that same edge.
+reg [15:0] dq_cap;
 reg cpu0_fwd, cpu1_fwd, cpu2_fwd, bsram_fwd, rv_fwd, aram_fwd;
 reg bsram_lo;
 reg [15:0] cpu_port0_h, cpu_port1_h, cpu2_dout_h, rv_h, aram_dout_h;
@@ -287,10 +288,6 @@ assign cpu2_dout = cpu2_fwd ? dq_cap : cpu2_dout_h;
 assign rv_dout   = rv_fwd   ? dq_cap : rv_h;
 assign aram_dout = aram_fwd ? dq_cap : aram_dout_h;
 assign bsram_dout = bsram_fwd ? (bsram_lo ? dq_cap[7:0] : dq_cap[15:8]) : bsram_dout_reg;
-// Own always, so D is the pin and the select is a clock enable.
-always @(posedge clk)
-    if ((cycle[4] && oe_latch[0]) || (cycle[1] && oe_latch[1]))
-        dq_cap <= dq_in;
 
 //
 // SDRAM state machine
@@ -424,8 +421,11 @@ always @(posedge clk) begin
 			    SDRAM_BA <= 2'b10;
             end
 
-            // Capture into the IOB register. The first mclk reads dq_cap
-            // (fwd is still set). The hold copy happens on that mclk.
+            // Sample the pin here, in this always, so the flop stays with
+            // the cone it feeds. The first mclk reads dq_cap (fwd is still
+            // set). The hold copy happens on that mclk.
+            if ((cycle[4] && oe_latch[0]) || (cycle[1] && oe_latch[1]))
+                dq_cap <= dq_in;
             if (cycle[4] && oe_latch[0] && port[0] == PORT_CPU && !cpu_port)
                 cpu0_fwd <= 1;
             if (cycle[4] && oe_latch[0] && port[0] == PORT_CPU && cpu_port)
