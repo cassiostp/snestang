@@ -33,15 +33,19 @@
 // In this case, CPU/RV requests are accepted when clkref=1, while ARAM requests are
 // accepted when clkref=0.
 //
-// Clkref also allows relaxed timing constraints. Requests need to be ready at most 2 
-// clks after mclk edge (3 for CPU/RV). Data out is ready at least 3 fclk before mclk 
-// posedge (proven for ROM/WRAM/CPU2/BSRAM by sim/sdram_port/run_stable.sh).
-// This means the following timing constraints.
-//
-// set_multicycle_path 2 -setup -end -from [get_clocks {mclk}] -to [get_clocks {fclk}]
-// set_multicycle_path 1 -hold -end -from [get_clocks {mclk}] -to [get_clocks {fclk}]
-// set_multicycle_path 3 -setup -start -from [get_clocks {fclk}] -to [get_clocks {mclk}]
-// set_multicycle_path 2 -hold -start -from [get_clocks {fclk}] -to [get_clocks {mclk}]
+// Clkref also allows relaxed timing constraints. With the rotation locked
+// (cycle[4] is the fclk edge that sees clkref rise; DOT_CLK_CE is one mclk
+// in four), the edges are:
+//   cycle[0] on an mclk edge: latches channel-0 requests, launches port[0].
+//     Worst request age is 3 fclk (46.5 ns). Next mclk is also 3 fclk later.
+//   cycle[1], 1 fclk after mclk: launches aram_dout and the channel-0 acks.
+//     Next mclk is 2 fclk later (31.0 ns).
+//   cycle[2], 2 fclk after mclk: latches the ARAM request. Worst age 2 fclk.
+//   cycle[4], 1 fclk after mclk: launches cpu_port*, cpu2_*, bsram_dout_reg,
+//     rv_dout. Next mclk is 2 fclk later (31.0 ns).
+// sim/sdram_port reads the rotated cycle bit, one fclk before these edges, so
+// its ages are one short of the windows above. The 138K constraints are
+// src/boards/console138k.sdc.
 //
 // Tang SDRAM v1.2 - Winbond W9825G6KH. 8K rows, 512 words per row, 16 bits per word
 
