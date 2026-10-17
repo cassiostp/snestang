@@ -93,7 +93,7 @@ wire mclk;                      // SNES master clock at 21.5054Mhz (~21.477)
 wire fclk;                      // Fast clock for sdram for SDRAM
 wire fclk_p;                    // 180-degree shifted fclk
 wire clk27;                     // 27Mhz for hdmi clock generation
-wire hclk5, hclk;               // 720p pixel clock at 74.25Mhz, and 5x high-speed
+wire hclk5, hclk;               // pixel clock and 5x high-speed: 74.25/371.25 MHz standard, 54/270 MHz in the hz120 variant
 
 reg resetn = 1'b0;              // reset is cleared after 4 cycles
 wire pause;                     // core_config[17]: freeze the core while the game menu is open
@@ -308,9 +308,9 @@ wire [5:0] ph;
 reg snes_start = 1'b0;
 wire pause_snes_for_frame_sync;
 
-// Selects the standard 60 Hz HDMI timing (for displays that refuse the native
+// Selects the standard HDMI timing (for displays that refuse the native
 // rate; a menu option for it may come later). Tied 0: the game runs at the
-// console's own refresh rate.
+// console's own refresh rate (60 Hz builds) or twice it (the hz120 variant).
 wire video_std_timing = 1'b0;
 
 wire [7:0] loader_do;

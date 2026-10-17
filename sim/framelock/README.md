@@ -9,6 +9,12 @@ mode plus a slow-crystal case (the SNES free-runs slower than HDMI, so
 the lock cannot hold: the SNES must keep running freely, and no halt
 may stretch to a whole frame).
 
+`./run.sh [standard|hz120|both]` runs both build variants (default: both).
+The hz120 variant locks the 855-clock 480p120 line at twice the game rate:
+11 SNES frames and 11 halts over 22 HDMI frames where it locks; console60k
+free-runs slower than 60.1504 Hz and cannot lock this rate, so its 262-line
+case runs unlocked.
+
 Run (from this directory, inside the container):
 
 ```
