@@ -299,7 +299,9 @@ always @(posedge clk) begin
         kbd_data_valid <= 0;
         sv_req_d <= sv_req;         // keeps sv_w_pulse a single clock when SAVE_RDY=0
 
-        if (rx_eop && (recv_state & 8'b10011110))
+        // Only RECV_PARAM can swallow bytes: the length/command states
+        // resync within a byte or two of whatever arrives next.
+        if (rx_eop && recv_state == RECV_PARAM)
             recv_state <= RECV_IDLE;   // desynced partial frame: drop it
         case (recv_state)
 
