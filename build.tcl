@@ -36,6 +36,9 @@ if {$dev eq "nano20k"} {
         error "Unknown controller $controller"
     }
     add_file -type verilog "src/snes2hdmi.v"
+    add_file -type verilog "src/scanlines.v"
+    add_file -type verilog "src/video_fx.v"
+    add_file -type verilog "src/smooth.v"
     add_file -type verilog "src/plla/gowin_pll_27.v"
     add_file -type verilog "src/plla/gowin_pll_hdmi.v"
     add_file -type verilog "src/plla/gowin_pll_snes.v"
@@ -55,6 +58,9 @@ if {$dev eq "nano20k"} {
         error "Unknown controller $controller"
     }
     add_file -type verilog "src/snes2hdmi.v"
+    add_file -type verilog "src/scanlines.v"
+    add_file -type verilog "src/video_fx.v"
+    add_file -type verilog "src/smooth.v"
     add_file -type verilog "src/plla/gowin_pll_27.v"
     add_file -type verilog "src/plla/gowin_pll_hdmi.v"
     add_file -type verilog "src/plla/gowin_pll_snes.v"
@@ -72,6 +78,9 @@ if {$dev eq "nano20k"} {
         error "Unknown controller $controller"
     }
     add_file -type verilog "src/snes2hdmi.v"
+    add_file -type verilog "src/scanlines.v"
+    add_file -type verilog "src/video_fx.v"
+    add_file -type verilog "src/smooth.v"
     add_file -type verilog "src/pll/gowin_pll_27.v"
     add_file -type verilog "src/pll/gowin_pll_hdmi.v"
     add_file -type verilog "src/pll/gowin_pll_snes.v"
@@ -81,6 +90,10 @@ if {$dev eq "nano20k"} {
     set_option -output_base_name snestang_${dev}_${controller}
 } elseif {$dev eq "console60k"} {
     set_device GW5AT-LV60PG484AC1/I0 -device_version B
+    # CI passes no controller; the Tang Console's own board is the ds2 one
+    if {$controller eq ""} {
+        set controller "ds2"
+    }
     if {$controller eq "snes"} {
         add_file src/boards/console60k_snescontroller.v
         add_file -type cst "src/boards/console60k_snescontroller.cst"
@@ -91,6 +104,9 @@ if {$dev eq "nano20k"} {
         error "Unknown controller $controller"
     }
     add_file -type verilog "src/snes2hdmi.v"
+    add_file -type verilog "src/scanlines.v"
+    add_file -type verilog "src/video_fx.v"
+    add_file -type verilog "src/smooth.v"
     add_file -type verilog "src/plla/gowin_pll_27.v"
     add_file -type verilog "src/plla/gowin_pll_hdmi.v"
     add_file -type verilog "src/plla/gowin_pll_snes.v"
@@ -100,9 +116,21 @@ if {$dev eq "nano20k"} {
     set_option -output_base_name snestang_${dev}_${controller}
 } elseif {$dev eq "console138k"} {
     set_device GW5AST-LV138PG484AC1/I0 -device_version B
+    # CX4 (Mega Man X2/X3): srg320's VHDL from SNES_MiSTer, with a few framework shims
+    add_file -type vhdl "src/chip/CX4/CEGen.vhd"
+    add_file -type vhdl "src/chip/CX4/cx4_drom_pkg.vhd"
+    add_file -type vhdl "src/chip/CX4/spram.vhd"
+    add_file -type vhdl "src/chip/CX4/dpram_difclk.vhd"
+    add_file -type vhdl "src/chip/CX4/cx4cache.vhd"
+    add_file -type vhdl "src/chip/CX4/CX4.vhd"
+    add_file -type vhdl "src/chip/CX4/CX4Map.vhd"
+    set_option -vhdl_std vhd2008
     add_file src/boards/console138k.v
     add_file -type cst "src/boards/console.cst"
     add_file -type verilog "src/snes2hdmi.v"
+    add_file -type verilog "src/scanlines.v"
+    add_file -type verilog "src/video_fx.v"
+    add_file -type verilog "src/smooth.v"
     add_file -type verilog "src/pll/gowin_pll_27.v"
     add_file -type verilog "src/pll/gowin_pll_hdmi.v"
     add_file -type verilog "src/pll/gowin_pll_snes.v"
@@ -111,6 +139,23 @@ if {$dev eq "nano20k"} {
     add_file -type verilog "src/vram_spb.v"
     add_file -type verilog "src/usb_hid_host.v"
     add_file -type verilog "src/pll/pll_12.v"
+    add_file -type verilog "src/chip/GSU/GSU_PKG.v"
+    add_file -type verilog "src/chip/GSU/GSU.v"
+    add_file -type verilog "src/chip/GSU/GSUMap.v"
+    add_file -type vhdl "src/chip/SA1/P65816_pkg.vhd"
+    add_file -type vhdl "src/chip/SA1/BCDAdder.vhd"
+    add_file -type vhdl "src/chip/SA1/AddSubBCD.vhd"
+    add_file -type vhdl "src/chip/SA1/ALU.vhd"
+    add_file -type vhdl "src/chip/SA1/AddrGen.vhd"
+    add_file -type vhdl "src/chip/SA1/MCode.vhd"
+    add_file -type vhdl "src/chip/SA1/P65C816.vhd"
+    add_file -type vhdl "src/chip/SA1/spram.vhd"
+    add_file -type vhdl "src/chip/SA1/SA1MULT.vhd"
+    add_file -type vhdl "src/chip/SA1/SA1DIV.vhd"
+    add_file -type vhdl "src/chip/SA1/SA1.vhd"
+    add_file -type vhdl "src/chip/SA1/SA1Map.vhd"
+    add_file -type verilog "src/sa1_rom_cache.v"
+    add_file -type verilog "src/bwram_256k.v"
     set_option -output_base_name snestang_${dev}_${controller}
 } else {
     error "Unknown device $dev"
@@ -136,7 +181,8 @@ add_file -type verilog "src/chip/DSP/DSP_LHRomMap.v"
 add_file -type verilog "src/chip/DSP/DSPn.v"
 add_file -type verilog "src/chip/DSP/OBC1.v"
 add_file -type verilog "src/chip/DSP/SRTC.v"
-add_file -type verilog "src/chip/dsp/dsp_data_ram.v"
+add_file -type verilog "src/chip/DSP/srtc_time_pack.v"
+add_file -type verilog "src/chip/DSP/dsp_data_ram.v"
 add_file -type verilog "src/cpu.v"
 add_file -type verilog "src/dsp.v"
 add_file -type verilog "src/dual_clk_fifo.v"
@@ -162,7 +208,7 @@ add_file -type verilog "src/ppuhoam.v"
 add_file -type verilog "src/ppuoam.v"
 add_file -type verilog "src/smc_parser.v"
 add_file -type verilog "src/smp.v"
-add_file -type verilog "src/snes.v"
+add_file -type verilog "src/SNES.v"
 add_file -type verilog "src/controller_adapter.sv"
 add_file -type verilog "src/controller_ds2.sv"
 add_file -type verilog "src/controller_snes.v"
@@ -177,14 +223,21 @@ add_file -type verilog "src/spc700/muldiv.v"
 add_file -type verilog "src/spc700/spc700.v"
 add_file -type verilog "src/swram.v"
 add_file -type verilog "src/uart_tx_V2.v"
+# console138k/mega138k run the snes PLL at 3:1, the other boards at 4:1;
+# Gowin reads only one SDC per project.
+if {$dev eq "console138k" || $dev eq "mega138k"} {
+add_file -type sdc "src/boards/console138k.sdc"
+} else {
 add_file -type sdc "src/snestang.sdc"
+}
 add_file -type gao -disable "src/mega138k/snestang.gao"
 
 set_option -synthesis_tool gowinsynthesis
 set_option -top_module snestang_top
 set_option -verilog_std sysv2017
 set_option -rw_check_on_ram 1
-set_option -place_option 2
+set_option -route_option 2
+set_option -place_option 3
 set_option -use_mspi_as_gpio 1
 set_option -use_sspi_as_gpio 1
 set_option -use_ready_as_gpio 1

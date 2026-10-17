@@ -34,6 +34,12 @@ module sdram_snes
 	input             cpu_we,
 	input       [1:0] cpu_ds,       // byte enable
 
+    // Second ROM reader: ack toggles when cpu2_dout holds the word
+    input      [22:1] cpu2_addr,
+    output reg [15:0] cpu2_dout,
+    input             cpu2_req,
+    output reg        cpu2_req_ack = 0,
+
     input      [19:0] bsram_addr,
     input       [7:0] bsram_din,
     output reg  [7:0] bsram_dout,
@@ -100,6 +106,7 @@ localparam PORT_NONE = 0;
 
 localparam PORT_CPU = 1;
 localparam PORT_BSRAM = 2;
+localparam PORT_CPU2 = 3;
 
 localparam PORT_ARAM = 1;
 
@@ -117,7 +124,12 @@ always @(posedge mclk) begin
     bsram_req_r <= bsram_req;
     aram_req_r <= aram_req;
     cpu_req_new <= cpu_req_new_t;
-    bsram_req_new <= bsram_req_new_t;
+    // BSRAM requests are sticky until served, like the real controller's
+    // level-based bsram_req ^ bsram_req_ack: the top-level save bridge
+    // toggles at arbitrary phase and waits for the ack, so a pulse that
+    // misses this model's RAS phase would wedge it (the CPU/ARAM toggles
+    // are phase-locked to DOT_CLK_CE and keep the pulse form).
+    bsram_req_new <= bsram_req_new_t | bsram_req_new;
     aram_req_new <= aram_req_new_t;
 
     if (~resetn) begin
@@ -147,6 +159,10 @@ always @(posedge mclk) begin
                     endcase
                 end else
                     cpu_dout_pre <= mem_cpu[cpu_addr];
+            end else if (cpu2_req ^ cpu2_req_ack) begin             // CPU2
+                port[0] <= PORT_CPU2;
+                {we_latch[0], oe_latch[0]} <= 2'b01;
+                cpu_dout_pre <= mem_cpu[cpu2_addr];
             end else if (bsram_req_new_t || bsram_req_new) begin    // BSRAM
                 bsram_req_new <= 0;
                 port[0] <= PORT_BSRAM;
@@ -193,6 +209,9 @@ always @(posedge mclk) begin
                     cpu_port1 <= cpu_dout_pre; 
                 else
                     cpu_port0 <= cpu_dout_pre; 
+            end else if (port[0] == PORT_CPU2) begin        // CPU2
+                cpu2_req_ack <= ~cpu2_req_ack;
+                cpu2_dout <= cpu_dout_pre;
             end else if (port[0] == PORT_BSRAM) begin       // BSRAM
                 bsram_req_ack <= bsram_req;
                 bsram_dout <= cpu_dout_pre[7:0];

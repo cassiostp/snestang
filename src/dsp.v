@@ -704,7 +704,7 @@ always @(posedge CLK) begin : main_process
                     TPITCH <= 0;
                 end else 
                     if (TPMON[INS.V])                       // Set pitch modulation, uses 27x18 multiplier
-                        TPITCH <= signed'(TPITCH) + 15'(32'(16'(TOUT >> 5) * signed'(TPITCH)) >>> 10);
+                        TPITCH <= signed'(TPITCH) + 15'(32'(16'(TOUT >>> 5) * signed'(TPITCH)) >>> 10);
 
                 if (RST_FLG || (TBRRHDR[1:0] == 2'b01 && KON_CNT[INS.V] != 5)) begin
                     ENV_MODE[INS.V] <= EM_RELEASE;
@@ -780,7 +780,7 @@ always @(posedge CLK) begin : main_process
                     if (BRR_OFFS[VS.V] == 6) begin
                         if (TBRRHDR[0]) begin      // end bit ON
                             BRR_ADDR[VS.V] <= BRR_NEXT_ADDR;
-                            ENDX_BUF[VS.V] <= 1'b1;
+                            BRR_END[VS.V] <= 1'b1;
                         end else 
                             BRR_ADDR[VS.V] <= BRR_ADDR[VS.V] + 9;
                     end

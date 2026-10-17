@@ -96,7 +96,23 @@ wire clk27;                     // 27Mhz for hdmi clock generation
 wire hclk5, hclk;               // 720p pixel clock at 74.25Mhz, and 5x high-speed
 
 reg resetn = 1'b0;              // reset is cleared after 4 cycles
-wire pause;
+wire pause;                     // core_config[17]: freeze the core while the game menu is open
+wire [31:0] core_config;        // from iosys
+wire [31:0] video_config;       // from iosys
+// Wall clock (frame 0x14, via iosys), packed into the S-RTC's nibble map
+// by srtc_time_pack (the MiSTer hps_io RTC format SRTC.v reloads on).
+// The S-RTC free-runs at 1 Hz between frames. Same mclk domain as iosys
+// and the core. Like MiSTer, a game write to the S-RTC holds only until
+// the next resync (10 s).
+wire [31:0] time_unix;
+wire [55:0] time_bcd;
+wire [7:0]  time_solar, time_flags;
+wire        time_strobe;
+wire [64:0] ext_rtc;
+srtc_time_pack time_pack(
+    .time_bcd(time_bcd), .time_strobe(time_strobe), .ext_rtc(ext_rtc)
+);
+assign pause = core_config[17];
 
 reg [15:0] resetcnt = 16'hffff;
 always @(posedge mclk) begin
@@ -172,8 +188,17 @@ gowin_pll_hdmi pll_hdmi (
 wire [23:0] ROM_ADDR;
 wire ROM_CE_N, ROM_OE_N, ROM_WE_N, ROM_WORD;
 wire [15:0] ROM_D;
+// ROM_Q normally comes from the CPU lane's sticky word (byte-selected by
+// ROM_ADDR[0], since CX4/LoROM fetches are byte-wide). While the CX4 or the
+// GSU owns the ROM bus its own fetches come from the CPU2 lane through the
+// word caches below instead, so a coinciding S-CPU WRAM request can no
+// longer cancel the ROM fetch (and the chip waits for the word anyway).
 wire [15:0] ROM_Q;
-assign      ROM_Q = (ROM_WORD || ~ROM_ADDR[0]) ? cpu_port0 : { cpu_port0[7:0], cpu_port0[15:8] };
+wire [15:0] rom_word_cpu2;
+wire        cx4_owns_rom;
+wire        gsu_owns_rom;
+wire [15:0] rom_word = (cx4_owns_rom || gsu_owns_rom) ? rom_word_cpu2 : cpu_port0;
+assign      ROM_Q = (ROM_WORD || ~ROM_ADDR[0]) ? rom_word : { rom_word[7:0], rom_word[15:8] };
 
 wire [16:0] WRAM_ADDR;
 wire        WRAM_CE_N;
@@ -191,7 +216,53 @@ wire        BSRAM_CE_N;
 wire        BSRAM_OE_N;
 wire        BSRAM_WE_N;
 wire        BSRAM_RD_N;
-wire  [7:0] BSRAM_Q = bsram_dout;
+// The SNES reads the controller's sticky read register directly. Once the save
+// channel uses the port, that register holds save-channel bytes, so the SNES
+// sees the value from its own last access until it makes a new one.
+wire  [7:0] bsram_dout;            // the sdram controller's BSRAM read register
+reg   [7:0] snes_bsram_hold = 0;
+reg         snes_bsram_shadow = 0;
+// SA-1: its own ROM lane (served from the SDRAM CPU2 port through the word
+// cache below) and BW-RAM in block RAM instead of the SDRAM save RAM.
+wire [22:0] sa1_rom_addr;
+wire        sa1_rom_req;
+wire [15:0] sa1_rom_q;
+wire        sa1_rom_wait;
+`ifdef CHIP_SA1
+wire        sa1_mode = rom_type[7:4] == 4'h6;
+`else
+wire        sa1_mode = 1'b0;
+`endif
+// CX4: its own ROM fetches (cache fill, DMA source read, external ROM read)
+// ride the same CPU2 lane while the CX4 owns the ROM bus. SA-1 and CX4 never
+// share a cartridge (rom_type 6 vs 4), so the two caches mux the one lane.
+wire        cx4_rom_req;
+wire [15:0] cx4_rom_q;
+wire        cx4_rom_wait;
+`ifdef CHIP_CX4
+wire        cx4_mode = rom_type[7:4] == 4'h4;
+`else
+wire        cx4_mode = 1'b0;
+`endif
+assign      cx4_owns_rom = cx4_mode & cx4_rom_req;
+// GSU: its own ROM fetches ride the same CPU2 lane while it owns the ROM
+// bus (RON), like the CX4's. The three chips never share a cartridge
+// (rom_type 6 vs 4 vs 7), so the caches mux the one lane.
+wire        gsu_rom_req;
+wire [15:0] gsu_rom_q;
+wire        gsu_rom_wait;
+wire        gsu_ram_req;
+wire        gsu_ram_wait;
+`ifdef CHIP_GSU
+wire        gsu_mode = rom_type[7:4] == 4'h7;
+`else
+wire        gsu_mode = 1'b0;
+`endif
+assign      gsu_owns_rom = gsu_mode & gsu_rom_req;
+assign      rom_word_cpu2 = cx4_owns_rom ? cx4_rom_q :
+                            gsu_owns_rom ? gsu_rom_q : sa1_rom_q;
+wire  [7:0] bwram_q_a;             // SA-1 BW-RAM (block RAM) read data
+wire  [7:0] BSRAM_Q = sa1_mode ? bwram_q_a : (snes_bsram_shadow ? snes_bsram_hold : bsram_dout);
 wire  [7:0] BSRAM_D;
 
 wire [15:0] VRAM1_ADDR;
@@ -213,6 +284,7 @@ wire        aram_16 = 0;
 
 wire BLEND = 1'b0;
 reg        PAL;
+wire       hires;
 wire       dotclk  /*verilator public*/;
 wire [14:0] rgb_out  /*verilator public*/;
 wire [8:0] x_out /*verilator public*/, y_out /*verilator public*/;
@@ -236,6 +308,11 @@ wire [5:0] ph;
 reg snes_start = 1'b0;
 wire pause_snes_for_frame_sync;
 
+// Selects the standard 60 Hz HDMI timing (for displays that refuse the native
+// rate; a menu option for it may come later). Tied 0: the game runs at the
+// console's own refresh rate.
+wire video_std_timing = 1'b0;
+
 wire [7:0] loader_do;
 wire loader_do_valid, loading, header_finished;
 
@@ -252,11 +329,11 @@ wire [23:0] rom_mask, ram_mask;
 
 wire sdram_busy;
 wire refresh;
-reg enable; // && ~dbg_break && ~pause;
+reg enable; // && ~dbg_break;
 reg loaded;
 
 always @(posedge mclk) begin        // wait until memory initialize to start SNES
-    if (~sdram_busy && ~pause_snes_for_frame_sync && loaded)
+    if (~sdram_busy && ~pause_snes_for_frame_sync && ~pause && loaded)
         enable <= 1;
     else 
         enable <= 0;
@@ -264,6 +341,9 @@ end
 
 wire sysclkf_ce, sysclkr_ce;
 wire overlay;
+// No buttons reach the console while the menu is up, or while core_config[22]
+// asks (the firmware's scanline preview runs the game with the menu hidden).
+wire pads_muted = overlay | core_config[22];
 
 `ifdef CHIP_DSPn
 parameter USE_DSPn=1;
@@ -275,6 +355,16 @@ parameter USE_GSU=1;
 `else
 parameter USE_GSU=0;
 `endif
+`ifdef CHIP_CX4
+parameter USE_CX4=1;
+`else
+parameter USE_CX4=0;
+`endif
+`ifdef CHIP_SA1
+parameter USE_SA1=1;
+`else
+parameter USE_SA1=0;
+`endif
 
 // `ifdef VERILATOR
 // parameter USE_DSPn=1;
@@ -282,7 +372,7 @@ parameter USE_GSU=0;
 // `endif
 
 `ifndef DISABLE_SNES
-main #(.USE_DSPn(USE_DSPn), .USE_GSU(USE_GSU)) main (
+main #(.USE_DSPn(USE_DSPn), .USE_GSU(USE_GSU), .USE_CX4(USE_CX4), .USE_SA1(USE_SA1)) main (
     .MCLK(mclk), .RESET_N(resetn & ~loading), .ENABLE(enable), 
     .SYSCLKF_CE(sysclkf_ce), .SYSCLKR_CE(sysclkr_ce), .REFRESH(refresh),
 
@@ -291,6 +381,13 @@ main #(.USE_DSPn(USE_DSPn), .USE_GSU(USE_GSU)) main (
     .ROM_ADDR(ROM_ADDR), .ROM_D(ROM_D), .ROM_Q(ROM_Q),
     .ROM_CE_N(ROM_CE_N), .ROM_OE_N(ROM_OE_N), .ROM_WE_N(ROM_WE_N),
     .ROM_WORD(ROM_WORD),
+
+    .SA1_ROM_ADDR(sa1_rom_addr), .SA1_ROM_REQ(sa1_rom_req),
+    .SA1_ROM_Q(sa1_rom_q), .SA1_ROM_WAIT(sa1_rom_wait),
+
+    .CX4_ROM_REQ(cx4_rom_req), .CX4_ROM_WAIT(cx4_rom_wait),
+    .GSU_ROM_REQ(gsu_rom_req), .GSU_ROM_WAIT(gsu_rom_wait),
+    .GSU_RAM_REQ(gsu_ram_req), .GSU_RAM_WAIT(gsu_ram_wait),
 
     .BSRAM_ADDR(BSRAM_ADDR), .BSRAM_D(BSRAM_D),	.BSRAM_Q(BSRAM_Q),
     .BSRAM_CE_N(BSRAM_CE_N), .BSRAM_OE_N(BSRAM_OE_N), .BSRAM_WE_N(BSRAM_WE_N),
@@ -307,16 +404,16 @@ main #(.USE_DSPn(USE_DSPn), .USE_GSU(USE_GSU)) main (
     .ARAM_ADDR(ARAM_ADDR), .ARAM_Q(ARAM_Q), .ARAM_D(ARAM_D), 
     .ARAM_CE_N(ARAM_CE_N), .ARAM_OE_N(ARAM_OE_N), .ARAM_WE_N(ARAM_WE_N),
 
-    .BLEND(BLEND), .PAL(PAL), .HIGH_RES(), .FIELD(), .INTERLACE(), .DIS_SHORTLINE(),
+    .BLEND(BLEND), .PAL(PAL), .HIGH_RES(hires), .FIELD(), .INTERLACE(), .DIS_SHORTLINE(1'b0),
     .DOTCLK(dotclk), .RGB_OUT(rgb_out), .HBLANKn(hblankn),
     .VBLANKn(vblankn), .X_OUT(x_out), .Y_OUT(y_out),
 
-    .JOY1_DI(overlay?2'b11:snes_joy1_di), .JOY2_DI(overlay?2'b11:snes_joy2_di), .JOY_STRB(snes_joy_strb), 
+    .JOY1_DI(pads_muted?2'b11:snes_joy1_di), .JOY2_DI(pads_muted?2'b11:snes_joy2_di), .JOY_STRB(snes_joy_strb), 
     .JOY1_CLK(snes_joy1_clk), .JOY2_CLK(snes_joy2_clk), 
 
     .AUDIO_L(audio_l), .AUDIO_R(audio_r), .AUDIO_READY(audio_ready), .AUDIO_EN(audio_en),
 
-    .JOY1_P6(), .JOY2_P6(), .JOY2_P6_in(), .DOT_CLK_CE(DOT_CLK_CE), .EXT_RTC(),
+    .JOY1_P6(), .JOY2_P6(), .JOY2_P6_in(), .DOT_CLK_CE(DOT_CLK_CE), .EXT_RTC(ext_rtc),
     .SPC_MODE(), .IO_ADDR(), .IO_DAT(), .IO_WR(), 
 
     .DBG_SEL(dbg_sel), .DBG_REG(dbg_reg), .DBG_REG_WR(dbg_reg_wr), .DBG_DAT_IN(dbg_dat_in), 
@@ -338,20 +435,33 @@ reg         cpu_we;
 wire [22:0] rom_addr = loading ? loader_addr : ROM_ADDR[22:0];
 reg [22:0]  rom_addr_sd;
 
+// Second ROM reader on the controller's CPU2 lane (the SA-1's ROM fetches,
+// served below the S-CPU; driven by the word cache below). The CX4's own
+// fetches share the lane while the CX4 owns the ROM bus (the two chips never
+// share a cartridge); the S-CPU lane stays for WRAM and for S-CPU ROM reads
+// while the CX4 is idle.
+wire [22:1] sa1_cpu2_addr, cx4_cpu2_addr, gsu_cpu2_addr, cpu2_addr;
+wire        sa1_cpu2_req, cx4_cpu2_req, gsu_cpu2_req, cpu2_req;
+assign      cpu2_addr = sa1_mode ? sa1_cpu2_addr :
+                        gsu_mode ? gsu_cpu2_addr : cx4_cpu2_addr;
+assign      cpu2_req  = sa1_mode ? sa1_cpu2_req  :
+                        gsu_mode ? gsu_cpu2_req  : cx4_cpu2_req;
+wire        cpu2_req_ack;
+wire [15:0] cpu2_dout;
+
 reg [16:0]  wram_addr_sd;
 reg         wram_wr_r, wram_rd_r;
 
-reg         bsram_req, bsram_we;
-reg [19:0]  bsram_addr;
-reg [7:0]   bsram_din;
-wire [7:0]  bsram_dout;
-wire        bsram_rd = ~BSRAM_CE_N & (~BSRAM_RD_N || rom_type[7:4] == 4'hC);
+reg [19:0]  bsram_addr;             // last cartridge-bus BSRAM address queued
+wire        bsram_rd = ~BSRAM_CE_N & (~BSRAM_RD_N || rom_type[7:4] == 4'hC || rom_type[7:4] == 4'h7);	// OBC-1/GSU read BSRAM outside CPU read cycles
 wire        bsram_wr = ~BSRAM_CE_N & ~BSRAM_WE_N;
 reg         bsram_rd_r, bsram_wr_r;
 
 wire        aram_rd = ~ARAM_CE_N & ~ARAM_OE_N;
 wire        aram_wr = ~ARAM_CE_N & ~ARAM_WE_N;
 reg [15:0]  aram_addr_sd;
+reg [15:0]  aram_din_sd;
+reg         aram_we_sd;
 reg         aram_rd_r, aram_wr_r;
 reg         aram_req;
 
@@ -363,9 +473,13 @@ always @(posedge mclk) begin
     if (~resetn) begin
     end else begin
         
-        // ROM read and load
-        if (loading && loader_do_valid && header_finished && loader_addr[0] 
-            || ~loading && ~ROM_CE_N && rom_addr_sd != rom_addr) begin
+        // ROM read and load. While the CX4 owns the ROM bus its fetch address
+        // is on ROM_ADDR: the CPU lane skips it (the CX4 reads the same word
+        // through the CPU2 cache instead), so a coinciding S-CPU WRAM request
+        // can no longer cancel the ROM fetch. S-CPU ROM reads while the CX4
+        // is idle still use this lane exactly as before.
+        if (loading && loader_do_valid && header_finished && loader_addr[0]
+            || ~loading && ~ROM_CE_N && rom_addr_sd != rom_addr && ~cx4_owns_rom && ~gsu_owns_rom) begin
             rom_addr_sd <= rom_addr;
             cpu_addr <= rom_addr;
             cpu_req <= ~cpu_req;
@@ -387,22 +501,279 @@ always @(posedge mclk) begin
             cpu_port <= 1;
         end 
 
-        // BSRAM read/write
+        // BSRAM read/write. The save-RAM bridge below serializes these with
+        // the save channel's accesses; bs_det_new (in the bridge) marks a
+        // new access from these edge registers and queues it there.
         bsram_rd_r <= bsram_rd; bsram_wr_r <= bsram_wr;
-        if (bsram_rd && BSRAM_ADDR != bsram_addr || (bsram_wr & ~bsram_wr_r) || (bsram_rd & ~bsram_rd_r)) begin
-            bsram_addr <= BSRAM_ADDR;
-            bsram_req <= ~bsram_req;
-            bsram_din <= BSRAM_D;
-        end
 
-        // ARAM read/write
+        // ARAM read/write. The controller is fed the address/data/we
+        // snapshot taken on the toggle edge (not the combinational DSP/SMP
+        // outputs), so the mclk->fclk ARAM path starts at flip-flops; the
+        // DSP/SMP sees the same latency, the snapshot is the same edge's
+        // values. Proven window: sim/sdram_port/run_stable.sh.
         aram_rd_r <= aram_rd; aram_wr_r <= aram_wr;
         if (aram_rd && aram_addr_sd != ARAM_ADDR || (aram_wr && aram_addr_sd != ARAM_ADDR) || (aram_rd & ~aram_rd_r) || (aram_wr & ~aram_wr_r)) begin
             aram_req <= ~aram_req;
             aram_addr_sd <= ARAM_ADDR;
+            aram_din_sd <= {ARAM_D, ARAM_D};
+            aram_we_sd <= aram_wr;
         end
     end
 end
+
+// save channel <-> bridge (driven by iosys when MCU_BL616; quiet zeros otherwise)
+`ifdef CHIP_SA1
+localparam SAVE_AW = 18;    // SA-1 BW-RAM saves reach 256 KB
+`else
+localparam SAVE_AW = 17;
+`endif
+wire [SAVE_AW-1:0] sv_addr;
+wire [7:0]  sv_din;
+wire        sv_req, sv_rreq;
+
+// ---- Save-RAM <-> BSRAM bridge ----------------------------------------------
+// The SNES cartridge bus and the iosys save channel both need the sdram
+// controller's single BSRAM port (the 128 KB at the start of bank 1). The SNES
+// edge detector above queues each new cartridge access in the 4-deep FIFO
+// below (a single pending slot was overwritten when the GSU issued byte
+// writes ~4 mclk apart against a ~6+ mclk service time: the first byte of
+// each stw pair was lost); the save channel toggles sv_req (write) /
+// sv_rreq (read). This arbiter owns the
+// controller's req/ack pair and serves one byte at a time, SNES first: save
+// accesses only slip into idle slots, so the SNES never queues behind one,
+// while a SNES access arriving mid-save-byte waits ~6 clocks -- the SNES
+// cartridge window is many times that. The controller toggles bs_req_ack once
+// per access (fclk domain, like the existing cpu/aram handshakes); it is
+// synchronized here and routed back to whichever source was served. Reads
+// capture the controller's sticky bsram_dout before the next access can
+// overwrite it, since the arbiter keeps the port until the byte is banked.
+reg  [16:0] bs_fifo_addr [0:3];
+reg   [7:0] bs_fifo_din [0:3];
+reg         bs_fifo_we [0:3];
+reg   [2:0] bs_fifo_wptr = 0, bs_fifo_rptr = 0;
+wire        bs_fifo_empty = bs_fifo_wptr == bs_fifo_rptr;
+wire        bs_fifo_full  = bs_fifo_wptr == bs_fifo_rptr + 3'd4;
+wire        bs_det_new = (bsram_rd && BSRAM_ADDR != bsram_addr) ||
+                         (bsram_wr & ~bsram_wr_r) || (bsram_rd & ~bsram_rd_r);
+wire        bs_push = bs_det_new && ~bs_fifo_full && ~sa1_mode;
+reg         sv_w_seen = 0, sv_r_seen = 0;
+reg         bs_req_tog = 0;                 // -> controller .bsram_req
+wire        bs_req_ack;                     // <- controller .bsram_req_ack
+reg  [2:0]  bs_ack_sync = 0;                // 2FF sync of bs_req_ack into mclk
+wire        bs_ack = bs_ack_sync[2];
+reg         bs_busy = 0;
+reg         bs_owner = 0;                   // 0: SNES access, 1: save access
+reg         bs_we_r = 0;
+reg  [16:0] bs_addr_r = 0;
+reg  [7:0]  bs_din_r = 0;
+reg         sv_ack_r = 0, sv_rack_r = 0;    // toggles back into iosys
+reg  [7:0]  sv_q_r = 0;
+wire        snes_bs_new = ~bs_fifo_empty;
+wire        sv_w_new    = sv_req != sv_w_seen;
+wire        sv_r_new    = sv_rreq != sv_r_seen;
+wire        bs_free     = bs_req_tog == bs_ack;
+wire        bs_issue_ok = ~bs_busy | bs_free;   // idle, or acked this very clock
+
+always @(posedge mclk) begin
+    bs_ack_sync <= {bs_ack_sync[1:0], bs_req_ack};
+    if (sa1_mode) begin                 // the BW-RAM block RAM serves both sides
+        bs_fifo_rptr <= bs_fifo_wptr;   // drop any queued cartridge access
+        sv_w_seen <= sv_req;
+        sv_r_seen <= sv_rreq;
+    end
+    if (bs_det_new)
+        bsram_addr <= BSRAM_ADDR;
+    if (bs_push) begin
+        bs_fifo_addr[bs_fifo_wptr[1:0]] <= BSRAM_ADDR[16:0];
+        bs_fifo_din[bs_fifo_wptr[1:0]]  <= BSRAM_D;
+        bs_fifo_we[bs_fifo_wptr[1:0]]   <= bsram_wr;
+        bs_fifo_wptr <= bs_fifo_wptr + 3'd1;
+    end
+    if (bs_busy && bs_free) begin               // the access just completed
+        bs_busy <= 0;
+        if (bs_owner) begin
+            if (bs_we_r) sv_ack_r <= ~sv_ack_r;
+            else begin
+                sv_q_r <= bsram_dout;           // the controller's sticky read reg
+                sv_rack_r <= ~sv_rack_r;
+            end
+        end
+    end
+    if (bs_issue_ok && snes_bs_new && ~sa1_mode) begin
+        snes_bsram_shadow <= 0;                 // the SNES gets the port's data again
+        bs_addr_r <= bs_fifo_addr[bs_fifo_rptr[1:0]];
+        bs_din_r  <= bs_fifo_din[bs_fifo_rptr[1:0]];
+        bs_we_r   <= bs_fifo_we[bs_fifo_rptr[1:0]];
+        bs_owner  <= 0;
+        bs_busy   <= 1;
+        bs_req_tog <= ~bs_req_tog;
+        bs_fifo_rptr <= bs_fifo_rptr + 3'd1;
+    end else if (bs_issue_ok && sv_w_new && ~sa1_mode) begin
+        if (!snes_bsram_shadow) begin           // keep the SNES's last read data
+            snes_bsram_hold <= bsram_dout;
+            snes_bsram_shadow <= 1;
+        end
+        bs_addr_r <= sv_addr[16:0];
+        bs_din_r  <= sv_din;
+        bs_we_r   <= 1;
+        bs_owner  <= 1;
+        bs_busy   <= 1;
+        bs_req_tog <= ~bs_req_tog;
+        sv_w_seen <= sv_req;
+    end else if (bs_issue_ok && sv_r_new && ~sa1_mode) begin
+        if (!snes_bsram_shadow) begin           // keep the SNES's last read data
+            snes_bsram_hold <= bsram_dout;
+            snes_bsram_shadow <= 1;
+        end
+        bs_addr_r <= sv_addr[16:0];
+        bs_din_r  <= 8'h0;
+        bs_we_r   <= 0;
+        bs_owner  <= 1;
+        bs_busy   <= 1;
+        bs_req_tog <= ~bs_req_tog;
+        sv_r_seen <= sv_rreq;
+    end
+end
+wire sv_core_we = bsram_wr & ~bsram_wr_r;       // the SNES wrote save RAM
+
+// While the GSU owns the RAM bus, hold its RAM_ACCESS_CNT completions
+// until the bridge has finished the byte it presented: nothing queued,
+// nothing being detected this cycle, and no cartridge access in flight.
+// (Save-channel bytes in flight do not count: they cannot be the GSU's,
+// and the GSU's own queued byte keeps snes_bs_new up behind one.)
+assign gsu_ram_wait = gsu_mode & gsu_ram_req &
+                      (bs_det_new | snes_bs_new | (bs_busy & ~bs_owner));
+
+// ---- SA-1: ROM word cache on CPU2, BW-RAM in block RAM ----------------------
+// In SA-1 mode the save channel talks to the BW-RAM's second port (through
+// the small FSM here) instead of the SDRAM bridge above, which stays out of
+// the way: it never issues, and its seen-toggles track the requests so a
+// later non-SA-1 game starts clean. BSRAM_Q (above) likewise switches to
+// the BW-RAM. The iosys save handshake sees the muxed ack/data.
+wire        bw_sv_ack, bw_sv_rack;
+wire  [7:0] bw_sv_q;
+wire        sv_ack  = sa1_mode ? bw_sv_ack  : sv_ack_r;
+wire        sv_rack = sa1_mode ? bw_sv_rack : sv_rack_r;
+wire  [7:0] sv_q    = sa1_mode ? bw_sv_q    : sv_q_r;
+
+`ifdef CHIP_SA1
+sa1_rom_cache sa1_rom_cache (
+    .mclk(mclk), .resetn(resetn), .active(sa1_mode & ~loading),
+    .rom_addr(sa1_rom_addr), .rom_req(sa1_rom_req),
+    .rom_q(sa1_rom_q), .rom_wait(sa1_rom_wait),
+    .cpu2_addr(sa1_cpu2_addr), .cpu2_req(sa1_cpu2_req),
+    .cpu2_req_ack(cpu2_req_ack), .cpu2_dout(cpu2_dout)
+);
+
+reg [17:0]  bw_addr_b = 0;
+reg  [7:0]  bw_din_b = 0;
+reg         bw_we_b = 0;
+reg         bw_ack_r = 0, bw_rack_r = 0;
+reg  [7:0]  bw_q_r = 0;
+reg         bw_w_seen = 0, bw_r_seen = 0;
+reg         bw_wr_pend = 0, bw_rd_pend = 0, bw_rd_valid = 0;
+wire [7:0]  bwram_q_b;
+
+always @(posedge mclk) begin
+    if (bw_wr_pend) begin               // the write landed at this edge
+        bw_we_b <= 0;
+        bw_wr_pend <= 0;
+        bw_ack_r <= ~bw_ack_r;
+    end else if (bw_rd_valid) begin     // q_b held the byte through last cycle
+        bw_rd_valid <= 0;
+        bw_q_r <= bwram_q_b;
+        bw_rack_r <= ~bw_rack_r;
+    end else if (bw_rd_pend) begin      // address is on the port; data next cycle
+        bw_rd_pend <= 0;
+        bw_rd_valid <= 1;
+    end else if (sa1_mode && sv_req != bw_w_seen) begin
+        bw_w_seen <= sv_req;
+        bw_addr_b <= sv_addr[17:0];
+        bw_din_b <= sv_din;
+        bw_we_b <= 1;
+        bw_wr_pend <= 1;
+    end else if (sa1_mode && sv_rreq != bw_r_seen) begin
+        bw_r_seen <= sv_rreq;
+        bw_addr_b <= sv_addr[17:0];
+        bw_rd_pend <= 1;
+    end else if (~sa1_mode) begin
+        bw_w_seen <= sv_req;
+        bw_r_seen <= sv_rreq;
+        bw_we_b <= 0;
+    end
+end
+
+bwram_256k bwram (
+    .clk(mclk),
+    .addr_a(BSRAM_ADDR[17:0]), .din_a(BSRAM_D), .q_a(bwram_q_a),
+    .we_a(sa1_mode & ~BSRAM_WE_N),
+    .addr_b(bw_addr_b), .din_b(bw_din_b), .q_b(bwram_q_b), .we_b(bw_we_b)
+);
+assign bw_sv_ack  = bw_ack_r;
+assign bw_sv_rack = bw_rack_r;
+assign bw_sv_q    = bw_q_r;
+`else
+assign bw_sv_ack  = 1'b0;
+assign bw_sv_rack = 1'b0;
+assign bw_sv_q    = 8'h0;
+assign bwram_q_a  = 8'h0;
+assign sa1_rom_q  = 16'h0;
+assign sa1_rom_wait = 1'b0;
+assign sa1_cpu2_addr = 22'h0;
+assign sa1_cpu2_req  = 1'b0;
+`endif
+
+// ---- CX4: own ROM word cache on the same CPU2 lane --------------------------
+// While the CX4 owns the ROM bus (cache fill, DMA source read, external ROM
+// read) its byte address is on ROM_ADDR; the cache fetches each new word once
+// over CPU2 and the CX4's wait counters hold until the word is valid. The
+// S-CPU lane keeps serving WRAM (and S-CPU ROM reads while the CX4 is idle)
+// exactly as before, so the two streams can no longer cancel each other.
+// The cache module is shared with the SA-1 (a second instance): the access
+// pattern is the same (mostly sequential words, second byte hits), and the
+// two chips never share a cartridge, so the lane is muxed by chip type above.
+`ifdef CHIP_CX4
+// QUALIFY_WAIT: the CX4 moves its fetch address on most mclk edges, so the
+// cache's registered hit would otherwise describe the previous word when
+// the wait counter matches (wrong byte at WS1 = 0). The SA-1 instance above
+// keeps the default and is unchanged.
+sa1_rom_cache #(.QUALIFY_WAIT(1)) cx4_rom_cache (
+    .mclk(mclk), .resetn(resetn), .active(cx4_mode & ~loading),
+    .rom_addr(rom_addr), .rom_req(cx4_rom_req),
+    .rom_q(cx4_rom_q), .rom_wait(cx4_rom_wait),
+    .cpu2_addr(cx4_cpu2_addr), .cpu2_req(cx4_cpu2_req),
+    .cpu2_req_ack(cpu2_req_ack), .cpu2_dout(cpu2_dout)
+);
+`else
+assign cx4_rom_q = 16'h0;
+assign cx4_rom_wait = 1'b0;
+assign cx4_cpu2_addr = 22'h0;
+assign cx4_cpu2_req = 1'b0;
+`endif
+
+// ---- GSU: own ROM word cache on the same CPU2 lane ---------------------------
+// While the GSU owns the ROM bus (cache fill, R14 ROM load, opcode fetch
+// outside the code cache) its byte address is on ROM_ADDR; the cache
+// fetches each new word once over CPU2 and ROM_WAIT holds the GSU's
+// ROM_ACCESS_CNT sample points until the word is valid. S-CPU ROM reads
+// while the GSU is idle still use the CPU lane exactly as before.
+// QUALIFY_WAIT for the same reason as the CX4 instance: in 21 MHz mode the
+// GSU can move its fetch address on consecutive mclk edges, so the cache's
+// registered hit must be qualified against the current address.
+`ifdef CHIP_GSU
+sa1_rom_cache #(.QUALIFY_WAIT(1)) gsu_rom_cache (
+    .mclk(mclk), .resetn(resetn), .active(gsu_mode & ~loading),
+    .rom_addr(rom_addr), .rom_req(gsu_rom_req),
+    .rom_q(gsu_rom_q), .rom_wait(gsu_rom_wait),
+    .cpu2_addr(gsu_cpu2_addr), .cpu2_req(gsu_cpu2_req),
+    .cpu2_req_ack(cpu2_req_ack), .cpu2_dout(cpu2_dout)
+);
+`else
+assign gsu_rom_q = 16'h0;
+assign gsu_rom_wait = 1'b0;
+assign gsu_cpu2_addr = 22'h0;
+assign gsu_cpu2_req = 1'b0;
+`endif
 
 localparam RV_IDLE_REQ0 = 3'd0;
 localparam RV_WAIT0_REQ1 = 3'd1;
@@ -461,13 +832,18 @@ sdram_snes sdram(
     .cpu_port0(cpu_port0), .cpu_port1(cpu_port1), .cpu_req(cpu_req), .cpu_req_ack(),
     .cpu_we(cpu_we), .cpu_ds(cpu_ds),
 
-    // BSRAM accesses
-    .bsram_addr(bsram_addr), .bsram_dout(bsram_dout), .bsram_din(bsram_din),
-    .bsram_req(bsram_req), .bsram_req_ack(), .bsram_we(bsram_wr),
+`ifndef SDRAM_3CH
+    // Second ROM reader
+    .cpu2_addr(cpu2_addr), .cpu2_dout(cpu2_dout), .cpu2_req(cpu2_req), .cpu2_req_ack(cpu2_req_ack),
+`endif
+
+    // BSRAM accesses: SNES cartridge bus and save channel, via the bridge above
+    .bsram_addr({3'b0, bs_addr_r}), .bsram_dout(bsram_dout), .bsram_din(bs_din_r),
+    .bsram_req(bs_req_tog), .bsram_req_ack(bs_req_ack), .bsram_we(bs_we_r),
 
     // ARAM accesses
-    .aram_16(aram_16), .aram_addr(ARAM_ADDR), .aram_din({ARAM_D, ARAM_D}), 
-    .aram_dout(aram_dout), .aram_req(aram_req), .aram_req_ack(), .aram_we(aram_wr),
+    .aram_16(aram_16), .aram_addr(aram_addr_sd), .aram_din(aram_din_sd), 
+    .aram_dout(aram_dout), .aram_req(aram_req), .aram_req_ack(), .aram_we(aram_we_sd),
 
 `ifdef SDRAM_3CH
     // VRAM accesses
@@ -610,22 +986,31 @@ snes2hdmi s2h(
     .clk(mclk), .resetn(resetn), .snes_refresh(refresh),
     .pause_snes_for_frame_sync(pause_snes_for_frame_sync),
     .dotclk(dotclk), .hblank(~hblankn),.vblank(~vblankn),.rgb5(rgb_out),
-    .xs(x_out), .ys(y_out), 
+    .xs(x_out), .ys(y_out), .hires(hires),
     .overlay(overlay), .overlay_x(overlay_x), .overlay_y(overlay_y),
     .overlay_color(overlay_color), 
+    .scanlines(core_config[16]), .sl_darkness(core_config[19:18]), .sl_thick(core_config[20]), .sl_out(core_config[21]),
+    .video_config(video_config),
     .audio_l(audio_l), .audio_r(audio_r), .audio_ready(audio_ready), .audio_en(audio_en),
+    .pause(pause),
+    .std_timing(video_std_timing),
     .clk_pixel(hclk),.clk_5x_pixel(hclk5),.locked(1'b1),
     .tmds_clk_n(tmds_clk_n), .tmds_clk_p(tmds_clk_p),
     .tmds_d_n(tmds_d_n), .tmds_d_p(tmds_d_p)
 );
 
-iosys_bl616 #(.CORE_ID(2), .FREQ(21_484_000)) iosys (
+iosys_bl616 #(.CORE_ID(2), .FREQ(21_484_000), .SAVE_IF(1), .SAVE_AW(SAVE_AW), .SAVE_RDY(1)) iosys (
     .clk(mclk), .hclk(hclk), .resetn(resetn),
     .overlay(overlay), .overlay_x(overlay_x), .overlay_y(overlay_y),
     .overlay_color(overlay_color),
+    .core_config(core_config), .video_config(video_config),
+    .time_unix(time_unix), .time_bcd(time_bcd),
+    .time_solar(time_solar), .time_flags(time_flags), .time_strobe(time_strobe),
     .joy1(joy1_btns_ds2 | joy1_btns_snes | joy1_usb), .joy2(joy2_btns_ds2 | joy2_btns_snes | joy2_usb), .hid1(hid1), .hid2(hid2),
     .uart_tx(UART_TXD), .uart_rx(UART_RXD),
-    .rom_loading(loading), .rom_do(loader_do), .rom_do_valid(loader_do_valid)
+    .rom_loading(loading), .rom_do(loader_do), .rom_do_valid(loader_do_valid),
+    .sv_addr(sv_addr), .sv_din(sv_din), .sv_we(), .sv_req(sv_req), .sv_ack(sv_ack),
+    .sv_rreq(sv_rreq), .sv_rack(sv_rack), .sv_q(sv_q), .sv_core_we(sv_core_we)
 );
 
 `else       // VERILATOR
@@ -713,3 +1098,4 @@ end
 `endif
 
 endmodule
+

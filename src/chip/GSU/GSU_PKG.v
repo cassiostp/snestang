@@ -498,8 +498,13 @@ function logic [16:0] GetCharOffset(logic [12:0] offs, logic [1:0] ht,
 
     case (ht)
     2'b00: temp = {1'b0, offs[4:0], 4'b0} + {5'b0, offs[12:8]};
-    2'b01: temp = {1'b0, offs[4:0], 4'b0} + {3'b0, offs[4:0], 2'b0};
-    2'b10: temp = {1'b0, offs[4:0], 4'b0} + {2'b0, offs[4:0], 3'b0};
+    // snestang: the +{5'b0, offs[12:8]} char-row term was dropped from the
+    // ht=01/10 cases in the VHDL->Verilog port (present in srg320's
+    // GSU_PKG.vhd GetCharOffset); without it every char row of a 160/192
+    // -line screen aliases onto char row 0, so PLOT/RPIX pile all rows
+    // into the same bytes.
+    2'b01: temp = {1'b0, offs[4:0], 4'b0} + {3'b0, offs[4:0], 2'b0} + {5'b0, offs[12:8]};
+    2'b10: temp = {1'b0, offs[4:0], 4'b0} + {2'b0, offs[4:0], 3'b0} + {5'b0, offs[12:8]};
     default:  temp = {offs[12], offs[4], offs[11:8], offs[3:0]};
     endcase
 

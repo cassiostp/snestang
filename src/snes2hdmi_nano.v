@@ -34,6 +34,9 @@ module snes2hdmi (
 	input clk_5x_pixel,
 	input locked,
 
+    // 1: standard 60 Hz HDMI timing; 0: native rate (from video_std_timing in the top)
+    input std_timing,
+
     output reg pause_snes_for_frame_sync,
 
     // output [7:0] led,
@@ -92,13 +95,34 @@ module snes2hdmi (
     reg sync_done = 1'b0;
     reg hdmi_first_line;
     reg pause_sync;     // pause for even number of cycles for PPU sdram access to stay in sync
+    reg fl_missed = 1'b0;       // a release row passed with no halt waiting for it
+    reg fl_old = 1'b0;
+    reg [18:0] fl_age = 19'b0;  // clocks since the last release row (saturating)
+    reg [18:0] late1 = {19{1'b1}}, late2 = {19{1'b1}};  // fl_age at the last two halt points
     always @(posedge clk) begin
         if (pause_snes_for_frame_sync) pause_sync <= ~pause_sync;
+        fl_old <= hdmi_first_line;
+        if (hdmi_first_line && ~fl_old) begin
+            fl_age <= 19'b0;
+            if (~pause_snes_for_frame_sync)
+                fl_missed <= 1'b1;  // release rows seen while halted are releases, not misses
+        end else if (~&fl_age)
+            fl_age <= fl_age + 19'd1;
         if (~sync_done) begin
             if (~pause_snes_for_frame_sync) begin
                 if (ys[7:0] == 8'd2 && snes_refresh) begin      // halt SNES during snes dram refresh on line 2
-                    pause_snes_for_frame_sync <= 1'b1;
-                    pause_sync <= 0;
+                    // Skip the halt only when the halt point gets later every frame
+                    // (SNES frame not shorter than the HDMI one); while acquiring
+                    // it gets earlier and waiting for the release row is right.
+                    if (fl_missed && fl_age >= late2)
+                        sync_done <= 1'b1;
+                    else begin
+                        pause_snes_for_frame_sync <= 1'b1;
+                        pause_sync <= 0;
+                    end
+                    fl_missed <= 1'b0;
+                    late2 <= late1;
+                    late1 <= fl_missed ? fl_age : 19'b0;
                 end
             end else if (hdmi_first_line && pause_sync) begin                 // HDMI frame start, now resume SNES
                 pause_snes_for_frame_sync <= 1'b0;
@@ -106,7 +130,8 @@ module snes2hdmi (
             end
         end else
             pause_snes_for_frame_sync <= 1'b0;
-        if (ys[7:0] == 8'd200) sync_done <= 1'b0;               // reset sync_done for next frame
+        if (ys[7:0] == 8'd200)
+            sync_done <= 1'b0;               // reset sync_done for next frame
     end
     always @(posedge clk_pixel) begin
         if (cy == 10'd24 && cx >= 11'd256 && cx < 11'd356)      // first 100 pixels of first line
@@ -161,43 +186,58 @@ module snes2hdmi (
     
 
     // HDMI TX audio - send 32K sampling rate audio
-    // Hoarse sound issue: https://github.com/nand2mario/snestang/issues/16
-    // SNES average framerate is 60.09881. So we need to pause the SNES a bit every frame to ensure 60 fps HDMI. 
-    // For sound, that translate to about 8 samples pause time per frame. So we run our DSP a bit faster to 
-    // buffer enough samples before the SNES pause.
+    // The DSP (ACLK_FREQ in dsp.vh) produces just enough samples per HDMI
+    // frame to cover the consumption below plus the samples lost while the
+    // frame sync halts the SNES once per frame. The FIFO level trims the
+    // residual (clock tolerance): above FIFO_HI the audio period shortens by
+    // one pixel clock, below FIFO_LO it lengthens by one, so the level stays
+    // mid-FIFO and samples are neither dropped nor repeated.
     localparam AUDIO_OUT_RATE = 32000;
     localparam AUDIO_DELAY = CLKFRQ * 1000 / AUDIO_OUT_RATE / 2;
+    localparam [10:0] AUDIO_PERIOD = AUDIO_DELAY - 1;    // pixel clocks per half audio clock
+    localparam FIFO_ADDRSIZE = 6;       // 64 samples, ~2 ms at 32 kHz
+    localparam [FIFO_ADDRSIZE:0] FIFO_LO = 20;
+    localparam [FIFO_ADDRSIZE:0] FIFO_HI = 44;
     reg [15:0] audio_sample_word [1:0];
-    reg [$clog2(AUDIO_DELAY)-1:0] audio_divider;
+    reg [10:0] audio_divider;
     reg clk_audio;
     reg audio_rinc;
     wire audio_full, audio_empty;
+    wire [FIFO_ADDRSIZE:0] audio_used;
     wire [31:0] audio_sample;
+    wire [10:0] audio_limit = (audio_used >= FIFO_HI) ? AUDIO_PERIOD - 11'd1 :
+                              (audio_used <= FIFO_LO) ? AUDIO_PERIOD + 11'd1 : AUDIO_PERIOD;
 
     always @(posedge clk_pixel) begin
-        if (resetn) begin
+        if (!resetn) begin
+            audio_divider <= 0;
+            clk_audio <= 0;
             audio_rinc <= 0;
-            if (audio_divider != AUDIO_DELAY - 1) 
+            audio_sample_word[0] <= 0;
+            audio_sample_word[1] <= 0;
+        end else begin
+            audio_rinc <= 0;
+            if (audio_divider < audio_limit)
                 audio_divider <= audio_divider + 1;
-            else begin 
+            else begin
                 audio_divider <= 0;
                 clk_audio = ~clk_audio;     // generate audio clock @ 32Khz
                 // output audio sample on posedge clk_audio
                 if (!clk_audio && !audio_empty) begin
                     {audio_sample_word[0], audio_sample_word[1]} <= audio_sample;
-                    audio_rinc <= 1'b1;                    
+                    audio_rinc <= 1'b1;
                 end
             end
         end
     end
 
-    // Audio sample FIFO for 16 samples
-    dual_clk_fifo #(.DATESIZE(32), .ADDRSIZE(4)) audio_fifo (
-        .clk(clk), .wrst_n(1'b1), 
+    // Audio sample FIFO for 64 samples
+    dual_clk_fifo #(.DATESIZE(32), .ADDRSIZE(FIFO_ADDRSIZE)) audio_fifo (
+        .clk(clk), .wrst_n(resetn),
         .winc(audio_ready), .wdata({audio_l, audio_r}), .wfull(audio_full),
-        .rclk(clk_pixel), .rrst_n(1'b1),
+        .rclk(clk_pixel), .rrst_n(resetn),
         .rinc(audio_rinc), .rdata(audio_sample), .rempty(audio_empty),
-        .almost_full(), .almost_empty()
+        .almost_full(), .almost_empty(), .rdusedw(audio_used)
     );
 
     //
@@ -262,6 +302,8 @@ module snes2hdmi (
             .IT_CONTENT(1),
             .AUDIO_RATE(AUDIO_OUT_RATE), 
             .AUDIO_BIT_WIDTH(AUDIO_BIT_WIDTH),
+            // SNES native rate (60.0988 Hz): 74.25 MHz / (1647 x 750) = 60.1093 Hz
+            .NATIVE_FRAME_WIDTH(1647),
             .START_X(0),
             .START_Y(0) )
 
@@ -270,6 +312,7 @@ module snes2hdmi (
           .clk_audio(clk_audio),
           .rgb(rgb), 
           .reset( ~resetn ),
+          .std_timing(std_timing),
           .audio_sample_word(audio_sample_word),
           .tmds(tmds), 
           .tmds_clock(tmdsClk), 

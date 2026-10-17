@@ -140,6 +140,14 @@ always @(CA, MAP_CTRL, ROMSEL_N, RAMSEL_N, BSRAM_MASK, ROM_MASK) begin
           DSP_SEL <= MAP_CTRL[7] &  ~MAP_CTRL[6];
         end
         DSP_A0 <= CA[12];
+        // S-RTC (same $2800-2801 window as the ExHiROM branch below): the
+        // firmware finds this game's header at the HiROM position, so the
+        // ExHiROM-only decode inherited from MiSTer can never fire here.
+        // Only the S-RTC parser case (and SPC7110-RTC, a different mapper
+        // branch) sets MAP_CTRL[3] on a HiROM game.
+        if(CA[22] == 1'b0 && CA[15:1] == {12'h280,3'b000} && MAP_CTRL[3] == 1'b1) begin
+          SRTC_SEL <= 1'b1;
+        end
       end
       2'b10 : begin
         // ExHiROM

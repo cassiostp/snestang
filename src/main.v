@@ -23,6 +23,36 @@ module main (
 	output reg        ROM_WE_N,
 	output reg        ROM_WORD,
 
+	// SA-1's own ROM lane: ROM_ADDR above carries the S-CPU's (Super MMC
+	// mapped) address in SA-1 mode, this carries the SA-1 side's. ROM_WAIT
+	// holds the SA-1 off until SA1_ROM_Q holds the word at SA1_ROM_ADDR.
+	output     [22:0] SA1_ROM_ADDR,
+	output            SA1_ROM_REQ,
+	input      [15:0] SA1_ROM_Q,
+	input             SA1_ROM_WAIT,
+
+	// CX4's own ROM fetch: ROM_ADDR above carries the CX4's fetch address
+	// while the CX4 owns the ROM bus (busy), and the S-CPU's while it is
+	// idle. CX4_ROM_REQ asks the SDRAM CPU2 lane (through the word cache in
+	// snestang_top) for the byte; CX4_ROM_WAIT holds the CX4's wait counters
+	// until it has arrived. SA-1 and CX4 never share a cartridge, so they
+	// share the CPU2 lane, muxed by the chip type in snestang_top.
+	output            CX4_ROM_REQ,
+	input             CX4_ROM_WAIT,
+
+	// The GSU's own ROM fetch, same scheme as the CX4's: while the GSU owns
+	// the ROM bus (RON) ROM_ADDR carries its fetch address, GSU_ROM_REQ asks
+	// the CPU2 word cache for the byte and GSU_ROM_WAIT holds the GSU's
+	// ROM_ACCESS_CNT sample points until it has arrived. Its fixed wait
+	// counters alone cannot cover this SDRAM port's latency, and a fetch on
+	// the shared fire-and-forget CPU lane can be lost to a coinciding WRAM
+	// access (the GSU then samples stale data, typically 0x00 = STOP).
+	// GSU_RAM_WAIT is the same hold for the BSRAM bridge in snestang_top.
+	output            GSU_ROM_REQ,
+	input             GSU_ROM_WAIT,
+	output            GSU_RAM_REQ,
+	input             GSU_RAM_WAIT,
+
 	output reg [19:0] BSRAM_ADDR,
 	output reg  [7:0] BSRAM_D,
 	input       [7:0] BSRAM_Q,
@@ -282,7 +312,7 @@ DSP_LHRomMap #(.USE_DSPn(USE_DSPn)) DSP_LHRomMap
 	// .WCLK(WCLK),
 	.MCLK(MCLK),
 	.RST_N(RESET_N),
-    .ENABLE(1'b1),
+    .ENABLE(ENABLE),
 
 	.CA(CA),
 	.DI(DO),
@@ -357,6 +387,7 @@ CX4Map CX4Map
 (
 	.mclk(MCLK),
 	.rst_n(RESET_N),
+	.enable(ENABLE),
 
 	.ca(CA),
 	.di(DO),
@@ -382,6 +413,8 @@ CX4Map CX4Map
 	.rom_ce_n(CX4_ROM_CE_N),
 	.rom_oe_n(CX4_ROM_OE_N),
 	.rom_word(CX4_ROM_WORD),
+	.rom_req(CX4_ROM_REQ),
+	.rom_wait(CX4_ROM_WAIT),
 
 	.bsram_addr(CX4_BSRAM_ADDR),
 	.bsram_d(CX4_BSRAM_D),
@@ -395,8 +428,10 @@ CX4Map CX4Map
 	.rom_mask(ROM_MASK),
 	.bsram_mask(RAM_MASK)
 );
-end else
+end else begin
 assign MAP_ACTIVE[0] = 0;
+assign CX4_ROM_REQ = 0;
+end
 endgenerate
 
 wire [7:0]  SDD_DO;
@@ -472,6 +507,7 @@ wire        GSU_BSRAM_CE_N;
 wire        GSU_BSRAM_OE_N;
 wire        GSU_BSRAM_WE_N;
 wire 		GSU_TURBO;
+assign GSU_TURBO = 1'b0;	// no turbo control; keep the GSU at cartridge speed
 
 generate
 if (USE_GSU == 1'b1) begin
@@ -480,7 +516,7 @@ GSUMap GSUMap
 (
 	.MCLK(MCLK),
 	.RST_N(RESET_N),
-	.ENABLE(1'b1),
+	.ENABLE(ENABLE),
 
 	.CA(CA),
 	.DI(DO),
@@ -506,6 +542,10 @@ GSUMap GSUMap
 	.ROM_CE_N(GSU_ROM_CE_N),
 	.ROM_OE_N(GSU_ROM_OE_N),
 	.ROM_WORD(GSU_ROM_WORD),
+	.ROM_REQ(GSU_ROM_REQ),
+	.ROM_WAIT(GSU_ROM_WAIT),
+	.RAM_REQ(GSU_RAM_REQ),
+	.RAM_WAIT(GSU_RAM_WAIT),
 
 	.BSRAM_ADDR(GSU_BSRAM_ADDR),
 	.BSRAM_D(GSU_BSRAM_D),
@@ -521,15 +561,19 @@ GSUMap GSUMap
 
 	.TURBO(GSU_TURBO)
 );
-end else
+end else begin
 assign MAP_ACTIVE[2] = 0;
+assign GSU_ROM_REQ = 0;
+assign GSU_RAM_REQ = 0;
+end
 endgenerate
 
 // assign GSU_ACTIVE = MAP_ACTIVE[2];
 
 wire [7:0]  SA1_DO;
 wire        SA1_IRQ_N;
-wire [22:0] SA1_ROM_ADDR;
+wire [22:0] SA1_SNES_ROM_ADDR;
+wire        SA1_SNES_ROM_CE_N;
 wire        SA1_ROM_CE_N;
 wire        SA1_ROM_OE_N;
 wire        SA1_ROM_WORD;
@@ -546,6 +590,7 @@ SA1Map SA1Map
 (
 	.mclk(MCLK),
 	.rst_n(RESET_N),
+	.enable(ENABLE),
 
 	.ca(CA),
 	.di(DO),
@@ -569,10 +614,15 @@ SA1Map SA1Map
 	.irq_n(SA1_IRQ_N),
 
 	.rom_addr(SA1_ROM_ADDR),
-	.rom_q(ROM_Q),
+	.rom_q(SA1_ROM_Q),
 	.rom_ce_n(SA1_ROM_CE_N),
 	.rom_oe_n(SA1_ROM_OE_N),
 	.rom_word(SA1_ROM_WORD),
+	.rom_req(SA1_ROM_REQ),
+	.rom_wait(SA1_ROM_WAIT),
+	.snes_rom_addr(SA1_SNES_ROM_ADDR),
+	.snes_rom_q(ROM_Q),
+	.snes_rom_ce_n(SA1_SNES_ROM_CE_N),
 
 	.bsram_addr(SA1_BSRAM_ADDR),
 	.bsram_d(SA1_BSRAM_D),
@@ -584,10 +634,23 @@ SA1Map SA1Map
 	.map_active(MAP_ACTIVE[3]),
 	.map_ctrl(ROM_TYPE),
 	.rom_mask(ROM_MASK),
-	.bsram_mask(RAM_MASK)
+	.bsram_mask(RAM_MASK),
+
+	.sa1_p65_a(),
+	.sa1_p65_do(),
+	.sa1_p65_rd_n(),
+	.sa1_p65_wr_n(),
+	.ss_busy(1'b0),
+	.ss_sa1_romsel(),
+	.ss_sns_romsel()
 );
-end else
+end else begin
 assign MAP_ACTIVE[3] = 0;
+assign SA1_ROM_ADDR = 0;
+assign SA1_ROM_REQ = 0;
+assign SA1_SNES_ROM_ADDR = 0;
+assign SA1_SNES_ROM_CE_N = 1;
+end
 endgenerate
 
 wire [7:0]  SPC7110_DO;
@@ -778,9 +841,9 @@ always @(*) begin
 		begin
 			DI         = SA1_DO;
 			IRQ_N      = SA1_IRQ_N;
-			ROM_ADDR   = {1'b0,SA1_ROM_ADDR};
+			ROM_ADDR   = {1'b0,SA1_SNES_ROM_ADDR};
 			ROM_D      = 0;
-			ROM_CE_N   = SA1_ROM_CE_N;
+			ROM_CE_N   = SA1_SNES_ROM_CE_N;
 			ROM_OE_N   = SA1_ROM_OE_N;
 			ROM_WE_N   = 1;
 			BSRAM_ADDR = SA1_BSRAM_ADDR;

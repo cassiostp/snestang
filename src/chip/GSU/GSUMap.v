@@ -21,6 +21,10 @@ module GSUMap(
     output ROM_CE_N,
     output ROM_OE_N,
     output ROM_WORD,
+    output ROM_REQ,             // snestang: GSU side wants the byte on ROM_ADDR
+    input ROM_WAIT,             // snestang: that byte is not in ROM_Q yet
+    output RAM_REQ,             // snestang: GSU side owns the RAM bus
+    input RAM_WAIT,             // snestang: the bridge has not finished the byte on BSRAM_ADDR
     output [19:0] BSRAM_ADDR,
     output [7:0] BSRAM_D,
     input [7:0] BSRAM_Q,
@@ -47,16 +51,18 @@ GSU GSU(
     .ADDR(CA), .DO(DO), .DI(DI), .RD_N(CPURD_N), .WR_N(CPUWR_N),
     .SYSCLKF_CE(SYSCLKF_CE), .SYSCLKR_CE(SYSCLKR_CE),
     .IRQ_N(IRQ_N), .ROM_A(ROM_A),
-    .ROM_DI(ROM_Q[7:0]), .ROM_RD_N(ROM_OE_N),
+    .ROM_DI(ROM_Q[7:0]), .ROM_REQ(ROM_REQ), .ROM_WAIT(ROM_WAIT),
+    .ROM_RD_N(ROM_OE_N),
     .RAM_A(RAM_A), .RAM_DI(BSRAM_Q), .RAM_DO(BSRAM_D),
     .RAM_WE_N(RAM_WE_N), .RAM_CE_N(BSRAM_CE_N),
+    .RAM_REQ(RAM_REQ), .RAM_WAIT(RAM_WAIT),
     .TURBO(TURBO)
 );
 
 assign ROM_ADDR = ({2'b00,ROM_A}) & ROM_MASK[22:0];
 assign ROM_CE_N = 1'b0;
 assign ROM_WORD = 1'b0;
-assign BSRAM_ADDR = {4'b0000,RAM_A[15:0]};
+assign BSRAM_ADDR = {3'b000,RAM_A};	// full 17-bit RAM address: up to 128 KB GSU RAM
 assign BSRAM_OE_N =  ~RAM_WE_N;
 assign BSRAM_WE_N = RAM_WE_N;
 
