@@ -65,10 +65,8 @@ set_multicycle_path 2 -setup -start -from [get_regs {sdram/bsram_dout_reg*}] -to
 set_multicycle_path 1 -hold -start -from [get_regs {sdram/bsram_dout_reg*}] -to [get_clocks {mclk}]
 set_multicycle_path 2 -setup -start -from [get_regs {sdram/bsram_req_ack*}] -to [get_clocks {mclk}]
 set_multicycle_path 1 -hold -start -from [get_regs {sdram/bsram_req_ack*}] -to [get_clocks {mclk}]
-set_multicycle_path 2 -setup -start -from [get_regs {sdram/rv_dout*}] -to [get_clocks {mclk}]
-set_multicycle_path 1 -hold -start -from [get_regs {sdram/rv_dout*}] -to [get_clocks {mclk}]
-set_multicycle_path 2 -setup -start -from [get_regs {sdram/rv_req_ack*}] -to [get_clocks {mclk}]
-set_multicycle_path 1 -hold -start -from [get_regs {sdram/rv_req_ack*}] -to [get_clocks {mclk}]
+// rv_dout / rv_req_ack are swept when the softcore is tied off (MCU_BL616).
+// Gowin errors (TA2003) if get_regs matches nothing, so they are not listed.
 
 // Last constraint takes precedence: PPU to sdram is even longer at 6 fclk cycles
 //set_multicycle_path 6 -setup -end -from [get_nets {main/SNES/PPU/BG*}] -to [get_clocks {fclk}]
