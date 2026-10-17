@@ -449,14 +449,9 @@ begin
 		end if;
 	end process;
 	
-	process(CLK)
-	begin
-		if rising_edge(CLK) then
-			if SYSCLKR_CE = '1' then
-				SNES_ADDR <= ADDR;
-			end if;
-		end if;
-	end process;
+	-- The S-CPU lane needs the address from the start of the bus cycle.
+	-- Sampling at SYSCLKR_CE leaves too little time for an SDRAM read.
+	SNES_ADDR <= ADDR;
 	
 	process( SNES_ADDR, CACHE_RUN, CACHE_BUS_ADDR, DMA_RUN, DMA_STATE, DMA_SRC_ADDR, DMA_DST_ADDR, ROM_ACCESS, SRAM_ACCESS, EXT_BUS_ADDR )--ROM_BASE, CACHE_PAGE, CACHE_ADDR, CACHE_BANK
 	begin

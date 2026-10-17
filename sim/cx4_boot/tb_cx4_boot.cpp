@@ -26,16 +26,30 @@ int main(int argc, char **argv) {
     Verilated::commandArgs(argc, argv);
     uint64_t max_mclk = 0, trace_every = 10000000;
     std::vector<unsigned long long> dumps;
+    const char *scriptpath = nullptr;
+    std::vector<std::pair<uint64_t, uint16_t>> script;
+    size_t script_idx = 0;
     for (int i = 1; i < argc; i++)
         if (strcmp(argv[i], "-m") == 0 && i + 1 < argc)
             max_mclk = strtoull(argv[++i], nullptr, 10);
         else if (strcmp(argv[i], "-t") == 0 && i + 1 < argc)
             trace_every = strtoull(argv[++i], nullptr, 10);
+        else if (strcmp(argv[i], "-i") == 0 && i + 1 < argc)
+            scriptpath = argv[++i];
         else if (strcmp(argv[i], "-d") == 0 && i + 1 < argc) {
             char *list = argv[++i], *tok = strtok(list, ",");
             while (tok) { dumps.push_back(strtoull(tok, nullptr, 10)); tok = strtok(nullptr, ","); }
         }
     if (!max_mclk) { printf("Usage: %s -m cycles [-t every] [-d f0,f1,..]\n", argv[0]); return 1; }
+
+    if (scriptpath) {
+        FILE *sf = fopen(scriptpath, "r");
+        if (!sf) { perror(scriptpath); return 1; }
+        unsigned long long fr; unsigned btn;
+        while (fscanf(sf, "%llu %x", &fr, &btn) == 2)
+            script.push_back({fr, (uint16_t)btn});
+        fclose(sf);
+    }
 
     Vsnestang_cx4boot *top = new Vsnestang_cx4boot;
     Vsnestang_cx4boot_snestang_top *snes = top->snestang_top;
@@ -61,7 +75,16 @@ int main(int argc, char **argv) {
             mclk++;
             uint16_t y = snes->y_out;
             if (y < prev_y && prev_y > 200) {
-                nframes++;
+                // y_out includes FIELD in bit 8; it wraps every two frames.
+                nframes += 2;
+                unsigned nonzero = 0;
+                for (auto px : fb) if (px) nonzero++;
+                printf("frame=%lu nonzero=%u\n", (unsigned long)nframes, nonzero);
+                while (script_idx < script.size() && nframes >= script[script_idx].first) {
+                    snes->tb_joy1 = script[script_idx].second;
+                    printf("input frame=%lu buttons=%03x\n", (unsigned long)nframes, script[script_idx].second);
+                    script_idx++;
+                }
                 // dumps snap to even SNES frames (ff*2), like the smoke suite
                 uint64_t frame = (nframes / 2) * 2;
                 if (dump_idx < dumps.size() && frame >= dumps[dump_idx]) {
