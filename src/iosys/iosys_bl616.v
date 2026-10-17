@@ -110,6 +110,7 @@ assign rom_loading = rom_loading_reg;
 // UART receiver signals
 wire [7:0] rx_data;
 wire rx_valid;
+wire rx_eop;   // receiver saw a multi-bit-time gap: end of packet
 
 // UART transmitter signals
 reg [7:0] tx_data;
@@ -131,7 +132,8 @@ async_receiver #(
     .clk(clk),
     .RxD(uart_rx_rr),
     .RxD_data(rx_data),
-    .RxD_data_ready(rx_valid)
+    .RxD_data_ready(rx_valid),
+    .RxD_endofpacket(rx_eop)
 );
 
 async_transmitter #(
@@ -155,6 +157,17 @@ localparam RECV_PARAM        = 8'b00010000; // receiving parameters
 localparam RECV_RESPONSE_REQ = 8'b00100000; // post a response request to TX
 localparam RECV_SAVE_WAIT    = 8'b10000000; // waiting for a save-RAM byte access to finish
 reg [7:0] recv_state = RECV_IDLE;
+// Inter-byte timeout: a frame's bytes arrive back to back at 2 Mbaud
+// (~5 us apart, streamed from the MCU's TX FIFO inside one critical
+// section), so any multi-bit-time gap between bytes mid-frame means
+// the stream desynced -- a byte dropped or flipped on the wire, or raw
+// bytes spliced in -- and the length being counted down is garbage.
+// Abandon the partial frame (the same resync the firmware's parser
+// does on its side) instead of swallowing core-ID polls as parameters for up to 2047
+// bytes, which at the in-game poll rate deafens the link for minutes.
+// The gap detector is the UART receiver's own end-of-packet pulse
+// (a few bit times of line idle): no counter is added here.
+
 
 // UART command buffer
 reg [7:0] cmd_reg;
@@ -286,6 +299,9 @@ always @(posedge clk) begin
         kbd_data_valid <= 0;
         sv_req_d <= sv_req;         // keeps sv_w_pulse a single clock when SAVE_RDY=0
 
+        if (rx_eop && recv_state != RECV_IDLE &&
+                recv_state != RECV_RESPONSE_REQ)
+            recv_state <= RECV_IDLE;   // desynced partial frame: drop it
         case (recv_state)
 
             RECV_IDLE: if (rx_valid && rx_data == 8'hAA) begin
@@ -294,7 +310,7 @@ always @(posedge clk) begin
 
             RECV_LEN1: if (rx_valid) begin
                 len_reg[15:8] <= rx_data;
-                if (rx_data < 8)                      // max frame length 2047
+                if (rx_data < 5)                      // max frame 1279: the longest the MCU sends is 1025 (ROM data)
                     recv_state <= RECV_LEN2;
                 else
                     recv_state <= RECV_IDLE;
