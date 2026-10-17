@@ -102,7 +102,7 @@ module sdram_snes
 
     input      [19:0] bsram_addr,   // only [16:0], max 128KB
     input       [7:0] bsram_din,    // byte access
-    output reg  [7:0] bsram_dout,
+    output      [7:0] bsram_dout,
     input             bsram_req,
     output reg        bsram_req_ack,
     input             bsram_we,
@@ -259,7 +259,10 @@ always @* begin
 end
 
 reg [7:0] bsram_dout_reg;
-assign bsram_dout = (cycle[4] && oe_latch[0] && port[0] == PORT_BSRAM) ? (ds[0][0] ? dq_in[7:0] : dq_in[15:8]) : bsram_dout_reg;
+// The pin is only copied into bsram_dout_reg. A combo bypass of dq_in
+// during cycle[4] does not overlap an mclk edge, and it would make STA
+// time the pad through the CPU.
+assign bsram_dout = bsram_dout_reg;
 
 //
 // SDRAM state machine
@@ -387,20 +390,24 @@ always @(posedge clk) begin
 			    SDRAM_BA <= 2'b10;
             end
 
-            // read
-            // ROM, WRAM, BSRAM and RV
-            if (cycle[4] && oe_latch[0]) begin
-                case (port[0])
-                PORT_CPU:   if (cpu_port) cpu_port1 <= dq_in; else cpu_port0 <= dq_in;
-                PORT_CPU2:  begin cpu2_dout <= dq_in; cpu2_req_ack <= ~cpu2_req_ack; end
-                PORT_BSRAM: bsram_dout_reg <= ds[0][0] ? dq_in[7:0] : dq_in[15:8];
-                PORT_RV:    rv_dout <= dq_in;
-                default: ;
-                endcase
+            // Read capture. Each flop's D is the pin; the select is a clock
+            // enable. That is the form Gowin can pack into the IOB, and it
+            // is the same edge as the old case (cycle[4] channel 0, cycle[1]
+            // ARAM), so the word shows up on the same mclk as before.
+            if (cycle[4] && oe_latch[0] && port[0] == PORT_CPU && !cpu_port)
+                cpu_port0 <= dq_in;
+            if (cycle[4] && oe_latch[0] && port[0] == PORT_CPU && cpu_port)
+                cpu_port1 <= dq_in;
+            if (cycle[4] && oe_latch[0] && port[0] == PORT_CPU2) begin
+                cpu2_dout <= dq_in;
+                cpu2_req_ack <= ~cpu2_req_ack;
             end
-
-            // ARAM
-            if (cycle[1] && oe_latch[1]) aram_dout <= dq_in;
+            if (cycle[4] && oe_latch[0] && port[0] == PORT_BSRAM)
+                bsram_dout_reg <= ds[0][0] ? dq_in[7:0] : dq_in[15:8];
+            if (cycle[4] && oe_latch[0] && port[0] == PORT_RV)
+                rv_dout <= dq_in;
+            if (cycle[1] && oe_latch[1])
+                aram_dout <= dq_in;
         end
     end
 end

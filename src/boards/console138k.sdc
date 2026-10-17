@@ -79,13 +79,22 @@ set_multicycle_path 1 -hold -start -from [get_regs {sdram/bsram_req_ack*}] -to [
 //set_multicycle_path 6 -setup -end -from [get_nets {main/SNES/PPU/BG*}] -to [get_clocks {fclk}]
 //set_multicycle_path 5 -hold -end -from [get_nets {main/SNES/PPU/BG*}] -to [get_clocks {fclk}]
 
-// DQ read capture is not constrained here. O_sdram_clk is PLL CLKOUT2,
-// PS=(19+3/8)/31*360 = 225 degrees (9.6875 ns) behind fclk (UG306). The
-// controller samples dq_in 3 fclk after it launches CAS, which is 5.8125 ns
-// after the SDRAM edge that launches CL2 data. W9825G6KH tAC at CL2 is 6 ns,
-// so the datasheet maximum does not fit before pad-to-FF delay, and there is
-// no set_input_delay. Both round-4 and round-5 builds pass STA with this
-// path invisible.
+// SDRAM pin timing. O_sdram_clk is PLL CLKOUT2 at PE 12/0:
+// (12)/31*360 = 139.355 degrees = 6.000 ns behind fclk. The controller
+// launches CAS on fclk and samples dq_in 3 fclk (46.5 ns) later. The chip
+// launches CL2 data on the sdram edge 2 cycles (31.0 ns) after it takes
+// CAS, so the word is 9.500 ns old at the sample. The default setup check
+// (the next fclk after that sdram edge) is that sample. Do not add a
+// multicycle: it would time a later edge than the one the controller uses.
+//
+// W9825G6KH-6 at CL2: tAC max 6.0, tOH min 3.0, tCMS and tDS 1.5,
+// tCMH and tDH 0.8. Board skew is taken as 0.5 ns each way. That number
+// is an assumption, not a measurement of this board.
+create_generated_clock -name sdram_clk -source [get_nets {fclk}] -master_clock fclk -phase 139.355 -divide_by 1 [get_ports {O_sdram_clk}]
+set_input_delay -clock sdram_clk -max 6.5 -min 2.5 [get_ports {IO_sdram_dq*}]
+set_output_delay -clock sdram_clk -max 2.0 -min -0.3 [get_ports {O_sdram_cs_n O_sdram_ras_n O_sdram_cas_n O_sdram_wen_n O_sdram_cke}]
+set_output_delay -clock sdram_clk -max 2.0 -min -0.3 [get_ports {O_sdram_addr* O_sdram_ba* O_sdram_dqm*}]
+set_output_delay -clock sdram_clk -max 2.0 -min -0.3 [get_ports {IO_sdram_dq*}]
 
 // false paths
 //set_false_path -from [get_regs {main/SNES/smp/CPUO*}] -to [get_regs {sdram/dq_out*}]

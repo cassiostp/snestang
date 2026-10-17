@@ -125,8 +125,14 @@ defparam PLL_inst.CLKOUT0_PE_COARSE = 0;
 defparam PLL_inst.CLKOUT0_PE_FINE = 0;
 defparam PLL_inst.CLKOUT1_PE_COARSE = 0;
 defparam PLL_inst.CLKOUT1_PE_FINE = 0;
-defparam PLL_inst.CLKOUT2_PE_COARSE = 19;
-defparam PLL_inst.CLKOUT2_PE_FINE = 3;
+// CLKOUT2 is O_sdram_clk. Phase is (COARSE+FINE/8)/ODIV*360 (UG306).
+// 12/31*360 = 139.355 degrees = 6.000 ns behind fclk at 15.5 ns.
+// The old 19+3/8 setting was 225 degrees (9.6875 ns). CL2 data is then
+// only 5.8125 ns old at the fclk sample, short of the 6 ns tAC, so a
+// long route from the DQ pin missed. 6.000 ns of lag leaves 9.500 ns
+// for tAC plus the pad-to-flop path, and still covers command tCO.
+defparam PLL_inst.CLKOUT2_PE_COARSE = 12;
+defparam PLL_inst.CLKOUT2_PE_FINE = 0;
 defparam PLL_inst.CLKOUT3_PE_COARSE = 0;
 defparam PLL_inst.CLKOUT3_PE_FINE = 0;
 defparam PLL_inst.CLKOUT4_PE_COARSE = 0;
