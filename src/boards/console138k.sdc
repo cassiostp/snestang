@@ -51,8 +51,6 @@ set_multicycle_path 2 -hold -start -from [get_clocks {fclk}] -to [get_clocks {mc
 
 // cycle[1] and cycle[4] data and acks meet the next mclk 2 fclk later.
 // Listed after the general exception so they override it.
-set_multicycle_path 2 -setup -start -from [get_regs {sdram/dq_cap*}] -to [get_clocks {mclk}]
-set_multicycle_path 1 -hold -start -from [get_regs {sdram/dq_cap*}] -to [get_clocks {mclk}]
 set_multicycle_path 2 -setup -start -from [get_regs {sdram/aram_dout*}] -to [get_clocks {mclk}]
 set_multicycle_path 1 -hold -start -from [get_regs {sdram/aram_dout*}] -to [get_clocks {mclk}]
 set_multicycle_path 2 -setup -start -from [get_regs {sdram/cpu_port0*}] -to [get_clocks {mclk}]
