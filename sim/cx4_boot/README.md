@@ -25,7 +25,8 @@ VHDL (`src/chip/CX4`) to Verilog by GHDL synthesis.
 
 The driver counts SNES frames: `y_out` includes the field bit, so a full
 wrap covers two frames. Dumps snap to even frames. Each pair of frames
-also reports the number of nonzero pixels in the captured picture.
+also reports the number of nonzero pixels in the captured picture. The
+256-pixel capture samples `X_OUT[8:1]` and decodes the PPU's BGR555 output.
 
 Set `DUMPS` to a comma-separated list of frames and `CONTAINER_PREFIX` to
 an optional container prefix (the default includes the shell PID). `JOBS`

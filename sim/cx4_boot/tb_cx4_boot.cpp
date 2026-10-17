@@ -96,9 +96,9 @@ int main(int argc, char **argv) {
                         for (int i = 0; i < PX_W * PX_H; i++) {
                             uint16_t px = fb[i];
                             uint8_t rgb[3] = {
-                                (uint8_t)(((px >> 10) & 0x1F) * 255 / 31),
+                                (uint8_t)((px & 0x1F) * 255 / 31),
                                 (uint8_t)(((px >> 5) & 0x1F) * 255 / 31),
-                                (uint8_t)((px & 0x1F) * 255 / 31)};
+                                (uint8_t)(((px >> 10) & 0x1F) * 255 / 31)};
                             fwrite(rgb, 1, 3, pf);
                         }
                         fclose(pf);
@@ -108,7 +108,8 @@ int main(int argc, char **argv) {
                 }
             }
             prev_y = y;
-            int x = snes->x_out;
+            // X_OUT = {OUT_X, DOT_CLK}; sample one phase per low-res pixel.
+            int x = snes->x_out >> 1;
             if ((x != last_x || (int)y != last_y) && x < PX_W && (y & 0xFF) < PX_H) {
                 fb[(y & 0xFF) * PX_W + x] = snes->rgb_out & 0x7FFF;
                 last_x = x; last_y = (int)y;
