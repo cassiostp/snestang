@@ -164,5 +164,6 @@ IO_PORT "O_sdram_cs_n" IO_TYPE=LVCMOS33;
 // These are physical regions only; all data/ack edges and SDC delays stay put.
 GROUP sdram_capture = { "sdram/cpu_port0*" "sdram/cpu_port1*" "sdram/cpu2_dout*" "sdram/bsram_dout_reg*" "sdram/aram_dout*" };
 GRP_LOC sdram_capture R[20:40]C[160:175];
+INS_LOC "sdram/cpu_port1_5_s0" R20C172[1][B];
 GROUP sdram_enable = { "sdram/dq_oen*" };
 GRP_LOC sdram_enable R[15:30]C[170:175];
