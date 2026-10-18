@@ -9,8 +9,10 @@ CGRAM[0] blue, CGRAM[1] red.
   Mode 5 (`BGMODE 5`, `SETINI 0`, `TM=TS=1`) 120 frames, then pseudo
   (`BGMODE 1`, `SETINI $08`, `TM=1 TS=0` so sub = backdrop blue) 120 frames,
   loops via NMI frame counter at `$0000`.
-- `build.py`: tiny assembler + tile/map/CGRAM data + LoROM header/vectors.
-  Run `python3 build.py` to write `hires_test.sfc` (committed).
+- `build.py`: tiny 65816 assembler (Python3 only, no external assembler) plus
+  tile/map/CGRAM data and the LoROM header/vectors. `run.sh` rebuilds
+  `hires_test.sfc` from `hires_test.asm` and `cmp`s it byte-identical against
+  the committed binary, so the binary can't drift from the source.
 - `tb_hires_rom.v` (iverilog): the ROM's stripe (`0xAA`) and `H` glyph row
   (`0x81`) with PPU timing into the real `snes2hdmi` (standard 512-wide):
   both halves stored distinctly, `hires_lines` set. PASS (518 checks).
