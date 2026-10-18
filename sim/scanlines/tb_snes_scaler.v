@@ -83,13 +83,16 @@ module tb_snes_scaler;
     endfunction
 
     // the SNES: the line an output row needs is in the line buffer before the row starts
+    // (512-wide: duplicates for normal lines, hires flag 0)
     integer fl, fc;
     always @(dut.cy) begin
         if (dut.cy < 10'd720) begin
             fl = exp_line(dut.cy);
             if (fl >= 0 && !by_column)
-                for (fc = 0; fc < 256; fc = fc + 1)
-                    dut.mem[(fl % 32) * 256 + fc] = src_color(fl);
+                for (fc = 0; fc < 256; fc = fc + 1) begin
+                    dut.mem[(fl % 32) * 512 + fc * 2] = src_color(fl);
+                    dut.mem[(fl % 32) * 512 + fc * 2 + 1] = src_color(fl);
+                end
         end
     end
 
@@ -97,8 +100,10 @@ module tb_snes_scaler;
         integer sl, c;
         begin
             for (sl = 0; sl < 32; sl = sl + 1)
-                for (c = 0; c < 256; c = c + 1)
-                    dut.mem[sl * 256 + c] = col_color(c);
+                for (c = 0; c < 256; c = c + 1) begin
+                    dut.mem[sl * 512 + c * 2] = col_color(c);
+                    dut.mem[sl * 512 + c * 2 + 1] = col_color(c);
+                end
         end
     endtask
 
