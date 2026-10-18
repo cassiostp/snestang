@@ -126,7 +126,7 @@ if {$dev eq "nano20k"} {
     add_file -type vhdl "src/chip/CX4/CX4Map.vhd"
     set_option -vhdl_std vhd2008
     add_file src/boards/console138k.v
-    add_file -type cst "src/boards/console.cst"
+    add_file -type cst "src/boards/console138k_sdram.cst"
     add_file -type verilog "src/snes2hdmi.v"
     add_file -type verilog "src/scanlines.v"
     add_file -type verilog "src/video_fx.v"
