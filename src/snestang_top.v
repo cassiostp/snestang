@@ -453,7 +453,8 @@ reg [16:0]  wram_addr_sd;
 reg         wram_wr_r, wram_rd_r;
 
 reg [19:0]  bsram_addr;             // last cartridge-bus BSRAM address queued
-wire        bsram_rd = ~BSRAM_CE_N & (~BSRAM_RD_N || rom_type[7:4] == 4'hC || rom_type[7:4] == 4'h7);	// OBC-1/GSU read BSRAM outside CPU read cycles
+wire        gsu_ram_bus = gsu_mode & gsu_ram_req;				// GSU owns the RAM bus right now
+wire        bsram_rd = ~BSRAM_CE_N & (~BSRAM_RD_N || (gsu_ram_bus & BSRAM_WE_N));	// reads are the S-CPU/OBC-1 read strobe, or the GSU's own read cycles (CE selected, not writing, while it owns the bus); writes never match, so no phantom reads
 wire        bsram_wr = ~BSRAM_CE_N & ~BSRAM_WE_N;
 reg         bsram_rd_r, bsram_wr_r;
 
@@ -534,10 +535,11 @@ wire        sv_req, sv_rreq;
 // ---- Save-RAM <-> BSRAM bridge ----------------------------------------------
 // The SNES cartridge bus and the iosys save channel both need the sdram
 // controller's single BSRAM port (the 128 KB at the start of bank 1). The SNES
-// edge detector above queues each new cartridge access in the 4-deep FIFO
+// edge detector above queues each new cartridge access in the 16-deep FIFO
 // below (a single pending slot was overwritten when the GSU issued byte
 // writes ~4 mclk apart against a ~6+ mclk service time: the first byte of
-// each stw pair was lost); the save channel toggles sv_req (write) /
+// each stw pair was lost; and every write also queued a phantom read, so
+// bulk transfers overran even the 4-deep FIFO and lost bytes); the save channel toggles sv_req (write) /
 // sv_rreq (read). This arbiter owns the
 // controller's req/ack pair and serves one byte at a time, SNES first: save
 // accesses only slip into idle slots, so the SNES never queues behind one,
@@ -547,12 +549,12 @@ wire        sv_req, sv_rreq;
 // synchronized here and routed back to whichever source was served. Reads
 // capture the controller's sticky bsram_dout before the next access can
 // overwrite it, since the arbiter keeps the port until the byte is banked.
-reg  [16:0] bs_fifo_addr [0:3];
-reg   [7:0] bs_fifo_din [0:3];
-reg         bs_fifo_we [0:3];
-reg   [2:0] bs_fifo_wptr = 0, bs_fifo_rptr = 0;
+reg  [16:0] bs_fifo_addr [0:15];
+reg   [7:0] bs_fifo_din [0:15];
+reg         bs_fifo_we [0:15];
+reg   [4:0] bs_fifo_wptr = 0, bs_fifo_rptr = 0;
 wire        bs_fifo_empty = bs_fifo_wptr == bs_fifo_rptr;
-wire        bs_fifo_full  = bs_fifo_wptr == bs_fifo_rptr + 3'd4;
+wire        bs_fifo_full  = bs_fifo_wptr == bs_fifo_rptr + 5'd16;
 wire        bs_det_new = (bsram_rd && BSRAM_ADDR != bsram_addr) ||
                          (bsram_wr & ~bsram_wr_r) || (bsram_rd & ~bsram_rd_r);
 wire        bs_push = bs_det_new && ~bs_fifo_full && ~sa1_mode;
@@ -584,10 +586,10 @@ always @(posedge mclk) begin
     if (bs_det_new)
         bsram_addr <= BSRAM_ADDR;
     if (bs_push) begin
-        bs_fifo_addr[bs_fifo_wptr[1:0]] <= BSRAM_ADDR[16:0];
-        bs_fifo_din[bs_fifo_wptr[1:0]]  <= BSRAM_D;
-        bs_fifo_we[bs_fifo_wptr[1:0]]   <= bsram_wr;
-        bs_fifo_wptr <= bs_fifo_wptr + 3'd1;
+        bs_fifo_addr[bs_fifo_wptr[3:0]] <= BSRAM_ADDR[16:0];
+        bs_fifo_din[bs_fifo_wptr[3:0]]  <= BSRAM_D;
+        bs_fifo_we[bs_fifo_wptr[3:0]]   <= bsram_wr;
+        bs_fifo_wptr <= bs_fifo_wptr + 5'd1;
     end
     if (bs_busy && bs_free) begin               // the access just completed
         bs_busy <= 0;
@@ -601,13 +603,13 @@ always @(posedge mclk) begin
     end
     if (bs_issue_ok && snes_bs_new && ~sa1_mode) begin
         snes_bsram_shadow <= 0;                 // the SNES gets the port's data again
-        bs_addr_r <= bs_fifo_addr[bs_fifo_rptr[1:0]];
-        bs_din_r  <= bs_fifo_din[bs_fifo_rptr[1:0]];
-        bs_we_r   <= bs_fifo_we[bs_fifo_rptr[1:0]];
+        bs_addr_r <= bs_fifo_addr[bs_fifo_rptr[3:0]];
+        bs_din_r  <= bs_fifo_din[bs_fifo_rptr[3:0]];
+        bs_we_r   <= bs_fifo_we[bs_fifo_rptr[3:0]];
         bs_owner  <= 0;
         bs_busy   <= 1;
         bs_req_tog <= ~bs_req_tog;
-        bs_fifo_rptr <= bs_fifo_rptr + 3'd1;
+        bs_fifo_rptr <= bs_fifo_rptr + 5'd1;
     end else if (bs_issue_ok && sv_w_new && ~sa1_mode) begin
         if (!snes_bsram_shadow) begin           // keep the SNES's last read data
             snes_bsram_hold <= bsram_dout;
