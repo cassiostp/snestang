@@ -262,6 +262,7 @@ assign      gsu_owns_rom = gsu_mode & gsu_rom_req;
 assign      rom_word_cpu2 = cx4_owns_rom ? cx4_rom_q :
                             gsu_owns_rom ? gsu_rom_q : sa1_rom_q;
 wire  [7:0] bwram_q_a;             // SA-1 BW-RAM (block RAM) read data
+wire [23:0] gsu_ram_mask;
 wire  [7:0] BSRAM_Q;
 wire  [7:0] BSRAM_D;
 
@@ -376,7 +377,7 @@ main #(.USE_DSPn(USE_DSPn), .USE_GSU(USE_GSU), .USE_CX4(USE_CX4), .USE_SA1(USE_S
     .MCLK(mclk), .RESET_N(resetn & ~loading), .ENABLE(enable), 
     .SYSCLKF_CE(sysclkf_ce), .SYSCLKR_CE(sysclkr_ce), .REFRESH(refresh),
 
-    .ROM_TYPE(rom_type), .ROM_MASK(rom_mask), .RAM_MASK(ram_mask),
+    .ROM_TYPE(rom_type), .ROM_MASK(rom_mask), .RAM_MASK(gsu_mode ? gsu_ram_mask : ram_mask),
 
     .ROM_ADDR(ROM_ADDR), .ROM_D(ROM_D), .ROM_Q(ROM_Q),
     .ROM_CE_N(ROM_CE_N), .ROM_OE_N(ROM_OE_N), .ROM_WE_N(ROM_WE_N),
@@ -971,6 +972,16 @@ smc_parser smc (
     .header_finished(header_finished)
 );
 
+// The 64-byte loader preamble omits the extended header at $7FB0. Read
+// its GSU expansion-RAM size from the ordinary ROM stream before reset is
+// released; no loader/protocol change is needed.
+gsu_ram_mask_from_rom gsu_ram_metadata (
+    .clk(mclk), .resetn(resetn), .loading(loading),
+    .header_finished(header_finished), .rom_addr(loader_addr),
+    .rom_d(loader_do), .rom_strb(loader_do_valid), .ram_mask(gsu_ram_mask)
+);
+
+
 reg [7:0] loader_do_r;
 reg loading_r;
 always @(posedge mclk) begin
@@ -1187,3 +1198,38 @@ end
 
 endmodule
 
+
+
+// Super FX physical RAM address lines: legacy Star Fox has 32 KiB even
+// though its normal SRAM-size byte is zero. Extended-header carts declare
+// working RAM separately; battery-backed RAM may use the normal size byte.
+module gsu_ram_mask_from_rom (
+    input clk, resetn, loading, header_finished,
+    input [22:0] rom_addr,
+    input [7:0] rom_d,
+    input rom_strb,
+    output reg [23:0] ram_mask = 24'h007fff
+);
+reg [3:0] expansion_size = 0, save_size = 0;
+always @(posedge clk) begin
+    if (!resetn || (loading && !header_finished)) begin
+        expansion_size <= 0;
+        save_size <= 0;
+        ram_mask <= 24'h007fff;
+    end else if (loading && rom_strb) begin
+        case (rom_addr)
+        23'h007fbd: expansion_size <= rom_d[3:0];
+        23'h007fd8: save_size <= rom_d[3:0];
+        23'h007fda: begin
+            if (rom_d == 8'h33 && expansion_size > save_size)
+                ram_mask <= (24'd1024 << expansion_size) - 1'd1;
+            else if (save_size != 0)
+                ram_mask <= (24'd1024 << save_size) - 1'd1;
+            else
+                ram_mask <= 24'h007fff;
+        end
+        default: ;
+        endcase
+    end
+end
+endmodule
