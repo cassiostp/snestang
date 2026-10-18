@@ -712,10 +712,12 @@ reg   [7:0] bs_mirror [0:65535];
 reg  [15:0] bs_mirror_raddr = 0;
 reg   [7:0] bs_mirror_q = 8'hFF;
 always @(posedge mclk) begin
-    if (bs_push && bsram_wr && bs_mirror_sel)
-        bs_mirror[BSRAM_ADDR[15:0]] <= BSRAM_D;
     if (gsu_mode && bs_issue_ok && !snes_bs_new && sv_w_new && !sv_addr[16])
         bs_mirror[sv_addr[15:0]] <= sv_din;
+    // A newly queued cartridge write is drained after a coeval save issue.
+    // Give it the same last-write priority here if both address one byte.
+    if (bs_push && bsram_wr && bs_mirror_sel)
+        bs_mirror[BSRAM_ADDR[15:0]] <= BSRAM_D;
     bs_mirror_raddr <= BSRAM_ADDR[15:0];
     bs_mirror_q <= bs_mirror[bs_mirror_raddr];
 end
