@@ -570,9 +570,9 @@ wire        bs_det_new = (bsram_rd && BSRAM_ADDR != bsram_addr) ||
 // staleness from queueing or arbitration. Push exactly once per write cycle,
 // on the write-strobe edge.
 wire        bs_push = (bsram_wr & ~bsram_wr_r) && ~bs_fifo_full && ~sa1_mode;
-wire [16:0] bs_issue_addr;
-wire  [7:0] bs_issue_din;
-wire        bs_issue_we;
+reg [16:0] bs_issue_addr;
+reg  [7:0] bs_issue_din;
+reg        bs_issue_we;
 always @* begin
     bs_issue_addr = BS_FIFO[0].addr;
     bs_issue_din = BS_FIFO[0].din;
