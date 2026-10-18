@@ -54,6 +54,7 @@ reg  [22:0] rom_addr_sd = 0;                                // flip-flops power 
 reg  [16:0] WRAM_ADDR = 0, wram_addr_sd = 0;
 reg   [7:0] WRAM_D = 0;
 reg         wram_rd = 0, wram_wr = 0, wram_rd_r = 0, wram_wr_r = 0;
+reg         scpu_wram_sel = 0;
 
 wire [15:0] cpu_port0, cpu_port1;
 reg         cpu_port;
@@ -275,6 +276,7 @@ always @(posedge mclk) begin
             sc_a = $urandom;
             sc_wr = ($urandom % 3) == 0 || !valid[sc_a];
             sc_d = $urandom;
+            scpu_wram_sel <= sc_active;
             if (sc_active) begin
                 WRAM_ADDR <= {12'h0, sc_a};
                 WRAM_D <= sc_d;
@@ -303,6 +305,7 @@ always @(posedge mclk) begin
 end
 
 integer i;
+reg [22:0] last_rom;
 initial begin
     if (!$value$plusargs("ws=%d", WS1)) WS1 = 3;
     if (!$value$plusargs("steps=%d", steps)) steps = 4000;
@@ -325,6 +328,43 @@ initial begin
         repeat (20) @(posedge mclk);
         if (ROM_Q[7:0] !== pat(ROM_ADDR[22:0])) $display("FAIL: image check at %h: got %h want %h", ROM_ADDR, ROM_Q[7:0], pat(ROM_ADDR[22:0]));
     end
+
+    // The mapper may expose a ROM alias during an A-bus WRAM cycle.
+    // It must not consume a ROM request or prevent the next real fetch.
+    for (i = 0; i < 32; i = i + 1) begin
+        #100;
+        last_rom = rom_addr_sd;
+        scpu_wram_sel = 1;
+        ROM_ADDR = 24'h001000 + i * 3;
+        WRAM_ADDR = i;
+        WRAM_D = pat(i);
+        wram_wr = 1;
+        repeat (8) @(posedge mclk);
+        #100;
+        if (rom_addr_sd !== last_rom) $fatal(1, "WRAM alias issued a ROM fetch");
+        wram_wr = 0;
+        wram_rd = 1;
+        repeat (8) @(posedge mclk);
+        #100;
+        if (WRAM_SD_Q !== pat(i)) $fatal(1, "WRAM read after write failed");
+        wram_rd = 0;
+        scpu_wram_sel = 0;
+        repeat (8) @(posedge mclk);
+        #100;
+        if (ROM_Q[7:0] !== pat(ROM_ADDR[22:0])) $fatal(1, "Real ROM fetch after WRAM failed");
+    end
+
+    // A B-bus WRAM write does not select A-bus WRAM. ROM prefetch must
+    // remain enabled even while that write strobe is high.
+    #100; wram_wr = 1; scpu_wram_sel = 0;
+    repeat (8) @(posedge mclk);
+    #100; ROM_ADDR = 24'h002101;
+    repeat (8) @(posedge mclk);
+    #100;
+    if (ROM_Q[7:0] !== pat(ROM_ADDR[22:0])) $fatal(1, "B-bus write masked ROM fetch");
+    wram_wr = 0;
+    repeat (8) @(posedge mclk);
+    $display("REQUEST SELECT: 97 checks PASS");
 
     // WRAM must hold the shadow before the run
     ROM_ADDR = 24'h000000;
@@ -349,7 +389,7 @@ initial begin
         if (lat_hist[i] != 0) $display("     %2d (%0d.%0d mclk): %0d", i, i / 3, (i % 3) * 33 / 10, lat_hist[i]);
     $display("   S-CPU WRAM reads: %0d, wrong: %0d; CPU-lane requests: %0d, lost: %0d; CPU2 requests: %0d, lost: %0d",
              wram_reads, wram_bad, req_total, lost, req_total2, lost2);
-    if (bad !== 0 || lost !== 0 || lost2 !== 0 || wram_bad !== 0) $display("RESULT: FAIL");
+    if (bad !== 0 || lost !== 0 || lost2 !== 0 || wram_bad !== 0) $fatal(1, "RESULT: FAIL");
     else $display("RESULT: PASS");
     $finish;
 end

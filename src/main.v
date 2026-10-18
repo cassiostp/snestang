@@ -11,6 +11,9 @@ module main (
 
 	output		      REFRESH,
 
+	// A-bus WRAM selection, used to suppress unused cartridge prefetches.
+	output            SCPU_WRAM_SEL,
+
 	input       [7:0] ROM_TYPE,
 	input      [23:0] ROM_MASK,
 	input      [23:0] RAM_MASK,
@@ -182,6 +185,7 @@ wire        PARD_N;
 wire        PAWR_N;
 
 wire  [5:0] MAP_ACTIVE;
+assign SCPU_WRAM_SEL = ~RAMSEL_N;
 
 SNES SNES
 (

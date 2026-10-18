@@ -340,6 +340,7 @@ always @(posedge mclk) begin        // wait until memory initialize to start SNE
 end
 
 wire sysclkf_ce, sysclkr_ce;
+wire scpu_wram_sel;
 wire overlay;
 // No buttons reach the console while the menu is up, or while core_config[22]
 // asks (the firmware's scanline preview runs the game with the menu hidden).
@@ -375,6 +376,7 @@ parameter USE_SA1=0;
 main #(.USE_DSPn(USE_DSPn), .USE_GSU(USE_GSU), .USE_CX4(USE_CX4), .USE_SA1(USE_SA1)) main (
     .MCLK(mclk), .RESET_N(resetn & ~loading), .ENABLE(enable), 
     .SYSCLKF_CE(sysclkf_ce), .SYSCLKR_CE(sysclkr_ce), .REFRESH(refresh),
+    .SCPU_WRAM_SEL(scpu_wram_sel),
 
     .ROM_TYPE(rom_type), .ROM_MASK(rom_mask), .RAM_MASK(ram_mask),
 
@@ -477,9 +479,12 @@ always @(posedge mclk) begin
         // is on ROM_ADDR: the CPU lane skips it (the CX4 reads the same word
         // through the CPU2 cache instead), so a coinciding S-CPU WRAM request
         // can no longer cancel the ROM fetch. S-CPU ROM reads while the CX4
-        // is idle still use this lane exactly as before.
+        // is idle still use this lane. Some mappers also expose cartridge
+        // aliases while the A bus selects WRAM; those are not ROM fetches.
+        // Use the A-bus select, not wram_wr: ROM-to-WRAM DMA writes through
+        // the B bus and still needs its A-bus ROM read.
         if (loading && loader_do_valid && header_finished && loader_addr[0]
-            || ~loading && ~ROM_CE_N && rom_addr_sd != rom_addr && ~cx4_owns_rom && ~gsu_owns_rom) begin
+            || ~loading && ~ROM_CE_N && ~scpu_wram_sel && rom_addr_sd != rom_addr && ~cx4_owns_rom && ~gsu_owns_rom) begin
             rom_addr_sd <= rom_addr;
             cpu_addr <= rom_addr;
             cpu_req <= ~cpu_req;
