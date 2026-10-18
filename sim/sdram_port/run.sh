@@ -26,7 +26,9 @@ for p in 0 1; do
         (cd build && vvp -n tb.out +SCEN=$s +PHASE=$p +CYCLES=${CYCLES:-20000} +TRACE) | grep -v '^VCD' > build/scen$s.p$p.log
         grep -v "^ *[0-9][0-9]* \(S-CPU\|CPU2\|BSRAM\|WRAM\)" build/scen$s.p$p.log | sed "s/^scenario/phase $p, scenario/"
         mv build/trace.txt build/trace$s.p$p.txt
-        grep -q "RESULT scen=$s s_errs=0 w_errs=0 wram_bad=0 m2_errs=0 b_errs=0" build/scen$s.p$p.log || { head -20 build/scen$s.p$p.log; fail=1; }
+        areads=$(sed -n 's/.* a_reads=\([0-9]*\).*/\1/p' build/scen$s.p$p.log)
+        [ "${areads:-0}" -ge 100 ] || { echo "FAIL: ARAM master idle scen=$s phase=$p"; fail=1; }
+        grep -q "RESULT scen=$s s_errs=0 w_errs=0 wram_bad=0 m2_errs=0 b_errs=0 a_errs=0" build/scen$s.p$p.log || { head -20 build/scen$s.p$p.log; fail=1; }
     done
     # the S-CPU's latest data edge with CPU2 busy must not be later than without
     m0=$(sed -n 's/.* s_max=\([0-9]*\).*/\1/p' build/scen0.p$p.log)

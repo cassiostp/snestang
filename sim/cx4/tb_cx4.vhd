@@ -368,6 +368,16 @@ begin
 		check(ok, "S-CPU ROM reads through the LoROM map");
 		rd8(x"808000", rd);
 		check8(rd, ROM(0), "bank 80 mirrors bank 00");
+		-- The mapper must expose a new S-CPU ROM address before SYSCLKR_CE.
+		-- The shared SDRAM lane needs that first half-cycle to return the word.
+		wait until rising_edge(mclk) and cnt = 0;
+		ca <= x"7E1234";
+		wait for 1 ns;
+		check(rom_ce_n = '1', "WRAM address does not select cartridge ROM");
+		ca <= x"009234";
+		wait for 1 ns;
+		check(rom_ce_n = '0' and unsigned(rom_addr) = 16#1234#,
+		      "S-CPU ROM address available before SYSCLKR_CE");
 		-- 3. the data ROM ----------------------------------------------------------------
 		load_mif;
 		check(mif_seen = 1024, "drom.mif has all 1024 words (" & integer'image(mif_seen) & ")");

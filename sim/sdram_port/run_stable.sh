@@ -1,7 +1,6 @@
 #!/bin/sh
 # Stability proof for both multicycle windows (sdcmc task). Same scenarios
-# as run.sh, compiled with -DSDCMC_STABLE (which also enables the ARAM
-# master and the BSRAM writes).
+# as run.sh, compiled with -DSDCMC_STABLE to add the launch-age detectors.
 #
 # fclk->mclk (multicycle 3): passes iff every run reports viol=0 with
 # minage>=3: at each mclk-domain sample, no fclk launch in the SDRAM->SNES

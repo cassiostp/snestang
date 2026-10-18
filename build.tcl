@@ -136,7 +136,7 @@ if {$dev eq "nano20k"} {
     add_file -type vhdl "src/chip/CX4/CX4Map.vhd"
     set_option -vhdl_std vhd2008
     add_file src/boards/console138k.v
-    add_file -type cst "src/boards/console.cst"
+    add_file -type cst "src/boards/console138k_sdram.cst"
     add_file -type verilog "src/snes2hdmi.v"
     add_file -type verilog "src/scanlines.v"
     add_file -type verilog "src/video_fx.v"
@@ -255,6 +255,12 @@ set_option -include_path src/variant/$variant
 set_option -rw_check_on_ram 1
 set_option -route_option 2
 set_option -place_option 3
+# GW5A-138 leaves I/O registers in the fabric unless asked (SUG100).
+# mdtang, smstang and gbatang set these. Without them the SDRAM command
+# flop sits ~5 ns of route away from its pin and misses tCMS.
+set_option -ireg_in_iob 1
+set_option -oreg_in_iob 1
+set_option -ioreg_in_iob 1
 set_option -use_mspi_as_gpio 1
 set_option -use_sspi_as_gpio 1
 set_option -use_ready_as_gpio 1

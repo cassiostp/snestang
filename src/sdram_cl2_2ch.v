@@ -33,15 +33,19 @@
 // In this case, CPU/RV requests are accepted when clkref=1, while ARAM requests are
 // accepted when clkref=0.
 //
-// Clkref also allows relaxed timing constraints. Requests need to be ready at most 2 
-// clks after mclk edge (3 for CPU/RV). Data out is ready at least 3 fclk before mclk 
-// posedge (proven for ROM/WRAM/CPU2/BSRAM by sim/sdram_port/run_stable.sh).
-// This means the following timing constraints.
-//
-// set_multicycle_path 2 -setup -end -from [get_clocks {mclk}] -to [get_clocks {fclk}]
-// set_multicycle_path 1 -hold -end -from [get_clocks {mclk}] -to [get_clocks {fclk}]
-// set_multicycle_path 3 -setup -start -from [get_clocks {fclk}] -to [get_clocks {mclk}]
-// set_multicycle_path 2 -hold -start -from [get_clocks {fclk}] -to [get_clocks {mclk}]
+// Clkref also allows relaxed timing constraints. With the rotation locked
+// (cycle[4] is the fclk edge that sees clkref rise; DOT_CLK_CE is one mclk
+// in four), the edges are:
+//   cycle[0] on an mclk edge: latches channel-0 requests, launches port[0].
+//     Worst request age is 3 fclk (46.5 ns). Next mclk is also 3 fclk later.
+//   cycle[1], 1 fclk after mclk: launches aram_dout and the channel-0 acks.
+//     Next mclk is 2 fclk later (31.0 ns).
+//   cycle[2], 2 fclk after mclk: latches the ARAM request. Worst age 2 fclk.
+//   cycle[4], 1 fclk after mclk: launches cpu_port*, cpu2_*, bsram_dout_reg,
+//     rv_dout. Next mclk is 2 fclk later (31.0 ns).
+// sim/sdram_port reads the rotated cycle bit, one fclk before these edges, so
+// its ages are one short of the windows above. The 138K constraints are
+// src/boards/console138k.sdc.
 //
 // Tang SDRAM v1.2 - Winbond W9825G6KH. 8K rows, 512 words per row, 16 bits per word
 
@@ -81,8 +85,8 @@ module sdram_snes
     // CPU access (ROM and WRAM) uses bank 0 and 1 (total 16MB)
 	input      [15:0] cpu_din /* synthesis syn_keep=1 */,
 	input             cpu_port,
-	output reg [15:0] cpu_port0,    // output register for bank 0
-	output reg [15:0] cpu_port1,    // output register for bank 1
+	output reg [15:0] cpu_port0,    // bank 0, held after the capture
+	output reg [15:0] cpu_port1,    // bank 1, held after the capture
 	input      [22:1] cpu_addr,     // 8MB SNES memory, with WRAM at end
     input             cpu_req,
     output reg        cpu_req_ack,
@@ -98,7 +102,7 @@ module sdram_snes
 
     input      [19:0] bsram_addr,   // only [16:0], max 128KB
     input       [7:0] bsram_din,    // byte access
-    output reg  [7:0] bsram_dout,
+    output      [7:0] bsram_dout,
     input             bsram_req,
     output reg        bsram_req_ack,
     input             bsram_we,
@@ -133,8 +137,12 @@ assign SDRAM_DQ = dq_oen ? {16{1'bz}} : dq_out;
 wire [15:0] dq_in = SDRAM_DQ;     // DQ input
 reg [3:0] cmd;
 reg [12:0] a;
+// Pin copy of the address. `a` holds, so its Q feeds back and cannot
+// sit in the IOB. a_pin is a full-bus write every clock (the hold
+// value comes from `a`, not from itself) and drives only the pin.
+(* syn_useioff = 1 *) reg [12:0] a_pin;
 assign {SDRAM_nCS, SDRAM_nRAS, SDRAM_nCAS, SDRAM_nWE} = cmd;
-assign SDRAM_A = a;
+assign SDRAM_A = a_pin;
 
 assign SDRAM_CKE = 1'b1;
 
@@ -181,6 +189,16 @@ reg [15:0] next_din[2];
 reg  [1:0] next_ds[2];
 reg  [2:0] next_we;
 reg  [2:0] next_oe;
+
+wire [12:0] a_pin_d =
+    (normal && cycle[0]) ? next_addr[0][22:10] :
+    (normal && cycle[2]) ? next_addr[1][22:10] :
+    (normal && cycle[1] && (oe_latch[0] || we_latch[0])) ? {4'b0010, addr_latch[0][9:1]} :
+    (normal && cycle[4] && (oe_latch[1] || we_latch[1])) ? {4'b0010, addr_latch[1][9:1]} :
+    (setup && cycle[0]) ? {a[12:11], 1'b1, a[9:0]} :
+    (setup && cycle[T_RP+T_RC+T_RC]) ? {a[12:11], MODE_REG} :
+    a;
+always @(posedge clk) a_pin <= a_pin_d;
 
 reg clkref_r;
 always @(posedge clk) clkref_r <= clkref;
@@ -254,8 +272,10 @@ always @* begin
 	end
 end
 
+// Each read lane captures the DQ word on its original edge. Separate
+// enables retain each lane's word without a forwarding mux in the CPU path.
 reg [7:0] bsram_dout_reg;
-assign bsram_dout = (cycle[4] && oe_latch[0] && port[0] == PORT_BSRAM) ? (ds[0][0] ? dq_in[7:0] : dq_in[15:8]) : bsram_dout_reg;
+assign bsram_dout = bsram_dout_reg;
 
 //
 // SDRAM state machine
@@ -383,8 +403,6 @@ always @(posedge clk) begin
 			    SDRAM_BA <= 2'b10;
             end
 
-            // read
-            // ROM, WRAM, BSRAM and RV
             if (cycle[4] && oe_latch[0]) begin
                 case (port[0])
                 PORT_CPU:   if (cpu_port) cpu_port1 <= dq_in; else cpu_port0 <= dq_in;
@@ -394,8 +412,6 @@ always @(posedge clk) begin
                 default: ;
                 endcase
             end
-
-            // ARAM
             if (cycle[1] && oe_latch[1]) aram_dout <= dq_in;
         end
     end
