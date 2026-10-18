@@ -262,7 +262,7 @@ assign      gsu_owns_rom = gsu_mode & gsu_rom_req;
 assign      rom_word_cpu2 = cx4_owns_rom ? cx4_rom_q :
                             gsu_owns_rom ? gsu_rom_q : sa1_rom_q;
 wire  [7:0] bwram_q_a;             // SA-1 BW-RAM (block RAM) read data
-wire  [7:0] BSRAM_Q = sa1_mode ? bwram_q_a : (snes_bsram_shadow ? snes_bsram_hold : bsram_dout);
+wire  [7:0] BSRAM_Q;
 wire  [7:0] BSRAM_D;
 
 wire [15:0] VRAM1_ADDR;
@@ -645,6 +645,29 @@ wire sv_core_we = bsram_wr & ~bsram_wr_r;       // the SNES wrote save RAM
 // and the GSU's own queued byte keeps snes_bs_new up behind one.)
 assign gsu_ram_wait = gsu_mode & gsu_ram_req &
                       (bs_det_new | snes_bs_new | (bs_busy & ~bs_owner));
+
+// BSRAM read mirror (block RAM, write-through): every BSRAM byte read (S-CPU,
+// GSU, OBC-1) is served here in 1-2 mclk, always timely, instead of waiting out
+// SDRAM arbitration behind GSU/CPU traffic (stale samples garbled every Super
+// FX picture). Updated on every accepted SNES write and every save-channel
+// write, in push/issue order, so it always holds the newest byte; GSU RAM
+// pacing is unchanged (RAM_WAIT still stalls on bridge state).
+reg   [7:0] bs_mirror [0:131071];
+reg  [16:0] bs_mirror_raddr = 0;
+reg   [7:0] bs_mirror_q = 8'hFF;
+always @(posedge mclk) begin
+    if (bs_push && bsram_wr)
+        bs_mirror[BSRAM_ADDR[16:0]] <= BSRAM_D;
+    if (bs_issue_ok && sv_w_new && ~sa1_mode)
+        bs_mirror[sv_addr[16:0]] <= sv_din;
+    bs_mirror_raddr <= BSRAM_ADDR[16:0];
+    bs_mirror_q <= bs_mirror[bs_mirror_raddr];
+end
+initial begin
+    integer i;
+    for (i = 0; i < 131072; i = i + 1) bs_mirror[i] = 8'hFF;
+end
+assign BSRAM_Q = sa1_mode ? bwram_q_a : bs_mirror_q;
 
 // ---- SA-1: ROM word cache on CPU2, BW-RAM in block RAM ----------------------
 // In SA-1 mode the save channel talks to the BW-RAM's second port (through
