@@ -549,16 +549,17 @@ wire        sv_req, sv_rreq;
 // synchronized here and routed back to whichever source was served. Reads
 // capture the controller's sticky bsram_dout before the next access can
 // overwrite it, since the arbiter keeps the port until the byte is banked.
-// 16-deep write queue. Read side is asynchronous on purpose: the GW5AST-138
-// has no distributed/SSRAM, so an async-read array must build from
-// flip-flops, keeping these entries out of BSRAM (which the hz120 frame
-// buffer needs). Writes still queue here; reads bypass the FIFO entirely.
-reg  [16:0] bs_fifo_addr [0:15];
-reg   [7:0] bs_fifo_din [0:15];
-reg         bs_fifo_we [0:15];
-wire [16:0] bs_fifo_addr_q = bs_fifo_addr[bs_fifo_rptr[3:0]];
-wire  [7:0] bs_fifo_din_q  = bs_fifo_din[bs_fifo_rptr[3:0]];
-wire        bs_fifo_we_q   = bs_fifo_we[bs_fifo_rptr[3:0]];
+// 16-deep write queue built from explicit per-stage registers (not arrays:
+// Gowin maps arrays to BSRAM even with an async read side, and the hz 120
+// frame buffer needs those blocks). Reads bypass the FIFO entirely (served
+// instantly from the mirror below), so only writes are queued; push exactly
+// once per write cycle, on the write-strobe edge.
+genvar bs_fi;
+generate for (bs_fi = 0; bs_fi < 16; bs_fi = bs_fi + 1) begin : BS_FIFO
+    reg [16:0] addr = 17'h0;
+    reg  [7:0] din = 8'h0;
+    reg        we = 1'b0;
+end endgenerate
 reg   [4:0] bs_fifo_wptr = 0, bs_fifo_rptr = 0;
 wire        bs_fifo_empty = bs_fifo_wptr == bs_fifo_rptr;
 wire        bs_fifo_full  = bs_fifo_wptr == bs_fifo_rptr + 5'd16;
@@ -569,6 +570,33 @@ wire        bs_det_new = (bsram_rd && BSRAM_ADDR != bsram_addr) ||
 // staleness from queueing or arbitration. Push exactly once per write cycle,
 // on the write-strobe edge.
 wire        bs_push = (bsram_wr & ~bsram_wr_r) && ~bs_fifo_full && ~sa1_mode;
+wire [16:0] bs_issue_addr;
+wire  [7:0] bs_issue_din;
+wire        bs_issue_we;
+always @* begin
+    bs_issue_addr = BS_FIFO[0].addr;
+    bs_issue_din = BS_FIFO[0].din;
+    bs_issue_we = BS_FIFO[0].we;
+    case (bs_fifo_rptr[3:0])
+        4'd0: begin bs_issue_addr = BS_FIFO[0].addr; bs_issue_din = BS_FIFO[0].din; bs_issue_we = BS_FIFO[0].we; end
+        4'd1: begin bs_issue_addr = BS_FIFO[1].addr; bs_issue_din = BS_FIFO[1].din; bs_issue_we = BS_FIFO[1].we; end
+        4'd2: begin bs_issue_addr = BS_FIFO[2].addr; bs_issue_din = BS_FIFO[2].din; bs_issue_we = BS_FIFO[2].we; end
+        4'd3: begin bs_issue_addr = BS_FIFO[3].addr; bs_issue_din = BS_FIFO[3].din; bs_issue_we = BS_FIFO[3].we; end
+        4'd4: begin bs_issue_addr = BS_FIFO[4].addr; bs_issue_din = BS_FIFO[4].din; bs_issue_we = BS_FIFO[4].we; end
+        4'd5: begin bs_issue_addr = BS_FIFO[5].addr; bs_issue_din = BS_FIFO[5].din; bs_issue_we = BS_FIFO[5].we; end
+        4'd6: begin bs_issue_addr = BS_FIFO[6].addr; bs_issue_din = BS_FIFO[6].din; bs_issue_we = BS_FIFO[6].we; end
+        4'd7: begin bs_issue_addr = BS_FIFO[7].addr; bs_issue_din = BS_FIFO[7].din; bs_issue_we = BS_FIFO[7].we; end
+        4'd8: begin bs_issue_addr = BS_FIFO[8].addr; bs_issue_din = BS_FIFO[8].din; bs_issue_we = BS_FIFO[8].we; end
+        4'd9: begin bs_issue_addr = BS_FIFO[9].addr; bs_issue_din = BS_FIFO[9].din; bs_issue_we = BS_FIFO[9].we; end
+        4'd10: begin bs_issue_addr = BS_FIFO[10].addr; bs_issue_din = BS_FIFO[10].din; bs_issue_we = BS_FIFO[10].we; end
+        4'd11: begin bs_issue_addr = BS_FIFO[11].addr; bs_issue_din = BS_FIFO[11].din; bs_issue_we = BS_FIFO[11].we; end
+        4'd12: begin bs_issue_addr = BS_FIFO[12].addr; bs_issue_din = BS_FIFO[12].din; bs_issue_we = BS_FIFO[12].we; end
+        4'd13: begin bs_issue_addr = BS_FIFO[13].addr; bs_issue_din = BS_FIFO[13].din; bs_issue_we = BS_FIFO[13].we; end
+        4'd14: begin bs_issue_addr = BS_FIFO[14].addr; bs_issue_din = BS_FIFO[14].din; bs_issue_we = BS_FIFO[14].we; end
+        4'd15: begin bs_issue_addr = BS_FIFO[15].addr; bs_issue_din = BS_FIFO[15].din; bs_issue_we = BS_FIFO[15].we; end
+    default: begin end
+    endcase
+end
 reg         sv_w_seen = 0, sv_r_seen = 0;
 reg         bs_req_tog = 0;                 // -> controller .bsram_req
 wire        bs_req_ack;                     // <- controller .bsram_req_ack
@@ -597,9 +625,25 @@ always @(posedge mclk) begin
     if (bs_det_new)
         bsram_addr <= BSRAM_ADDR;
     if (bs_push) begin
-        bs_fifo_addr[bs_fifo_wptr[3:0]] <= BSRAM_ADDR[16:0];
-        bs_fifo_din[bs_fifo_wptr[3:0]]  <= BSRAM_D;
-        bs_fifo_we[bs_fifo_wptr[3:0]]   <= bsram_wr;
+        case (bs_fifo_wptr[3:0])
+        4'd0: begin BS_FIFO[0].addr <= BSRAM_ADDR[16:0]; BS_FIFO[0].din <= BSRAM_D; BS_FIFO[0].we <= bsram_wr; end
+        4'd1: begin BS_FIFO[1].addr <= BSRAM_ADDR[16:0]; BS_FIFO[1].din <= BSRAM_D; BS_FIFO[1].we <= bsram_wr; end
+        4'd2: begin BS_FIFO[2].addr <= BSRAM_ADDR[16:0]; BS_FIFO[2].din <= BSRAM_D; BS_FIFO[2].we <= bsram_wr; end
+        4'd3: begin BS_FIFO[3].addr <= BSRAM_ADDR[16:0]; BS_FIFO[3].din <= BSRAM_D; BS_FIFO[3].we <= bsram_wr; end
+        4'd4: begin BS_FIFO[4].addr <= BSRAM_ADDR[16:0]; BS_FIFO[4].din <= BSRAM_D; BS_FIFO[4].we <= bsram_wr; end
+        4'd5: begin BS_FIFO[5].addr <= BSRAM_ADDR[16:0]; BS_FIFO[5].din <= BSRAM_D; BS_FIFO[5].we <= bsram_wr; end
+        4'd6: begin BS_FIFO[6].addr <= BSRAM_ADDR[16:0]; BS_FIFO[6].din <= BSRAM_D; BS_FIFO[6].we <= bsram_wr; end
+        4'd7: begin BS_FIFO[7].addr <= BSRAM_ADDR[16:0]; BS_FIFO[7].din <= BSRAM_D; BS_FIFO[7].we <= bsram_wr; end
+        4'd8: begin BS_FIFO[8].addr <= BSRAM_ADDR[16:0]; BS_FIFO[8].din <= BSRAM_D; BS_FIFO[8].we <= bsram_wr; end
+        4'd9: begin BS_FIFO[9].addr <= BSRAM_ADDR[16:0]; BS_FIFO[9].din <= BSRAM_D; BS_FIFO[9].we <= bsram_wr; end
+        4'd10: begin BS_FIFO[10].addr <= BSRAM_ADDR[16:0]; BS_FIFO[10].din <= BSRAM_D; BS_FIFO[10].we <= bsram_wr; end
+        4'd11: begin BS_FIFO[11].addr <= BSRAM_ADDR[16:0]; BS_FIFO[11].din <= BSRAM_D; BS_FIFO[11].we <= bsram_wr; end
+        4'd12: begin BS_FIFO[12].addr <= BSRAM_ADDR[16:0]; BS_FIFO[12].din <= BSRAM_D; BS_FIFO[12].we <= bsram_wr; end
+        4'd13: begin BS_FIFO[13].addr <= BSRAM_ADDR[16:0]; BS_FIFO[13].din <= BSRAM_D; BS_FIFO[13].we <= bsram_wr; end
+        4'd14: begin BS_FIFO[14].addr <= BSRAM_ADDR[16:0]; BS_FIFO[14].din <= BSRAM_D; BS_FIFO[14].we <= bsram_wr; end
+        4'd15: begin BS_FIFO[15].addr <= BSRAM_ADDR[16:0]; BS_FIFO[15].din <= BSRAM_D; BS_FIFO[15].we <= bsram_wr; end
+        default: begin end
+        endcase
         bs_fifo_wptr <= bs_fifo_wptr + 5'd1;
     end
     if (bs_busy && bs_free) begin               // the access just completed
@@ -614,9 +658,9 @@ always @(posedge mclk) begin
     end
     if (bs_issue_ok && snes_bs_new && ~sa1_mode) begin
         snes_bsram_shadow <= 0;                 // the SNES gets the port's data again
-        bs_addr_r <= bs_fifo_addr_q;
-        bs_din_r  <= bs_fifo_din_q;
-        bs_we_r   <= bs_fifo_we_q;
+        bs_addr_r <= bs_issue_addr;
+        bs_din_r  <= bs_issue_din;
+        bs_we_r   <= bs_issue_we;
         bs_owner  <= 0;
         bs_busy   <= 1;
         bs_req_tog <= ~bs_req_tog;
