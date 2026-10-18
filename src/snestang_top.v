@@ -715,15 +715,16 @@ assign gsu_ram_wait = gsu_mode & gsu_ram_req &
 // is mirrored; larger windows fall back to SDRAM without address aliasing.
 reg   [7:0] bs_mirror [0:65535];
 reg   [7:0] bs_mirror_q = 8'hFF;
+wire bs_mirror_save = gsu_mode && !snes_bs_new && bs_sv_w_issue && !sv_addr[16];
+wire bs_mirror_write = bs_mirror_save || (bs_push && bsram_wr && bs_mirror_sel);
+wire [15:0] bs_mirror_addr = bs_mirror_save ? sv_addr[15:0] : BSRAM_ADDR[15:0];
+wire [7:0] bs_mirror_din = bs_mirror_save ? sv_din : BSRAM_D;
 always @(posedge mclk) begin
-    if (gsu_mode && !snes_bs_new && bs_sv_w_issue && !sv_addr[16])
-        bs_mirror[sv_addr[15:0]] <= sv_din;
-    else if (bs_push && bsram_wr && bs_mirror_sel)
-        bs_mirror[BSRAM_ADDR[15:0]] <= BSRAM_D;
+    // A single address/write-enable template makes GW5A infer WRITE_MODE=0.
+    if (bs_mirror_write)
+        bs_mirror[bs_mirror_addr] <= bs_mirror_din;
     else
-        bs_mirror_q <= bs_mirror[BSRAM_ADDR[15:0]];
-    // Hold q during writes: GW5A BSRAM has no read-before-write mode.
-
+        bs_mirror_q <= bs_mirror[bs_mirror_addr];
 end
 `ifdef VERILATOR
 // Match the local SDRAM model's initial fill. Hardware RAM is initialized
