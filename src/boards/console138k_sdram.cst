@@ -160,9 +160,9 @@ IO_LOC "O_sdram_cas_n" E17;
 IO_PORT "O_sdram_cas_n" IO_TYPE=LVCMOS33;
 IO_LOC "O_sdram_cs_n" F21;      // was F19 on mega60k
 IO_PORT "O_sdram_cs_n" IO_TYPE=LVCMOS33;
-// Bound SDRAM fabric capture and output-enable registers near the DQ pins.
+// Bound SDRAM fabric capture registers near the DQ pins.
 // These are physical regions only; all data/ack edges and SDC delays stay put.
 GROUP sdram_capture = { "sdram/cpu_port0*" "sdram/cpu_port1*" "sdram/cpu2_dout*" "sdram/bsram_dout_reg*" "sdram/aram_dout*" };
 GRP_LOC sdram_capture R[20:40]C[160:175];
-GROUP sdram_enable = { "sdram/dq_oen*" };
-GRP_LOC sdram_enable R[15:30]C[170:175];
+// Per-pin dq_oen registers pack into the DQ I/O blocks; do not bind them
+// to a fabric region.

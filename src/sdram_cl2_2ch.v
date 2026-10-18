@@ -131,9 +131,14 @@ module sdram_snes
 );
 
 // Tri-state DQ input/output
-reg dq_oen;        // 0 means output
+// One enable per pin lets the I/O tristate registers absorb the flops.
+// Preserve the copies: merging them restores the long shared OE route.
+(* syn_preserve = 1, syn_useioff = 1 *) reg [15:0] dq_oen; // 0 means output
 reg [15:0] dq_out;
-assign SDRAM_DQ = dq_oen ? {16{1'bz}} : dq_out;
+genvar dq_bit;
+generate for (dq_bit = 0; dq_bit < 16; dq_bit = dq_bit + 1) begin : dq_pins
+    assign SDRAM_DQ[dq_bit] = dq_oen[dq_bit] ? 1'bz : dq_out[dq_bit];
+end endgenerate
 wire [15:0] dq_in = SDRAM_DQ;     // DQ input
 reg [3:0] cmd;
 reg [12:0] a;
@@ -283,13 +288,13 @@ assign bsram_dout = bsram_dout_reg;
 always @(posedge clk) begin
     if (~resetn) begin
         busy <= 1'b1;
-        dq_oen <= 1;
+        dq_oen <= 16'hffff;
         SDRAM_DQM <= 2'b0;
         normal <= 0;
         setup <= 0;
     end else begin
         // defaults
-        dq_oen <= 1'b1;
+        dq_oen <= 16'hffff;
         SDRAM_DQM <= 2'b11;
         cmd <= CMD_NOP; 
 
@@ -373,7 +378,7 @@ always @(posedge clk) begin
             if (cycle[1] && (oe_latch[0] || we_latch[0])) begin
                 cmd <= we_latch[0]?CMD_Write:CMD_Read;
                 if (we_latch[0]) begin
-                    dq_oen <= 0;
+                    dq_oen <= 16'h0000;
                     dq_out <= din_latch[0];
                     SDRAM_DQM <= ~ds[0];
                 end else
@@ -394,7 +399,7 @@ always @(posedge clk) begin
             if (cycle[4] && (oe_latch[1] || we_latch[1])) begin
                 cmd <= we_latch[1]?CMD_Write:CMD_Read;
                 if (we_latch[1]) begin
-                    dq_oen <= 0;
+                    dq_oen <= 16'h0000;
                     dq_out <= din_latch[1];
                     SDRAM_DQM <= ~ds[1];
                 end else
