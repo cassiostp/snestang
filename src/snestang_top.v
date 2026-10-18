@@ -720,7 +720,10 @@ always @(posedge mclk) begin
         bs_mirror[sv_addr[15:0]] <= sv_din;
     else if (bs_push && bsram_wr && bs_mirror_sel)
         bs_mirror[BSRAM_ADDR[15:0]] <= BSRAM_D;
-    bs_mirror_q <= bs_mirror[BSRAM_ADDR[15:0]];
+    else
+        bs_mirror_q <= bs_mirror[BSRAM_ADDR[15:0]];
+    // Hold q during writes: GW5A BSRAM has no read-before-write mode.
+
 end
 `ifdef VERILATOR
 // Match the local SDRAM model's initial fill. Hardware RAM is initialized
