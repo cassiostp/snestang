@@ -454,7 +454,10 @@ reg         wram_wr_r, wram_rd_r;
 
 reg [19:0]  bsram_addr;             // last cartridge-bus BSRAM address queued
 wire        gsu_ram_bus = gsu_mode & gsu_ram_req;				// GSU owns the RAM bus right now
-wire        bsram_rd = ~BSRAM_CE_N & (~BSRAM_RD_N || (gsu_ram_bus & BSRAM_WE_N));	// reads are the S-CPU/OBC-1 read strobe, or the GSU's own read cycles (CE selected, not writing, while it owns the bus); writes never match, so no phantom reads
+// GSU writes must not also queue a read. Other mappers keep their original
+// read detection, including OBC-1's accesses outside S-CPU read cycles.
+wire        bsram_rd = ~BSRAM_CE_N & (~BSRAM_RD_N ||
+                       (gsu_mode ? (gsu_ram_bus & BSRAM_WE_N) : rom_type[7:4] == 4'hC));
 wire        bsram_wr = ~BSRAM_CE_N & ~BSRAM_WE_N;
 reg         bsram_rd_r, bsram_wr_r;
 
@@ -551,9 +554,8 @@ wire        sv_req, sv_rreq;
 // overwrite it, since the arbiter keeps the port until the byte is banked.
 // 16-deep write queue built from explicit per-stage registers (not arrays:
 // Gowin maps arrays to BSRAM even with an async read side, and the hz 120
-// frame buffer needs those blocks). Reads bypass the FIFO entirely (served
-// instantly from the mirror below), so only writes are queued; push exactly
-// once per write cycle, on the write-strobe edge.
+// frame buffer needs those blocks). GSU mirrored reads bypass the queue;
+// other accesses retain the SDRAM path and its original four-entry limit.
 genvar bs_fi;
 generate for (bs_fi = 0; bs_fi < 16; bs_fi = bs_fi + 1) begin : BS_FIFO
     reg [16:0] addr = 17'h0;
@@ -562,14 +564,16 @@ generate for (bs_fi = 0; bs_fi < 16; bs_fi = bs_fi + 1) begin : BS_FIFO
 end endgenerate
 reg   [4:0] bs_fifo_wptr = 0, bs_fifo_rptr = 0;
 wire        bs_fifo_empty = bs_fifo_wptr == bs_fifo_rptr;
-wire        bs_fifo_full  = bs_fifo_wptr == bs_fifo_rptr + 5'd16;
+wire        bs_fifo_full  = bs_fifo_wptr == bs_fifo_rptr + (gsu_mode ? 5'd16 : 5'd4);
+// Only the low 64 KiB of GSU RAM is mirrored. All non-GSU cartridges and
+// the upper 64 KiB retain the SDRAM read and save-data shadow path.
+wire        bs_mirror_sel = gsu_mode && !BSRAM_ADDR[16];
 wire        bs_det_new = (bsram_rd && BSRAM_ADDR != bsram_addr) ||
                          (bsram_wr & ~bsram_wr_r) || (bsram_rd & ~bsram_rd_r);
-// Reads bypass the FIFO entirely (served instantly from the mirror below),
-// so only writes are queued; this halves FIFO pressure and removes any read
-// staleness from queueing or arbitration. Push exactly once per write cycle,
-// on the write-strobe edge.
-wire        bs_push = (bsram_wr & ~bsram_wr_r) && ~bs_fifo_full && ~sa1_mode;
+// Mirrored reads need no SDRAM transaction; writes still go through the
+// queue for save-channel coherence. Unmirrored accesses keep the detector.
+wire        bs_push = (bs_mirror_sel ? (bsram_wr & ~bsram_wr_r) : bs_det_new)
+                      && ~bs_fifo_full && ~sa1_mode;
 reg [16:0] bs_issue_addr;
 reg  [7:0] bs_issue_din;
 reg        bs_issue_we;
@@ -701,33 +705,30 @@ wire sv_core_we = bsram_wr & ~bsram_wr_r;       // the SNES wrote save RAM
 assign gsu_ram_wait = gsu_mode & gsu_ram_req &
                       (bs_det_new | snes_bs_new | (bs_busy & ~bs_owner));
 
-// BSRAM read mirror (block RAM, write-through): every BSRAM byte read (S-CPU,
-// GSU, OBC-1) is served here in 1-2 mclk, always timely, instead of waiting out
-// SDRAM arbitration behind GSU/CPU traffic (stale samples garbled every Super
-// FX picture). Updated on every accepted SNES write and every save-channel
-// write, in push/issue order, so it always holds the newest byte; GSU RAM
-// pacing is unchanged (RAM_WAIT still stalls on bridge state).
-reg   [7:0] bs_mirror [0:131071];
-reg  [16:0] bs_mirror_raddr = 0;
+// GSU read mirror: one registered-address block-RAM read avoids stale
+// S-CPU framebuffer uploads under SDRAM contention. Only GSU low-bank RAM
+// is mirrored; larger windows fall back to SDRAM without address aliasing.
+reg   [7:0] bs_mirror [0:65535];
+reg  [15:0] bs_mirror_raddr = 0;
 reg   [7:0] bs_mirror_q = 8'hFF;
 always @(posedge mclk) begin
-    if (bs_push && bsram_wr)
-        bs_mirror[BSRAM_ADDR[16:0]] <= BSRAM_D;
-    if (bs_issue_ok && sv_w_new && ~sa1_mode)
-        bs_mirror[sv_addr[16:0]] <= sv_din;
-    bs_mirror_raddr <= BSRAM_ADDR[16:0];
+    if (bs_push && bsram_wr && bs_mirror_sel)
+        bs_mirror[BSRAM_ADDR[15:0]] <= BSRAM_D;
+    if (gsu_mode && bs_issue_ok && !snes_bs_new && sv_w_new && !sv_addr[16])
+        bs_mirror[sv_addr[15:0]] <= sv_din;
+    bs_mirror_raddr <= BSRAM_ADDR[15:0];
     bs_mirror_q <= bs_mirror[bs_mirror_raddr];
 end
 `ifdef VERILATOR
-// Simulation-only initial fill matching sim/cosim/sdram_chip.sv (which
-// powers up to FFFF); synthesis leaves power-on state undefined, which is
-// fine because every game clears BSRAM before reading it.
+// Match the local SDRAM model's initial fill. Hardware RAM is initialized
+// by cartridge software or the save restore path before use.
 initial begin
     integer i;
-    for (i = 0; i < 131072; i = i + 1) bs_mirror[i] = 8'hFF;
+    for (i = 0; i < 65536; i = i + 1) bs_mirror[i] = 8'hFF;
 end
 `endif
-assign BSRAM_Q = sa1_mode ? bwram_q_a : bs_mirror_q;
+assign BSRAM_Q = sa1_mode ? bwram_q_a : bs_mirror_sel ? bs_mirror_q :
+                (snes_bsram_shadow ? snes_bsram_hold : bsram_dout);
 
 // ---- SA-1: ROM word cache on CPU2, BW-RAM in block RAM ----------------------
 // In SA-1 mode the save channel talks to the BW-RAM's second port (through
