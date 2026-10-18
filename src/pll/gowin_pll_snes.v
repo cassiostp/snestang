@@ -126,13 +126,13 @@ defparam PLL_inst.CLKOUT0_PE_FINE = 0;
 defparam PLL_inst.CLKOUT1_PE_COARSE = 0;
 defparam PLL_inst.CLKOUT1_PE_FINE = 0;
 // CLKOUT2 is O_sdram_clk. Phase is (COARSE+FINE/8)/ODIV*360 (UG306).
-// 17+7/8 at ODIV 31 is 207.581 degrees = 8.9375 ns behind fclk.
+// 17+4/8 at ODIV 31 is 203.226 degrees = 8.7500 ns behind fclk.
 // The read lanes capture 3 fclk after CAS, 6.5625 ns after the
 // SDRAM's CL2 launch edge. Pin input/output delays in console138k.sdc
 // constrain that read window and the preceding command/address launch.
 // Only CLKOUT2 phase changes; mclk/fclk frequencies and capture edges do not.
 defparam PLL_inst.CLKOUT2_PE_COARSE = 17;
-defparam PLL_inst.CLKOUT2_PE_FINE = 7;
+defparam PLL_inst.CLKOUT2_PE_FINE = 4;
 defparam PLL_inst.CLKOUT3_PE_COARSE = 0;
 defparam PLL_inst.CLKOUT3_PE_FINE = 0;
 defparam PLL_inst.CLKOUT4_PE_COARSE = 0;

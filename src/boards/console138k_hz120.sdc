@@ -63,8 +63,8 @@ set_multicycle_path 1 -hold -start -from [get_regs {sdram/bsram_req_ack*}] -to [
 //set_multicycle_path 6 -setup -end -from [get_nets {main/SNES/PPU/BG*}] -to [get_clocks {fclk}]
 //set_multicycle_path 5 -hold -end -from [get_nets {main/SNES/PPU/BG*}] -to [get_clocks {fclk}]
 
-// SDRAM pin timing. O_sdram_clk is PLL CLKOUT2 at PE 17/7:
-// (17+7/8)/31*360 = 207.581 degrees = 8.9375 ns behind fclk. The controller
+// SDRAM pin timing. O_sdram_clk is PLL CLKOUT2 at PE 17/4:
+// (17+4/8)/31*360 = 203.226 degrees = 8.7500 ns behind fclk. The controller
 // launches CAS on fclk and samples dq_in 3 fclk (46.5 ns) later. The chip
 // launches CL2 data on the sdram edge 2 cycles (31.0 ns) after it takes
 // CAS, so the word is 6.5625 ns old at the sample. The default setup check
@@ -74,7 +74,7 @@ set_multicycle_path 1 -hold -start -from [get_regs {sdram/bsram_req_ack*}] -to [
 // W9825G6KH-6 at CL2: tAC max 6.0, tOH min 3.0, tCMS and tDS 1.5,
 // tCMH and tDH 0.8. Board skew is taken as 0.5 ns each way. That number
 // is an assumption, not a measurement of this board.
-create_generated_clock -name sdram_clk -source [get_nets {fclk}] -master_clock fclk -phase 207.581 -divide_by 1 [get_ports {O_sdram_clk}]
+create_generated_clock -name sdram_clk -source [get_nets {fclk}] -master_clock fclk -phase 203.226 -divide_by 1 [get_ports {O_sdram_clk}]
 # Gowin TA1012: -max and -min are mutually exclusive, so each is its own line.
 set_input_delay -clock sdram_clk -max 6.5 [get_ports {IO_sdram_dq*}]
 set_input_delay -clock sdram_clk -min 2.5 [get_ports {IO_sdram_dq*}]
