@@ -663,10 +663,15 @@ always @(posedge mclk) begin
     bs_mirror_raddr <= BSRAM_ADDR[16:0];
     bs_mirror_q <= bs_mirror[bs_mirror_raddr];
 end
+`ifdef VERILATOR
+// Simulation-only initial fill matching sim/cosim/sdram_chip.sv (which
+// powers up to FFFF); synthesis leaves power-on state undefined, which is
+// fine because every game clears BSRAM before reading it.
 initial begin
     integer i;
     for (i = 0; i < 131072; i = i + 1) bs_mirror[i] = 8'hFF;
 end
+`endif
 assign BSRAM_Q = sa1_mode ? bwram_q_a : bs_mirror_q;
 
 // ---- SA-1: ROM word cache on CPU2, BW-RAM in block RAM ----------------------
