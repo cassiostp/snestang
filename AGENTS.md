@@ -7,7 +7,8 @@ SNES for the Tang Console 138K/60K. Port of `nand2mario/snestang` (which ports `
 ## Layout
 
 - Top: `src/snestang_top.v` (`module snestang_top`, needs `src/config.v` first), machine in `src/main.v`, PPU/S-CPU/DSP/SA-1/GSU/CX4 under `src/`.
-- Video: scaler `src/snes2hdmi.v` (nano: `src/snes2hdmi_nano.v`) into `src/hdmi2/hdmi.sv` + helpers; `src/scanlines.v`, `src/video_fx.v`, `src/smooth.v`.
+- Video: scaler `src/snes2hdmi.v` (nano: `src/snes2hdmi_nano.v`) into `src/hdmi2/hdmi.sv` + helpers; `src/scanlines.v`, `src/video_fx.v`.
+- Build variants: `build.tcl` reads `TANGCORE_VARIANT` (`standard`, or `hz120` on console138k only; unset is standard) and prints `TangCore variant: <name>`. The RTL under `` `ifdef HZ120 `` (via `src/variant/<variant>/variant.vh`) is the 480p120 scaler (VIC 48, BSRAM frame buffer, BFI on `video_config[21:20]`); the standard variant is the 720p scaler. CI: add `-f variant=hz120` to the cores.yml command for the 120 Hz bitstream (`snestang_120hz.bin`).
 - Memory: `src/sdram_cl2_3ch.v` (primer25k/mega60k/console60k), `src/sdram_cl2_2ch.v` + FPGA BRAM `src/vram.v`/`vram_spb.v` (mega138k/console138k), `src/sdram_nano.v` (nano); SA-1 BW-RAM `src/bwram_256k.v`; `src/swram.v`, `src/gowin_dpb_*.v`.
 - iosys: `src/iosys/iosys_bl616.v` is the build's copy (`uart_fixed.v`, `textdisp.v`, `gowin_dpb_menu.v`, `crc16.v`). `iosys_picorv32.v`/`picorv32.v` exist but are not in `build.tcl`.
 - PLLs: `src/pll/` (138K `PLL`), `src/plla/` (25K/60K `PLLA`), `src/pllr/` (nano `rPLL`); `pll_12.v` feeds USB.
@@ -57,13 +58,14 @@ The scaler sets `pause_snes_for_frame_sync` after the first line is buffered and
 - `sa1_cache`: `sa1_rom_cache`+`bwram_256k` vs behavioural CPU2.
 - `sa1_core`: GHDL SA-1 program, DMA/VBP, CXB bank.
 - `saveram`: 2 Mbaud restore/dump/dirty/joypad interleave under back-pressure.
-- `scanlines`: `sl_rows` geometry/darkening plus whole-frame scaler-vs-model.
+- `scanlines`: `sl_rows` geometry/darkening plus whole-frame scaler-vs-model (`tb_snes_scaler_hz120.v` for the hz120 variant, with PPM frame dumps).
 - `scpu_timing`: 1x WRAM refresh/scanline + H-IRQ/HDMA positions.
 - `sdram_port`: port-level `sdram_cl2_2ch.v` (S-CPU + CPU2 + ARAM + BSRAM); `run_stable.sh` proves SDC windows.
 - `snes_audio`: 32 kHz FIFO+servo vs `tangcore#26` (16 NTSC frames, no drop/repeat after warmup).
 - `srtc`: `srtc_time_pack` firmware-BCD to MiSTer nibble map; `smc_parser` `0x35/0x55`.
 - `tmds`: 2-stage `tmds_channel` vs git-history `old` over 2.5M clocks.
-- `video_fx`: `0x13`, `video_fx` vs `model.py`, git-history regress with filters off, FX/smoothing/linebuf/hires checks.
+- `video_fx`: `0x13`, `video_fx` vs `model.py`, git-history regress with filters off, FX/linebuf/hires checks (`tb_snes_framebuf.v` replaces the line buffer bench for hz120).
+- Video benches take a variant: `sh run.sh [standard|hz120|both]` (default both).
 
 ## Traps
 

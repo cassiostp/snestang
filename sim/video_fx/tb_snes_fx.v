@@ -12,7 +12,11 @@ module tb_snes_fx;
     localparam FX_LAT = 11;
 
     reg clk_pixel = 0, clk = 0;
+`ifdef HZ120
+    always #9.259 clk_pixel = ~clk_pixel;       // 54 MHz, 480p120
+`else
     always #6.734 clk_pixel = ~clk_pixel;       // 74.25 MHz
+`endif
     always #23.28 clk = ~clk;                   // 21.477 MHz
 
     reg        sl_on = 0, sl_thick = 0, sl_out = 0, ov = 0;
@@ -60,7 +64,11 @@ module tb_snes_fx;
     initial begin
         #1;
         h = 32'h7654321;
+`ifdef HZ120
+        for (i = 0; i < 224 * 256; i = i + 1) begin
+`else
         for (i = 0; i < 32 * 256; i = i + 1) begin
+`endif
             h = h * 1664525 + 1013904223;
             dut.mem[i] = no_border(h[29:15]);
         end
@@ -71,7 +79,11 @@ module tb_snes_fx;
             for (fc = 0; fc < 256; fc = fc + 1) begin
                 h = ({16'd0, fl, fc[7:0]} + 32'h7654321) * 32'd2654435761;
                 h = (h ^ (h >> 15)) * 32'd2246822519;
+`ifdef HZ120
+                dut.mem[fl * 256 + fc] = no_border(h[29:15]);
+`else
                 dut.mem[{fl[4:0], fc[7:0]}] = no_border(h[29:15]);
+`endif
             end
         end
     end
@@ -94,7 +106,11 @@ module tb_snes_fx;
                 $display("pic flag %b with rgb_pre=%h overlay=%b at cx=%0d cy=%0d", dut.pic_pre, dut.rgb_pre, ov, dut.cx, dut.cy);
         end
         in_row = (dut.cy % 100 < 4) && dut.cy < 10'd720 && dut.cy >= 10'd40;
+`ifdef HZ120
+        if (logging && in_row && dut.cx < 11'd720) begin
+`else
         if (logging && in_row && dut.cx < 11'd1280) begin
+`endif
             $fwrite(fd, "%h %0d %0d %0d %0d %0d 0 0 %h %h\n", vcfg, dut.cx, dut.cy,
                     old_in[24], old_in[25], old_in[27:26], old_in[23:0], dut.rgb);
             nlog = nlog + 1;
@@ -103,8 +119,13 @@ module tb_snes_fx;
 
     task wait_row730;
         begin
+`ifdef HZ120
+            while (dut.cy == 10'd500) @(posedge clk_pixel);
+            while (dut.cy != 10'd500) @(posedge clk_pixel);
+`else
             while (dut.cy == 10'd730) @(posedge clk_pixel);
             while (dut.cy != 10'd730) @(posedge clk_pixel);
+`endif
         end
     endtask
 

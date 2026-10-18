@@ -13,6 +13,20 @@ if {$argc >= 2} {
     set controller ""
 }
 
+# TangCore build variant: standard (720p60), or hz120 (480p120) on
+# console138k. CI passes it as TANGCORE_VARIANT; unset or empty is the
+# standard build. The RTL reads it through src/variant/<variant>/variant.vh
+# (set_option -include_path below).
+if {[info exists ::env(TANGCORE_VARIANT)] && $::env(TANGCORE_VARIANT) ne ""} {
+    set variant $::env(TANGCORE_VARIANT)
+} else {
+    set variant "standard"
+}
+if {$variant ne "standard" && $variant ne "hz120"} {
+    error "Unknown TANGCORE_VARIANT $variant (want standard or hz120)"
+}
+puts "TangCore variant: $variant"
+
 # process $dev and $controller
 if {$dev eq "nano20k"} {
     set_device GW2AR-LV18QN88C8/I7 -device_version C
@@ -155,6 +169,9 @@ if {$dev eq "nano20k"} {
 } else {
     error "Unknown device $dev"
 }
+if {$variant eq "hz120" && $dev ne "console138k"} {
+    error "TANGCORE_VARIANT hz120 needs console138k (got $dev)"
+}
 
 add_file -type verilog "src/iosys/iosys_bl616.v"
 add_file -type verilog "src/iosys/uart_fractional.v"
@@ -221,7 +238,11 @@ add_file -type verilog "src/uart_tx_V2.v"
 # console138k/mega138k run the snes PLL at 3:1, the other boards at 4:1;
 # Gowin reads only one SDC per project.
 if {$dev eq "console138k" || $dev eq "mega138k"} {
+if {$variant eq "hz120"} {
+add_file -type sdc "src/boards/console138k_hz120.sdc"
+} else {
 add_file -type sdc "src/boards/console138k.sdc"
+}
 } else {
 add_file -type sdc "src/snestang.sdc"
 }
@@ -230,6 +251,7 @@ add_file -type gao -disable "src/mega138k/snestang.gao"
 set_option -synthesis_tool gowinsynthesis
 set_option -top_module snestang_top
 set_option -verilog_std sysv2017
+set_option -include_path src/variant/$variant
 set_option -rw_check_on_ram 1
 set_option -route_option 2
 set_option -place_option 3

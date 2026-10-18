@@ -7,7 +7,8 @@
 // PROD_NUM/PROD_DEN per mclk (dsp.vh ACLK_FREQ/2147730). Production and
 // the frame generator freeze while pause_snes_for_frame_sync is
 // asserted, the way enable=0 does in snestang_top. The HDMI side
-// (../scanlines/hdmi_stub.v) consumes at 74.25 MHz / 2320.
+// (../scanlines/hdmi_stub.v) consumes at 74.25 MHz / 2320
+// (54 MHz / 1686 in the hz120 variant).
 //
 // Samples carry an incrementing counter, so the bench counts exactly, per
 // HDMI frame after a two-frame warmup: produced samples, consumed samples,
@@ -26,7 +27,11 @@
 module tb_snes_audio_fifo;
 
     reg clk_pixel = 0, clk = 0;
+`ifdef HZ120
+    always #9.259 clk_pixel = ~clk_pixel;       // 54 MHz, 480p120
+`else
     always #6.734 clk_pixel = ~clk_pixel;       // 74.25 MHz
+`endif
     always #(`MCLK_HALF_NS) clk = ~clk;         // board mclk (run.sh: 138K and 60K)
 
     reg resetn = 0;
@@ -59,7 +64,7 @@ module tb_snes_audio_fifo;
 
     snes2hdmi dut (
         .clk(clk), .resetn(resetn),
-        .dotclk(dotclk), .hblank(1'b1), .vblank(1'b1), .rgb5(15'd0), .xs(9'd0), .ys(ys),
+        .dotclk(dotclk), .hblank(1'b1), .vblank(1'b1), .rgb5(15'd0), .xs(9'd0), .ys(ys), .hires(1'b0),
         .overlay(1'b0), .overlay_x(overlay_x), .overlay_y(overlay_y), .overlay_color(15'd0),
         .audio_l(audio_l), .audio_r(audio_r), .audio_ready(audio_ready), .audio_en(),
         .pause(1'b0), .snes_refresh(snes_refresh),
@@ -131,7 +136,13 @@ module tb_snes_audio_fifo;
             if (occ > occ_max) occ_max <= occ;
         end
         prev_clk_audio <= dut.clk_audio;
+`ifdef HZ120
+        // frames 0-3 are the 2x lock acquire (the FIFO starts empty and the
+        // first halt can be a millisecond). Count from the locked regime.
+        if (resetn && prev_clk_audio && !dut.clk_audio && frame >= 4)
+`else
         if (resetn && prev_clk_audio && !dut.clk_audio && frame >= 2)
+`endif
             sample_pending <= 1'b1;
     end
     always @(negedge clk_pixel) begin
@@ -169,7 +180,11 @@ module tb_snes_audio_fifo;
         if (resetn && pause_sync) halt_cnt <= halt_cnt + 1;
     end
     always @(posedge clk_pixel) begin
+`ifdef HZ120
+        if (dut.cy == 0 && prev_cy == 524) begin
+`else
         if (dut.cy == 0 && prev_cy == 749) begin
+`endif
             frame <= frame + 1;
             $display("frame %0d prod=%0d cons=%0d drop=%0d rep=%0d occ_min=%0d occ_max=%0d halt_mclk=%0d",
                      frame, produced - last_prod, consumed - last_cons,

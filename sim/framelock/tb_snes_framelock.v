@@ -33,7 +33,11 @@
 module tb_snes_framelock;
 
     reg clk_pixel = 0, clk = 0;
+`ifdef HZ120
+    always #9.259 clk_pixel = ~clk_pixel;       // 54 MHz, 480p120
+`else
     always #6.734 clk_pixel = ~clk_pixel;       // 74.25 MHz
+`endif
     always #(`MCLK_HALF_NS) clk = ~clk;         // board mclk
 
     reg resetn = 0;
@@ -122,13 +126,44 @@ module tb_snes_framelock;
     integer sf0 = 0, h0 = 0;
     integer sf_base = 0, h_base = 0;
     always @(posedge clk_pixel) begin
+`ifdef HZ120
+        if (dut.cy == 0 && prev_cy == 524) begin
+`else
         if (dut.cy == 0 && prev_cy == 749) begin
+`endif
             frame <= frame + 1;
             if (frame == 2) begin sf_base <= snes_frames; h_base <= halts; end
             if (frame >= 2)
                 $display("hdmi frame %0d: snes_frames=%0d halts=%0d halt_last=%0d halt_max=%0d mclk",
                          frame, snes_frames - sf0, halts - h0, halt_last, halt_max);
             sf0 <= snes_frames; h0 <= halts;
+`ifdef HZ120
+            if (frame == 24) begin
+                // 22 HDMI frames is 11 game frames at 2x
+                $display("SUMMARY locked=%0d snes_frames=%0d halts=%0d halt_max=%0d in 22 hdmi frames",
+                         `LOCKED, snes_frames - sf_base, halts - h_base, halt_max);
+                if (halt_max > 5000)
+                    $fatal(1, "FAIL: a halt stretched to %0d mclk (missed-release trap)", halt_max);
+                if (`LOCKED && (snes_frames - sf_base != 11 || halts - h_base != 11))
+`ifdef HZ120
+                    $fatal(1, "FAIL: locked config ran %0d snes frames / %0d halts in 22 hdmi frames",
+                           snes_frames - sf_base, halts - h_base);
+`else
+                    $fatal(1, "FAIL: locked config ran %0d snes frames / %0d halts in 11 hdmi frames",
+                           snes_frames - sf_base, halts - h_base);
+`endif
+                if (!`LOCKED && snes_frames - sf_base < 10)
+`ifdef HZ120
+                    $fatal(1, "FAIL: unlocked config ran only %0d snes frames in 22 hdmi frames (stalled)",
+                           snes_frames - sf_base);
+`else
+                    $fatal(1, "FAIL: unlocked config ran only %0d snes frames in 11 hdmi frames (stalled)",
+                           snes_frames - sf_base);
+`endif
+                $display("PASS snes-framelock");
+                $finish;
+            end
+`else
             if (frame == 13) begin
                 // verdict over frames 2..13 (11 HDMI frames)
                 $display("SUMMARY locked=%0d snes_frames=%0d halts=%0d halt_max=%0d in 11 hdmi frames",
@@ -137,13 +172,14 @@ module tb_snes_framelock;
                     $fatal(1, "FAIL: a halt stretched to %0d mclk (missed-release trap)", halt_max);
                 if (`LOCKED && (snes_frames - sf_base != 11 || halts - h_base != 11))
                     $fatal(1, "FAIL: locked config ran %0d snes frames / %0d halts in 11 hdmi frames",
-                           snes_frames - sf_base, halts - h_base);
+                            snes_frames - sf_base, halts - h_base);
                 if (!`LOCKED && snes_frames - sf_base < 10)
                     $fatal(1, "FAIL: unlocked config ran only %0d snes frames in 11 hdmi frames (stalled)",
-                           snes_frames - sf_base);
+                            snes_frames - sf_base);
                 $display("PASS snes-framelock");
                 $finish;
             end
+`endif
         end
         prev_cy <= dut.cy;
     end

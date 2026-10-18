@@ -11,6 +11,13 @@ integration in `snes2hdmi`. iverilog; `./run.sh` runs everything.
 | `tb_snes_fx.v` + `model.py check` | the filters running inside `snes2hdmi`: the pixels going in and coming out of `video_fx` are logged with their output position and compared with the model, so the mask lands on the right columns and rows, the scanline darkening follows the colour stage, and the border and the overlay stay untouched |
 | `tb_snes_linebuf.v` | the line buffer as the SNES fills it: a model of the PPU's pixel output and refresh drives the real frame sync, every write is tagged with its frame and line, and every read the picture depends on (the shown line) must find its own pixel, written and not yet overwritten; default and integer geometry, output rows, with the SNES slowed down by up to what the frame sync tolerates (`-Ptb_snes_linebuf.STALL=250`: one dot in 250 lost, the SNES frame is only 0.5 % shorter than the picture's). It reports, per setting, how long after the last read of a pixel it is overwritten, and how many lines the SNES is ahead of the picture (the buffer holds 32, so 31 is the limit) |
 | `tb_snes_hires.v` | hi-res pair blending in `snes2hdmi`: normal lines keep the sub (rising-edge) pixel as before, hi-res lines hold the per-channel average of each sub/main pair (alternating sub-pixels blend to grey, a pseudo-hi-res blue/red pair to half-and-half, gradient pairs to their average), `hires` takes effect at pair boundaries, pairs in blanking are not written, and a whole picture of alternating sub-pixels renders as uniform grey |
+| `tb_snes_framebuf.v` | hz120 only: the frame buffer as the SNES fills it: a solid colour per game frame shows on both HDMI frames of a pair, pairs step by one, BFI off; a clock that cannot lock free-runs without a whole-frame halt |
+
+`./run.sh [standard|hz120|both]` runs both build variants (default: both).
+The hz120 variant compiles the scaler with `-DHZ120` (480p120, the frame
+buffer, BFI); `tb_snes_regress` and `tb_snes_linebuf` are the 720p geometry
+and are skipped there, and `tb_snes_framebuf` runs instead of the line buffer
+bench.
 
 The scaler has a single picture format, 256 x 224 into a 32-line buffer (no 512-wide or 239-line
 mode), so the scanline modes and the overlay are all the modes there are.
