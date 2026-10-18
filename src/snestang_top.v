@@ -549,18 +549,26 @@ wire        sv_req, sv_rreq;
 // synchronized here and routed back to whichever source was served. Reads
 // capture the controller's sticky bsram_dout before the next access can
 // overwrite it, since the arbiter keeps the port until the byte is banked.
-/* synthesis syn_ramstyle="registers" */
+// 16-deep write queue. Read side is asynchronous on purpose: the GW5AST-138
+// has no distributed/SSRAM, so an async-read array must build from
+// flip-flops, keeping these entries out of BSRAM (which the hz120 frame
+// buffer needs). Writes still queue here; reads bypass the FIFO entirely.
 reg  [16:0] bs_fifo_addr [0:15];
-/* synthesis syn_ramstyle="registers" */
 reg   [7:0] bs_fifo_din [0:15];
-/* synthesis syn_ramstyle="registers" */
 reg         bs_fifo_we [0:15];
+wire [16:0] bs_fifo_addr_q = bs_fifo_addr[bs_fifo_rptr[3:0]];
+wire  [7:0] bs_fifo_din_q  = bs_fifo_din[bs_fifo_rptr[3:0]];
+wire        bs_fifo_we_q   = bs_fifo_we[bs_fifo_rptr[3:0]];
 reg   [4:0] bs_fifo_wptr = 0, bs_fifo_rptr = 0;
 wire        bs_fifo_empty = bs_fifo_wptr == bs_fifo_rptr;
 wire        bs_fifo_full  = bs_fifo_wptr == bs_fifo_rptr + 5'd16;
 wire        bs_det_new = (bsram_rd && BSRAM_ADDR != bsram_addr) ||
                          (bsram_wr & ~bsram_wr_r) || (bsram_rd & ~bsram_rd_r);
-wire        bs_push = bs_det_new && ~bs_fifo_full && ~sa1_mode;
+// Reads bypass the FIFO entirely (served instantly from the mirror below),
+// so only writes are queued; this halves FIFO pressure and removes any read
+// staleness from queueing or arbitration. Push exactly once per write cycle,
+// on the write-strobe edge.
+wire        bs_push = (bsram_wr & ~bsram_wr_r) && ~bs_fifo_full && ~sa1_mode;
 reg         sv_w_seen = 0, sv_r_seen = 0;
 reg         bs_req_tog = 0;                 // -> controller .bsram_req
 wire        bs_req_ack;                     // <- controller .bsram_req_ack
@@ -606,9 +614,9 @@ always @(posedge mclk) begin
     end
     if (bs_issue_ok && snes_bs_new && ~sa1_mode) begin
         snes_bsram_shadow <= 0;                 // the SNES gets the port's data again
-        bs_addr_r <= bs_fifo_addr[bs_fifo_rptr[3:0]];
-        bs_din_r  <= bs_fifo_din[bs_fifo_rptr[3:0]];
-        bs_we_r   <= bs_fifo_we[bs_fifo_rptr[3:0]];
+        bs_addr_r <= bs_fifo_addr_q;
+        bs_din_r  <= bs_fifo_din_q;
+        bs_we_r   <= bs_fifo_we_q;
         bs_owner  <= 0;
         bs_busy   <= 1;
         bs_req_tog <= ~bs_req_tog;
