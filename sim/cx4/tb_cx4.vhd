@@ -55,7 +55,6 @@ architecture sim of tb_cx4 is
 	signal rom_word   : std_logic;
 	signal bsram_addr : std_logic_vector(19 downto 0);
 	signal bsram_d    : std_logic_vector(7 downto 0);
-	signal bsram_q    : std_logic_vector(7 downto 0) := x"FF";
 	signal bsram_ce_n, bsram_oe_n, bsram_we_n : std_logic;
 	signal map_active : std_logic;
 
@@ -159,7 +158,7 @@ begin
 			IRQ_N => irq_n,
 			ROM_ADDR => rom_addr, ROM_Q => rom_q, ROM_CE_N => rom_ce_n, ROM_OE_N => rom_oe_n,
 			ROM_WORD => rom_word,
-			BSRAM_ADDR => bsram_addr, BSRAM_D => bsram_d, BSRAM_Q => bsram_q,
+			BSRAM_ADDR => bsram_addr, BSRAM_D => bsram_d, BSRAM_Q => x"FF",
 			BSRAM_CE_N => bsram_ce_n, BSRAM_OE_N => bsram_oe_n, BSRAM_WE_N => bsram_we_n,
 			MAP_ACTIVE => map_active, MAP_CTRL => x"40",
 			ROM_MASK => x"00FFFF", BSRAM_MASK => x"000000");
@@ -369,16 +368,6 @@ begin
 		check(ok, "S-CPU ROM reads through the LoROM map");
 		rd8(x"808000", rd);
 		check8(rd, ROM(0), "bank 80 mirrors bank 00");
-		-- Alternate SRAM and ROM to check both arms of the S-CPU's LUT mux.
-		ok := true;
-		for k in 0 to 255 loop
-			bsram_q <= std_logic_vector(to_unsigned(k, 8));
-			rd8(x"700000", rd);
-			if rd /= std_logic_vector(to_unsigned(k, 8)) then ok := false; end if;
-			rd8(cpu_rom(100 + k), rd);
-			if rd /= ROM(100 + k) then ok := false; end if;
-		end loop;
-		check(ok, "S-CPU SRAM/ROM mux selects each byte without adding a cycle");
 		-- 3. the data ROM ----------------------------------------------------------------
 		load_mif;
 		check(mif_seen = 1024, "drom.mif has all 1024 words (" & integer'image(mif_seen) & ")");

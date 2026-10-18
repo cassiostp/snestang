@@ -4,8 +4,8 @@
 --     BUS_A has arrived over snestang's slower SDRAM port, like the SA-1's
 --     ROM_WAIT. While waiting the wait counter (CACHE_WAIT_CNT, DMA_WAIT_CNT
 --     or BUS_ACCESS_CNT) is held and the sample (CACHE_WE, DMA_DAT, MBR) is
---     suppressed; SRAM accesses keep the old fixed timing.
---   * CPU_DI carries a separate copy of BUS_DI for the S-CPU bypass.
+--     suppressed; SRAM accesses keep the old fixed timing. Everything else
+--     is byte-identical to upstream.
 library IEEE;
 use IEEE.STD_LOGIC_1164.ALL;
 library STD;
@@ -31,7 +31,6 @@ entity CX4 is
 		
 		BUS_A   		: out std_logic_vector(23 downto 0);
 		BUS_DI		: in std_logic_vector(7 downto 0);
-		CPU_DI		: in std_logic_vector(7 downto 0);
 		BUS_DO		: out std_logic_vector(7 downto 0);
 		BUS_OE_N		: out std_logic;
 		BUS_WE_N		: out std_logic;
@@ -279,7 +278,7 @@ begin
 	BUSY <= CPU_RUN or CACHE_RUN or DMA_RUN;
 
 	process( MMIO_SEL, RAMIO_SEL, ADDR, DMA_SRC, DMA_LEN, DMA_DST, PAGE_SEL, PAGE_LOCK, ROM_BASE, ROM_PAGE, WS1, WS2, IRQ_EN, ROM_MODE, 
-			   ROM_ACCESS, SRAM_ACCESS, VEC_MEM, GPR, CPU_RUN, DATA_RAM_Q_B, CPU_DI, IRQ_FLAG, SUSPEND, BUSY )
+			   ROM_ACCESS, SRAM_ACCESS, VEC_MEM, GPR, CPU_RUN, DATA_RAM_Q_B, BUS_DI, IRQ_FLAG, SUSPEND, BUSY )
 	begin
 		DO <= x"00";
 		if MMIO_SEL = '1' then
@@ -393,7 +392,7 @@ begin
 		elsif ADDR(23 downto 16) = x"00" and ADDR(15 downto 5) = "11111111111" and BUSY = '1' then	--00:FFE0-FFFF
 			DO <= VEC_MEM(to_integer(unsigned(ADDR(4 downto 0))));
 		else
-			DO <= CPU_DI;
+			DO <= BUS_DI;
 		end if;
 	end process;
 	

@@ -55,17 +55,8 @@ end CX4Map;
 
 architecture rtl of CX4Map is
 
-	component LUT4 is
-		generic (INIT : bit_vector(15 downto 0) := x"0000");
-		port (
-			F : out std_logic;
-			I0, I1, I2, I3 : in std_logic
-		);
-	end component;
-
 	signal CX4_A : std_logic_vector(23 downto 0);
 	signal CX4_DI : std_logic_vector(7 downto 0);
-	signal CPU_DI_BUS : std_logic_vector(7 downto 0);
 	signal SRAM_CE_N, ROM_CE1_N, ROM_CE2_N : std_logic;
 	signal CART_ADDR : std_logic_vector(21 downto 0);
 	signal BRAM_ADDR : std_logic_vector(19 downto 0);
@@ -105,7 +96,6 @@ begin
 		
 		BUS_A			=> CX4_A,
 		BUS_DI		=> CX4_DI,
-		CPU_DI		=> CPU_DI_BUS,
 		BUS_DO		=> BSRAM_D,
 		BUS_OE_N		=> BSRAM_OE_N,
 		BUS_WE_N		=> BSRAM_WE_N,
@@ -133,18 +123,5 @@ begin
 	BSRAM_CE_N <= SRAM_CE_N;
 
 	CX4_DI <= BSRAM_Q when SRAM_CE_N = '0' else ROM_Q(7 downto 0);
-
-	-- Keep the S-CPU bypass off the core's high-fanout data net. An inferred
-	-- duplicate mux is merged; explicit LUTs let this copy sit by the CPU.
-	CPU_MUX : for i in 0 to 7 generate
-		DATA_LUT : LUT4
-			-- INIT index is I3:I2:I1:I0; I2 low selects BSRAM, high ROM.
-			generic map (INIT => x"ACAC")
-			port map (
-				F => CPU_DI_BUS(i),
-				I0 => ROM_Q(i), I1 => BSRAM_Q(i),
-				I2 => SRAM_CE_N, I3 => '0'
-			);
-	end generate;
 
 end rtl;
