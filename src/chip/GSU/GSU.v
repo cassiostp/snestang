@@ -649,11 +649,11 @@ always @* begin
     else if (OP.OP == OP_DEC || OP.OP == OP_LOOP) 
         ALUR = B - 1;
     else if (OP.OP == OP_MULT) 
-        ALUR = A[7:0] * B[7:0];
+        ALUR = $signed(A[7:0]) * $signed(B[7:0]);
     else if (OP.OP == OP_UMULT) 
         ALUR = A[7:0] * B[7:0];
     else if (OP.OP == OP_FMULT || OP.OP == OP_LMULT) begin
-        MUL_TEMP = A * R[6];
+        MUL_TEMP = $signed(A) * $signed(R[6]);
         ALUR = MUL_TEMP[31:16];
         MULR = MUL_TEMP[15:0];
         ALUCY = MUL_TEMP[15];
