@@ -166,3 +166,8 @@ GROUP sdram_capture = { "sdram/cpu_port0*" "sdram/cpu_port1*" "sdram/cpu2_dout*"
 GRP_LOC sdram_capture R[20:40]C[160:175];
 // Per-pin dq_oen registers pack into the DQ I/O blocks; do not bind them
 // to a fabric region.
+
+// Keep the CPU read-data cone near the SDRAM captures. The 31 ns
+// fclk-to-mclk window includes this combinational path.
+GROUP cpu_sdram_path = { "main/SNES/CPU/*" "ROM_Q*" "BSRAM_Q*" "main/CX4Map/CX4_DI*" };
+GRP_LOC cpu_sdram_path R[10:50]C[110:165];
