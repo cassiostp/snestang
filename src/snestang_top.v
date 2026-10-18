@@ -709,19 +709,17 @@ wire sv_core_we = bsram_wr & ~bsram_wr_r;       // the SNES wrote save RAM
 assign gsu_ram_wait = gsu_mode & gsu_ram_req &
                       (bs_det_new | snes_bs_new | (bs_busy & ~bs_owner));
 
-// GSU read mirror: one registered-address block-RAM read avoids stale
+// GSU read mirror: a one-cycle block-RAM read avoids stale
 // S-CPU framebuffer uploads under SDRAM contention. Only GSU low-bank RAM
 // is mirrored; larger windows fall back to SDRAM without address aliasing.
 reg   [7:0] bs_mirror [0:65535];
-reg  [15:0] bs_mirror_raddr = 0;
 reg   [7:0] bs_mirror_q = 8'hFF;
 always @(posedge mclk) begin
     if (gsu_mode && !snes_bs_new && bs_sv_w_issue && !sv_addr[16])
         bs_mirror[sv_addr[15:0]] <= sv_din;
     else if (bs_push && bsram_wr && bs_mirror_sel)
         bs_mirror[BSRAM_ADDR[15:0]] <= BSRAM_D;
-    bs_mirror_raddr <= BSRAM_ADDR[15:0];
-    bs_mirror_q <= bs_mirror[bs_mirror_raddr];
+    bs_mirror_q <= bs_mirror[BSRAM_ADDR[15:0]];
 end
 `ifdef VERILATOR
 // Match the local SDRAM model's initial fill. Hardware RAM is initialized

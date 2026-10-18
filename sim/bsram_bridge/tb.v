@@ -79,6 +79,11 @@ initial begin
  write_byte(20'h00020,8'ha5);write_byte(20'h10020,8'hb6);
  read_byte(20'h00020,8'ha5);prev_req=requests;read_byte(20'h10020,8'hb6);
  if(requests!=prev_req+1)$fatal(1,"upper-bank GSU read did not issue SDRAM");
+ // The GSU's minimum RAM cycle needs the byte after one mclk edge.
+ write_byte(20'h00022,8'he7);read_byte(20'h00020,8'ha5);
+ @(negedge clk);owner=1;addr=20'h00022;ce=0;we=1;rd=1;
+ @(negedge clk);if(q!==8'he7)$fatal(1,"GSU minimum-cycle read is late");
+ idle;owner=0;
  prev_req=requests;
  gsu_read(20'h00020,8'ha5);gsu_read(20'h10020,8'hb6);
  if(requests!=prev_req+1)$fatal(1,"GSU ownership read routing mismatch");
