@@ -549,8 +549,11 @@ wire        sv_req, sv_rreq;
 // synchronized here and routed back to whichever source was served. Reads
 // capture the controller's sticky bsram_dout before the next access can
 // overwrite it, since the arbiter keeps the port until the byte is banked.
+/* synthesis syn_ramstyle="registers" */
 reg  [16:0] bs_fifo_addr [0:15];
+/* synthesis syn_ramstyle="registers" */
 reg   [7:0] bs_fifo_din [0:15];
+/* synthesis syn_ramstyle="registers" */
 reg         bs_fifo_we [0:15];
 reg   [4:0] bs_fifo_wptr = 0, bs_fifo_rptr = 0;
 wire        bs_fifo_empty = bs_fifo_wptr == bs_fifo_rptr;
