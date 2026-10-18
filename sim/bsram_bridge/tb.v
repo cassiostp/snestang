@@ -52,6 +52,16 @@ task save_byte(input [17:0] a,input [7:0] d);
  begin @(negedge clk);sa=a;sd=d;sw=~sw;repeat(32) @(negedge clk);
  if(dut.sv_ack_r!==sw)$fatal(1,"save write did not ack");end
 endtask
+task save_read(input [17:0] a,input [7:0] expected);
+ begin @(negedge clk);sa=a;sr=~sr;repeat(32) @(negedge clk);
+ if(dut.sv_rack_r!==sr || dut.sv_q_r!==expected)$fatal(1,"save read mismatch");end
+endtask
+task gsu_read(input [19:0] a,input [7:0] expected);
+ begin @(negedge clk);owner=1;addr=a;ce=0;we=1;rd=1;
+ repeat(24) @(negedge clk);
+ if(q!==expected)$fatal(1,"GSU-owned read mismatch at %h",a);
+ idle;owner=0;end
+endtask
 integer i,j,prev_req;
 initial begin
  for(i=0;i<131072;i=i+1)begin mem[i]=(i^(i>>8));memb[i]=(i^(i>>8));end
@@ -62,13 +72,16 @@ initial begin
   for(i=0;i<96;i=i+1)begin
    write_byte((i*1157)&20'h1ffff,i^8'h96);
    read_byte((i*1157)&20'h1ffff,i^8'h96);
-   if(i%8==0)begin save_byte(18'h10020,i);end
+   if(i%8==0)begin save_byte(18'h10020,i);save_read(18'h10020,i);end
   end
  end
  compare=0;gsu=1;mapper=8'h70;
  write_byte(20'h00020,8'ha5);write_byte(20'h10020,8'hb6);
  read_byte(20'h00020,8'ha5);prev_req=requests;read_byte(20'h10020,8'hb6);
  if(requests!=prev_req+1)$fatal(1,"upper-bank GSU read did not issue SDRAM");
+ prev_req=requests;
+ gsu_read(20'h00020,8'ha5);gsu_read(20'h10020,8'hb6);
+ if(requests!=prev_req+1)$fatal(1,"GSU ownership read routing mismatch");
  prev_req=requests;
  read_byte(20'h00020,8'ha5);
  if(requests!=prev_req)$fatal(1,"mirrored GSU read issued SDRAM");
