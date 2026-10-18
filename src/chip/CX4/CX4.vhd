@@ -396,15 +396,9 @@ begin
 		end if;
 	end process;
 	
-	process(CLK)
-	begin
-		if rising_edge(CLK) then
-			if SYSCLKR_CE = '1' then
-				SNES_ADDR <= ADDR;
-			end if;
-		end if;
-	end process;
-	
+	-- Expose the S-CPU address for the full SDRAM access window.
+	SNES_ADDR <= ADDR;
+
 	process( SNES_ADDR, CACHE_RUN, CACHE_BUS_ADDR, DMA_RUN, DMA_STATE, DMA_SRC_ADDR, DMA_DST_ADDR, ROM_ACCESS, SRAM_ACCESS, EXT_BUS_ADDR )--ROM_BASE, CACHE_PAGE, CACHE_ADDR, CACHE_BANK
 	begin
 		if CACHE_RUN = '1' then
@@ -625,7 +619,7 @@ begin
 							DMA_WAIT_CNT <= DMA_WAIT_CNT + 1;
 						end if;
 					else
-						if (DMA_WAIT_CNT = unsigned(WS2) and SRAM_SEL = '1') or 
+						if (DMA_WAIT_CNT = unsigned(WS2) and SRAM_SEL = '1') or
 							(DMA_WAIT_CNT = 0 and RAM_SEL = '1') then
 							DMA_WAIT_CNT <= (others => '0');
 							DMA_DST_ADDR <= std_logic_vector(unsigned(DMA_DST_ADDR) + 1);
