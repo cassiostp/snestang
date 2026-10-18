@@ -618,6 +618,10 @@ wire        sv_w_new    = sv_req != sv_w_seen;
 wire        sv_r_new    = sv_rreq != sv_r_seen;
 wire        bs_free     = bs_req_tog == bs_ack;
 wire        bs_issue_ok = ~bs_busy | bs_free;   // idle, or acked this very clock
+// A GSU cartridge push reserves the mirror's single write port. Queue it
+// first, then issue a pending restore after the cartridge FIFO drains.
+wire        bs_sv_w_issue = bs_issue_ok && sv_w_new && !sa1_mode &&
+                            !(gsu_mode && bs_push);
 
 always @(posedge mclk) begin
     bs_ack_sync <= {bs_ack_sync[1:0], bs_req_ack};
@@ -669,7 +673,7 @@ always @(posedge mclk) begin
         bs_busy   <= 1;
         bs_req_tog <= ~bs_req_tog;
         bs_fifo_rptr <= bs_fifo_rptr + 5'd1;
-    end else if (bs_issue_ok && sv_w_new && ~sa1_mode) begin
+    end else if (bs_sv_w_issue) begin
         if (!snes_bsram_shadow) begin           // keep the SNES's last read data
             snes_bsram_hold <= bsram_dout;
             snes_bsram_shadow <= 1;
@@ -712,11 +716,9 @@ reg   [7:0] bs_mirror [0:65535];
 reg  [15:0] bs_mirror_raddr = 0;
 reg   [7:0] bs_mirror_q = 8'hFF;
 always @(posedge mclk) begin
-    if (gsu_mode && bs_issue_ok && !snes_bs_new && sv_w_new && !sv_addr[16])
+    if (gsu_mode && !snes_bs_new && bs_sv_w_issue && !sv_addr[16])
         bs_mirror[sv_addr[15:0]] <= sv_din;
-    // A newly queued cartridge write is drained after a coeval save issue.
-    // Give it the same last-write priority here if both address one byte.
-    if (bs_push && bsram_wr && bs_mirror_sel)
+    else if (bs_push && bsram_wr && bs_mirror_sel)
         bs_mirror[BSRAM_ADDR[15:0]] <= BSRAM_D;
     bs_mirror_raddr <= BSRAM_ADDR[15:0];
     bs_mirror_q <= bs_mirror[bs_mirror_raddr];

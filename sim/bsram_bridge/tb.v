@@ -87,11 +87,16 @@ initial begin
  if(requests!=prev_req)$fatal(1,"mirrored GSU read issued SDRAM");
  save_byte(18'h00020,8'hc7);read_byte(20'h00020,8'hc7);
  save_byte(18'h10020,8'hd8);read_byte(20'h00020,8'hc7);read_byte(20'h10020,8'hd8);
- // A save issue and new cartridge write to the same byte share an edge.
+ // A coeval restore waits for the new cartridge write to drain first.
  @(negedge clk);sa=18'h00020;sd=8'h11;sw=~sw;addr=20'h00020;din=8'h22;ce=0;we=0;rd=1;
  repeat(4)@(negedge clk);idle;
- read_byte(20'h00020,8'h22);
- if(mem[17'h00020]!==8'h22)$fatal(1,"coeval writes reached SDRAM out of order");
+ read_byte(20'h00020,8'h11);
+ if(mem[17'h00020]!==8'h11)$fatal(1,"coeval writes reached SDRAM out of order");
+ // Coeval writes to different mirror bytes must both survive.
+ @(negedge clk);sa=18'h00021;sd=8'h55;sw=~sw;addr=20'h00020;din=8'h66;ce=0;we=0;rd=1;
+ repeat(4)@(negedge clk);idle;
+ read_byte(20'h00020,8'h66);read_byte(20'h00021,8'h55);
+ if(mem[17'h00020]!==8'h66 || mem[17'h00021]!==8'h55)$fatal(1,"coeval distinct-byte writes lost data");
  // A save must not update the mirror before older cartridge FIFO writes issue.
  @(negedge clk);addr=20'h00020;din=8'h33;ce=0;we=0;rd=1;
  @(negedge clk);sa=18'h00020;sd=8'h44;sw=~sw;
