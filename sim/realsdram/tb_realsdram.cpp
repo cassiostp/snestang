@@ -100,7 +100,8 @@ int main(int argc, char **argv) {
         int mc = snes->__PVT__mclk_buf;
         if (mc && !prev_mclk) {
             mclk++;
-            int x = snes->x_out, y = snes->y_out;
+            // X_OUT[0] is DOT_CLK, not an extra horizontal pixel.
+            int x = snes->x_out >> 1, y = snes->y_out;
             if ((x != last_x || y != last_y) && x < PX_W && (y & 0xFF) < PX_H) {
                 uint16_t px = snes->rgb_out & 0x7FFF;
                 vhash ^= (uint64_t)px;
@@ -136,9 +137,9 @@ int main(int argc, char **argv) {
                     for (int i = 0; i < PX_W * PX_H; i++) {
                         uint16_t px = fb[i];
                         uint8_t rgb[3] = {
-                            (uint8_t)(((px >> 10) & 0x1F) * 255 / 31),
+                            (uint8_t)((px & 0x1F) * 255 / 31),
                             (uint8_t)(((px >> 5) & 0x1F) * 255 / 31),
-                            (uint8_t)((px & 0x1F) * 255 / 31)};
+                            (uint8_t)(((px >> 10) & 0x1F) * 255 / 31)};
                         fwrite(rgb, 1, 3, pf);
                     }
                     fclose(pf);
@@ -162,9 +163,9 @@ int main(int argc, char **argv) {
                             for (int i = 0; i < PX_W * PX_H; i++) {
                                 uint16_t px = fb[i];
                                 uint8_t rgb[3] = {
-                                    (uint8_t)(((px >> 10) & 0x1F) * 255 / 31),
+                                    (uint8_t)((px & 0x1F) * 255 / 31),
                                     (uint8_t)(((px >> 5) & 0x1F) * 255 / 31),
-                                    (uint8_t)((px & 0x1F) * 255 / 31)};
+                                    (uint8_t)(((px >> 10) & 0x1F) * 255 / 31)};
                                 fwrite(rgb, 1, 3, pf);
                             }
                             fclose(pf);

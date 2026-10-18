@@ -7,11 +7,11 @@ pins. The smoke suite's behavioural stand-in (`src/verilator/sdram_sim.v`)
 is not in this model.
 
 The chip model is cycle-accurate on the controller clock. Hardware clocks
-the SDRAM from `fclk_p` (`gowin_pll_snes` CLKOUT2, `PE_COARSE` 19,
-`PE_FINE` 3). That shift is what makes CL2 data stable at the controller's
-sample (`cycle[4]` on the CPU lane, `cycle[1]` on ARAM). The model presents
-the data at that sample; `sim/sdram_port` and `sim/gamesave` wire it the
-same way.
+the SDRAM from the phase-shifted `fclk_p` (`gowin_pll_snes` CLKOUT2).
+The model presents CL2 data at the controller sample (`cycle[4]` on the
+CPU lane, `cycle[1]` on ARAM); `sim/sdram_port` and `sim/gamesave` wire it
+the same way. It checks logical read timing, not pin setup/hold or the PLL
+phase window; those require static timing with the pin constraints.
 
 The ROM streams through `test_loader` / `smc_parser`, held in reset until
 `sdram_busy` falls (the controller's 200 µs init). On hardware the
@@ -38,3 +38,7 @@ counts. The inherited `F` records and `_f60/_f300/_f600` images use a
 two-field counter; that counter still drives scripts, preserving input
 timing. Compare `C` records, all `_c` images and DSP audio for complete
 frame-by-frame coverage. Keep all output local.
+
+The 256-column capture uses `X_OUT[8:1]` (`X_OUT[0]` is `DOT_CLK`)
+and decodes the PPU output as BGR555: bits 4:0 are red, 9:5 green,
+14:10 blue. These games use one captured sample per horizontal dot.
