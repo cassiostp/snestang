@@ -251,12 +251,16 @@ module snes2hdmi (
                 audio_divider <= audio_divider + 1;
             else begin
                 audio_divider <= 0;
-                clk_audio = ~clk_audio;     // generate audio clock @ 32Khz
-                // output audio sample on posedge clk_audio
-                if (!clk_audio && !audio_empty) begin
+                // Nonblocking: with a blocking toggle the tests below read
+                // the new value in simulation but the flop output in the
+                // netlist, so sim and hardware latch on different edges
+                // (and packet_picker can miss every edge in sim).
+                clk_audio <= ~clk_audio;    // generate audio clock @ 32Khz
+                // latch the next sample on the falling edge of clk_audio
+                if (clk_audio && !audio_empty) begin
                     {audio_sample_word[0], audio_sample_word[1]} <= audio_sample;
                     audio_rinc <= 1'b1;
-                end else if (!clk_audio && pause)
+                end else if (clk_audio && pause)
                     // menu pause drained the fifo: output silence, not the last held sample
                     {audio_sample_word[0], audio_sample_word[1]} <= 32'd0;
             end
