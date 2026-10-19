@@ -2,8 +2,9 @@
 # Port replay (iverilog): the real ROM/WRAM request logic of snestang_top.v + the real sdram_snes controller
 # + the real sa1_rom_cache word cache (second instance, as the CX4 uses it) + the cosim's behavioural
 # SDRAM chip, driven with the patched CX4's ROM fetch cadence (wait counters hold while ROM_WAIT is up).
-# From the repo:
-#   docker run --rm --name <prefix>_cx4port --user $(id -u):$(id -g) -v <repo>:/w -w /w/sim/cx4/port tangcore-iv:1 sh run.sh
+# From the repo, e.g.:
+#   simrun --name ${SIM_PREFIX:-sim$$}_cx4port --user $(id -u):$(id -g) -v <repo>:/w -w /w/sim/cx4/port tangcore-iv:1 sh run.sh
+# (simrun is an optional local helper; plain `docker run --rm` works too.)
 # Prints, for several wait states and amounts of S-CPU WRAM traffic, how many CX4 fetches got wrong data.
 set -e
 cd "$(dirname "$0")"

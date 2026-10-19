@@ -5,6 +5,13 @@
 set -e
 here=$(cd "$(dirname "$0")" && pwd)
 src=$(cd "$here/../.." && pwd)
+# Runner: simrun when present (persistent ccache + full-core env), else plain docker.
+DOCKER_RUN=${DOCKER_RUN:-$(command -v simrun >/dev/null 2>&1 && echo simrun || echo "docker run --rm")};
+# ccache: simrun mounts a persistent /ccache (CCACHE_DIR), so the Verilator
+# build caches there; without it there is no cache to keep, so keep the old
+# disable. (The generated makefiles already prefix compiles with $(OBJCACHE),
+# which defaults to ccache: nothing else to set.)
+case "$DOCKER_RUN" in *simrun*) CCACHE_OFF=;; *) CCACHE_OFF="-e CCACHE_DISABLE=1";; esac
 mkdir -p "$here/build"
 for rom in lorom:2 lorom:8 hirom:8; do
     python3 "$here/mkrom.py" "${rom%:*}" "${rom#*:}" "$here/build/${rom%:*}_${rom#*:}.hex" >/dev/null
@@ -21,10 +28,10 @@ sed -e 's/inout  reg \[15:0\] SDRAM_DQ/inout [15:0] SDRAM_DQ/' \
 ! grep -q "output reg  \[7:0\] bsram_dout" "$here/build/sdram_snes_sim.v"
 D=/src/src
 src_cosim=/src/sim/cosim
-docker run --rm --user "$(id -u):$(id -g)" -e CCACHE_DISABLE=1 \
+$DOCKER_RUN --user "$(id -u):$(id -g)" $CCACHE_OFF \
     -v "$src:/src:ro" -v "$here:/gs:ro" -v "$here/build:/out" -w /out \
     verilator/verilator:latest \
-    --cc --exe --build -j 8 --top-module gamesave_top --public-flat-rw \
+    --cc --exe --build -j "${JOBS:-$(nproc)}" --top-module gamesave_top --public-flat-rw \
     -Wno-fatal -Wno-WIDTHEXPAND -Wno-WIDTHTRUNC -Wno-CASEOVERLAP -Mdir obj -o gamesave \
     -I$D -I$D/spc700 -I$D/65C816 -CFLAGS -O2 \
     $D/verilator/config.v /gs/test_loader_sim.v /out/sdram_snes_sim.v $src_cosim/sdram_chip.sv /gs/gamesave_top.sv $D/dsp.v $D/snestang_top.v $D/smp.v \
@@ -40,6 +47,6 @@ for rom in lorom:2 lorom:8 hirom:8; do
     n="${rom%:*}_${rom#*:}"
     size=$(( $(wc -l < "$here/build/$n.hex") ))
     echo "== $n ($size bytes streamed)"
-    docker run --rm --user "$(id -u):$(id -g)" -v "$here/build:/out" -w /out --entrypoint /out/obj/gamesave \
+    $DOCKER_RUN --user "$(id -u):$(id -g)" -v "$here/build:/out" -w /out --entrypoint /out/obj/gamesave \
         verilator/verilator:latest +rom=/out/$n.hex +size=$size +kind=$n
 done

@@ -24,7 +24,7 @@ DSP registers poked through the SMP `$F2`/`$F3` protocol):
 Run (from this directory, inside the container):
 
 ```
-docker run --rm --entrypoint sh --name qa2rain_dsp \
+simrun --entrypoint sh --name ${SIM_PREFIX:-sim$$}_dsp \
   --user $(id -u):$(id -g) -v <repo>:/w -w /w/sim/dsp_rain \
   verilator/verilator:latest run.sh
 ```

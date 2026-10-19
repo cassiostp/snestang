@@ -22,7 +22,7 @@ master on the ARAM lane, and a BSRAM probe doing reads and writes.
 Both run in the standard container:
 
 ```
-docker run --rm --name sdcmc_x --user $(id -u):$(id -g) \
+simrun --name ${SIM_PREFIX:-sim$$}_sdcmc --user $(id -u):$(id -g) \
   -v ~/tangcore-work/r5/sdcmc/snestang:/w -w /w/sim/sdram_port \
   tangcore-iv:1 sh run_stable.sh
 ```

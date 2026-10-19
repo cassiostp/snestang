@@ -4,7 +4,7 @@
 #   sh run.sh run <game.sfc> <frames> [outdir]
 # build/ is git-ignored. ROM-derived outputs stay in <outdir>, never in git.
 # Env: GHDL_IMG (any GHDL 5 LLVM image with the synth command),
-#   JOBS (default 4), MAXSIZE (loader array bound, default 4194816: one
+#   JOBS (default $(nproc)), MAXSIZE (loader array bound, default 4194816: one
 #   build serves every ROM up to 4 MB; per-game SIZE must fit it).
 set -e
 INVOCEDIR=$PWD
@@ -12,12 +12,14 @@ cd "$(dirname "$0")"
 R=../..
 B=build
 GHDL_IMG=${GHDL_IMG:-cx4_ghdl:1}
-JOBS=${JOBS:-4}
+JOBS=${JOBS:-$(nproc)}
 MAXSIZE=${MAXSIZE:-4194816}
-CONTAINER_PREFIX=${CONTAINER_PREFIX:-cx4boot_$$}
+CONTAINER_PREFIX=${CONTAINER_PREFIX:-${SIM_PREFIX:-cx4boot_$$}}
 DUMPS=${DUMPS:-300,600,900,1200}
 cmd=${1:-build}
-DOCK="docker run --rm --user $(id -u):$(id -g)"
+# Runner: simrun when present (persistent ccache + full-core env), else plain docker.
+DOCKER_RUN=${DOCKER_RUN:-$(command -v simrun >/dev/null 2>&1 && echo simrun || echo "docker run --rm")};
+DOCK="$DOCKER_RUN --user $(id -u):$(id -g)"
 
 do_build() {
     rm -rf $B/obj $B/gen $B/run

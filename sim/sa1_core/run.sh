@@ -2,7 +2,8 @@
 # SA-1 core sim (GHDL). From this directory:  ./run.sh
 # Needs sa1test.hex (mkrom.py, python3) in this directory and the SA-1
 # VHDL under ../../src/chip/SA1. Intended docker image: a GHDL one, e.g.
-#   docker run --rm -v $PWD/../..:/w -w /w/sim/sa1_core <ghdl-image> sh run.sh
+#   simrun -v $PWD/../..:/w -w /w/sim/sa1_core <ghdl-image> sh run.sh
+# (simrun is an optional local helper; plain `docker run --rm` works too.)
 set -e
 cd "$(dirname "$0")"
 # GHDL elaborates a 2 MB ROM default value; the container's default 8 MB

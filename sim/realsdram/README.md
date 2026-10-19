@@ -19,7 +19,7 @@ firmware streams the ROM much later. Capture matches the smoke suite:
 per-frame log, PPM dumps, `audio_ready` stereo, BSRAM and ARAM images.
 
 ```sh
-docker run --rm --name <task>_realsdram --user $(id -u):$(id -g) \
+simrun --name ${SIM_PREFIX:-sim$$}_realsdram --user $(id -u):$(id -g) \
   --entrypoint sh -v <repo>:/w -w /w/sim/realsdram \
   verilator/verilator:latest ./run.sh build
 ./run.sh run smw game.sfc 600 /tmp/out [script]

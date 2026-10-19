@@ -47,6 +47,11 @@ The scaler sets `pause_snes_for_frame_sync` after the first line is buffered and
 
 ## Simulations (`sim/*/README.md` says how to run; iverilog in `tangcore-iv:1`, GHDL/Verilator where noted)
 
+Sim scripts use `simrun` when it is on PATH (else `docker run --rm`);
+set `SIM_PREFIX` to namespace container names when sharing the machine.
+`simrun` is an optional local helper (persistent ccache + full-core env),
+not part of the repositories.
+
 - `cosim`: Verilator model of `iosys_bl616`+SDRAM+save bridge for firmware co-sim.
 - `cx4`: GHDL `tb_cx4.vhd` vs known results (regs, LoROM map, hand-assembled CX4 program).
 - `dsp_rain`: Zelda rain (noise/music/sfx, `ENDX`, `TPITCH`, `FLG` mute, echo).

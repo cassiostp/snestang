@@ -18,7 +18,7 @@ case runs unlocked.
 Run (from this directory, inside the container):
 
 ```
-docker run --rm --name snesline_framelock --user $(id -u):$(id -g) -v <repo>:/w -w /w/sim/framelock tangcore-iv:1 sh run.sh
+simrun --name ${SIM_PREFIX:-sim$$}_framelock --user $(id -u):$(id -g) -v <repo>:/w -w /w/sim/framelock tangcore-iv:1 sh run.sh
 ```
 
 Exit code 0 with `PASS` lines for all five configurations means the

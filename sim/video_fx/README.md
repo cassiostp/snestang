@@ -31,7 +31,7 @@ is up to date); the model computes the tables itself.
 `prep.sh` needs python3 and git (vectors from the model, the baseline scaler
 from `$BASE`, the last commit without `video_fx`). The simulator image used on
 arm64 (`tangcore-iv:1`) has neither: run `sh prep.sh` on the host, then
-`docker run --rm --user $(id -u):$(id -g) -v $PWD/../..:/w -w /w/sim/video_fx tangcore-iv:1 sh run.sh`
+`simrun --user $(id -u):$(id -g) -v $PWD/../..:/w -w /w/sim/video_fx tangcore-iv:1 sh run.sh`
 and `python3 -I model.py check snes_fx.log` on the host.
 `run.sh` runs `tb_snes_linebuf.v` with the SNES at full speed; the slowed-down runs are made by hand
 (`iverilog -Ptb_snes_linebuf.STALL=250 ...`).

@@ -25,7 +25,7 @@ model involved):
 * the chip's ROM -> data RAM DMA.
 
 ```
-docker run --rm --name <prefix>_cx4 --user $(id -u):$(id -g) \
+simrun --name ${SIM_PREFIX:-sim$$}_cx4 --user $(id -u):$(id -g) \
   -v <repo>:/w -w /w/sim/cx4 <ghdl image> sh run.sh
 ```
 
@@ -49,7 +49,7 @@ held while `ROM_WAIT` is up); an S-CPU model makes WRAM accesses in a set
 percentage of SlowROM cycles.
 
 ```
-docker run --rm --name <prefix>_cx4port --user $(id -u):$(id -g) \
+simrun --name ${SIM_PREFIX:-sim$$}_cx4port --user $(id -u):$(id -g) \
   -v <repo>:/w -w /w/sim/cx4/port tangcore-iv:1 sh run.sh
 ```
 

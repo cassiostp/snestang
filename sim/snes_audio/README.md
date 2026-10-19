@@ -12,7 +12,7 @@ fails unless no sample is dropped or repeated after the two-frame warmup.
 Run (from this directory, inside the container):
 
 ```
-docker run --rm --name snesaudio_x --user $(id -u):$(id -g) -v <repo>:/w -w /w/sim/snes_audio tangcore-iv:1 sh run.sh
+simrun --name ${SIM_PREFIX:-sim$$}_snesaudio --user $(id -u):$(id -g) -v <repo>:/w -w /w/sim/snes_audio tangcore-iv:1 sh run.sh
 ```
 
 Exit code 0 means no dropped or repeated samples (`PASS` line at the end).

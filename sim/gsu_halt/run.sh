@@ -1,8 +1,9 @@
 #!/bin/sh
 # GSU frame-halt freeze sim (Verilator; runs inside verilator/verilator image).
-# From the repo: docker run --rm --entrypoint sh --name <task>_gsu \
+# From the repo: simrun --entrypoint sh --name ${SIM_PREFIX:-sim$$}_gsu \
 #   --user $(id -u):$(id -g) -v <repo>:/w -w /w/sim/gsu_halt \
 #   verilator/verilator:latest run.sh
+# (simrun is an optional local helper; plain `docker run --rm` works too.)
 # (Icarus 12 cannot compile GSU_PKG.v's unpacked structs, as with dsp_rain.)
 set -e
 cd "$(dirname "$0")"

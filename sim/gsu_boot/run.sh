@@ -1,8 +1,9 @@
 #!/bin/sh
 # Full-system GSU boot sim (Verilator). From the repo:
-#   docker run --rm --entrypoint sh --name <task>_gsuboot \
+#   simrun --entrypoint sh --name ${SIM_PREFIX:-sim$$}_gsuboot \
 #     --user $(id -u):$(id -g) -v <repo>:/w -w /w/sim/gsu_boot \
 #     verilator/verilator:latest run.sh
+# (simrun is an optional local helper; plain `docker run --rm` works too.)
 # Needs network once (clones PeterLemon/SNES for the freely distributable
 # GSU test ROM) and python3 on the host for check.py; set PETERLEMON_DIR
 # to an existing clone to run offline. See README.md.

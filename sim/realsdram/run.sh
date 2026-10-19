@@ -4,13 +4,13 @@
 #   ./run.sh build
 #   ./run.sh run <game> <rom> <frames> <outdir> [script]
 # build/ is gitignored. ROM-derived output stays in <outdir>, never in git.
-# Env: JOBS (default 4), SMOKE_SNES_MAXSIZE (loader array, default 4194816).
+# Env: JOBS (default $(nproc)), SMOKE_SNES_MAXSIZE (loader array, default 4194816).
 set -e
 here=$(cd "$(dirname "$0")" && pwd)
 src=$(cd "$here/../.." && pwd)
 cmd=${1:-build}
 MAXS=${SMOKE_SNES_MAXSIZE:-4194816}
-JOBS=${JOBS:-4}
+JOBS=${JOBS:-$(nproc)}
 B=$here/build
 
 quiet_copy() {
@@ -72,7 +72,7 @@ do_build() {
     sed "s/@SIZE@/$MAXS/" "$here/test_loader.v" > "$B/obj/test_loader.v"
     grep -q "localparam SIZE = $MAXS;" "$B/obj/test_loader.v"
     R=$src
-    nice -n 10 verilator --top-module snes_realsdram_top --cc --exe \
+    verilator --top-module snes_realsdram_top --cc --exe \
       -CFLAGS "-O2" \
       -Wno-PINMISSING -Wno-IMPLICIT -Wno-WIDTHEXPAND -Wno-WIDTHTRUNC \
       -Wno-CASEINCOMPLETE -Wno-CASEOVERLAP -Wno-UNDRIVEN \
@@ -102,7 +102,7 @@ do_build() {
       "$R/src/sa1_rom_cache.v" "$R/src/bwram_256k.v" \
       "$R/src/smc_parser.v" "$R/src/SNES.v" "$R/src/vram.v" "$R/src/swram.v" \
       "$here/tb_realsdram.cpp"
-    nice -n 10 make -C "$B/obj/obj" -f Vsnestang_smoke.mk Vsnestang_smoke -j"$JOBS"
+    make -C "$B/obj/obj" -f Vsnestang_smoke.mk Vsnestang_smoke -j"$JOBS"
     echo BUILD_OK
 }
 
@@ -131,7 +131,7 @@ do_run() {
     echo "mclk budget: $MCLK dumps: $DUMPS"
     T0=$(date +%s)
     set +e
-    (cd "$R" && nice -n 10 "$B/obj/obj/Vsnestang_smoke" -m "$MCLK" -o "$OUT/$GAME" \
+    (cd "$R" && "$B/obj/obj/Vsnestang_smoke" -m "$MCLK" -o "$OUT/$GAME" \
         ${SCRIPT:+-i "$SCRIPT"} -d "$DUMPS" -a "$ALL_FRAMES" >"$OUT/$GAME.stdout" 2>"$OUT/$GAME.stderr")
     RC=$?
     set -e

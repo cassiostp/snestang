@@ -18,7 +18,7 @@ channel-search bitmask (`lsr $03c1`) died on its first shift, so Port3
 Run (from this directory, inside the container):
 
 ```
-docker run --rm --entrypoint sh --name snesrain_spcshift \
+simrun --entrypoint sh --name ${SIM_PREFIX:-sim$$}_spcshift \
   --user $(id -u):$(id -g) -v <repo>:/w -w /w/sim/spc700_shift \
   verilator/verilator:latest run.sh
 ```

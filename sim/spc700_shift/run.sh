@@ -1,9 +1,10 @@
 #!/bin/sh
 # SPC700 shift/rotate regression bench (Verilator; runs inside the
 # verilator/verilator image).
-# From the repo: docker run --rm --entrypoint sh --name snesrain_spcshift \
+# From the repo: simrun --entrypoint sh --name ${SIM_PREFIX:-sim$$}_spcshift \
 #   --user $(id -u):$(id -g) -v <repo>:/w -w /w/sim/spc700_shift \
 #   verilator/verilator:latest run.sh
+# (simrun is an optional local helper; plain `docker run --rm` works too.)
 set -e
 cd "$(dirname "$0")"
 RTL=../../src/spc700

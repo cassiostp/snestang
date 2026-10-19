@@ -1,6 +1,7 @@
 #!/bin/sh
-# CX4 chip testbench (GHDL). From the repo, with any ghdl image (the --name is yours to choose):
-#   docker run --rm --name <prefix>_cx4 --user $(id -u):$(id -g) -v <repo>:/w -w /w/sim/cx4 <ghdl image> sh run.sh
+# CX4 chip testbench (GHDL). From the repo, with any ghdl image, e.g.:
+#   simrun --name ${SIM_PREFIX:-sim$$}_cx4 --user $(id -u):$(id -g) -v <repo>:/w -w /w/sim/cx4 <ghdl image> sh run.sh
+# (simrun is an optional local helper; plain `docker run --rm` works too.)
 # The chip is srg320's CX4Map/CX4 as the core builds them (src/chip/CX4). tb_cx4.vhd plays the S-CPU
 # bus and the ROM port and checks the chip against known results; see its header.
 #   sh run.sh            the checks with an ideal ROM port and with one that answers in 3 master clocks
