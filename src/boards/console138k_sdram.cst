@@ -218,7 +218,7 @@ GRP_LOC cap_bsram R[28:45]C[172:181];
 // P65_DI mux, the 65C816 DB mux and P/PCr/X/Y register cones) -- no
 // hierarchy wildcards, no BSRAM/DSP objects.
 GROUP bsram_q_mux = { "BSRAM_Q*" };
-GRP_LOC bsram_q_mux R[25:45]C[105:140];
+GRP_LOC bsram_q_mux R[25:60]C[105:140];
 // CST reader stall bisect (all at "Reading constraint file",
 // gw_sh spinning, builds killed): GROUP patterns with a deep
 // hierarchy prefix stall -- "main/SNES/CPU/*" (exp/gsu2-cpu-near),
@@ -228,3 +228,35 @@ GRP_LOC bsram_q_mux R[25:45]C[105:140];
 // one-level ("sdram/...") patterns parse in seconds. Do not add
 // deep-hierarchy GROUP patterns to this file; use exact-name
 // INS_LOC if a deep object ever needs anchoring.
+// Endpoint registers of the BSRAM->S-CPU cone, anchored by exact
+// name (INS_LOC is an exact lookup and does not stall the reader
+// the way deep-hierarchy GROUP patterns do). The place_option-2
+// perturbation build (exp/sdramrob-seed) put this cone at
+// -0.194 ns with the endpoints unanchored, vs +1.78 ns at the
+// production place_option 3 -- anchor the PC/P/X/Y registers in
+// the same central columns as the BSRAM_Q mux so the cone tail
+// cannot drift east/west. Only flops observed in timing reports
+// are listed; a renamed flop fails the build loudly (CT1135),
+// it cannot silently lose the anchor.
+INS_LOC "main/SNES/CPU/P65C816/AddrGen/PCr_0_s0" R40C[105:150];
+INS_LOC "main/SNES/CPU/P65C816/AddrGen/PCr_1_s0" R41C[105:150];
+INS_LOC "main/SNES/CPU/P65C816/AddrGen/PCr_2_s0" R42C[105:150];
+INS_LOC "main/SNES/CPU/P65C816/P_0_s0" R42C[105:150];
+INS_LOC "main/SNES/CPU/P65C816/AddrGen/PCr_3_s0" R43C[105:150];
+INS_LOC "main/SNES/CPU/P65C816/AddrGen/PCr_4_s0" R44C[105:150];
+INS_LOC "main/SNES/CPU/P65C816/P_1_s0" R44C[105:150];
+INS_LOC "main/SNES/CPU/P65C816/AddrGen/PCr_5_s0" R45C[105:150];
+INS_LOC "main/SNES/CPU/P65C816/AddrGen/PCr_6_s0" R46C[105:150];
+INS_LOC "main/SNES/CPU/P65C816/P_2_s0" R46C[105:150];
+INS_LOC "main/SNES/CPU/P65C816/AddrGen/PCr_7_s0" R47C[105:150];
+INS_LOC "main/SNES/CPU/P65C816/AddrGen/PCr_8_s0" R48C[105:150];
+INS_LOC "main/SNES/CPU/P65C816/P_7_s0" R48C[105:150];
+INS_LOC "main/SNES/CPU/P65C816/AddrGen/PCr_9_s0" R49C[105:150];
+INS_LOC "main/SNES/CPU/P65C816/AddrGen/PCr_10_s0" R50C[105:150];
+INS_LOC "main/SNES/CPU/P65C816/X_15_s0" R50C[105:150];
+INS_LOC "main/SNES/CPU/P65C816/AddrGen/PCr_11_s0" R51C[105:150];
+INS_LOC "main/SNES/CPU/P65C816/AddrGen/PCr_12_s0" R52C[105:150];
+INS_LOC "main/SNES/CPU/P65C816/Y_15_s0" R52C[105:150];
+INS_LOC "main/SNES/CPU/P65C816/AddrGen/PCr_13_s0" R53C[105:150];
+INS_LOC "main/SNES/CPU/P65C816/AddrGen/PCr_14_s0" R54C[105:150];
+INS_LOC "main/SNES/CPU/P65C816/AddrGen/PCr_15_s0" R55C[105:150];
