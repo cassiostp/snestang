@@ -136,3 +136,4 @@ report_timing -hold -to [get_ports {IO_sdram_dq* O_sdram_addr* O_sdram_ba* O_sdr
 report_timing -setup -from [get_regs {sdram/cpu_port0* sdram/cpu_port1*}] -max_paths 200 -max_common_paths 50
 report_timing -setup -from [get_regs {sdram/bsram_dout_reg*}] -max_paths 100 -max_common_paths 50
 report_timing -setup -from [get_regs {sdram/dq_oen*}] -max_paths 50 -max_common_paths 20
+report_timing -setup -from [get_regs {sdram/cpu_port0* sdram/cpu_port1*}] -to [get_regs {main/SNES/CPU/P65C816/* main/SNES/CPU/P65C816/AddrGen/*}] -max_paths 500 -max_common_paths 500
