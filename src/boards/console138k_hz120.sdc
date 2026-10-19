@@ -38,29 +38,27 @@ set_multicycle_path 2 -hold -start -from [get_clocks {fclk}] -to [get_clocks {mc
 set_multicycle_path 2 -setup -start -from [get_regs {sdram/aram_dout*}] -to [get_clocks {mclk}]
 set_multicycle_path 1 -hold -start -from [get_regs {sdram/aram_dout*}] -to [get_clocks {mclk}]
 // cpu_port0/1: the first mclk after the capture (2 fclk) is never the
-// functional sample. The S-CPU/DMA/HDMA consume A/B-bus read data only
-// at SYSCLKF_CE, the last edge of the presenting 6/8/12-mclk bus cycle
-// (cpu.v P65C816 CE, MDR, DMA/HDMA transfers; swram/PPU SYSCLK_CE).
-// sim/sdram_port/run_stable.sh measures the word's age at that sample:
-// minimum 5 fclk (77.5 ns) over both rotation phases, all scenarios.
-// Budget 3 fclk (46.5 ns) here, keeping STA inside the proven window.
-// The one consumer that does capture at the first mclk is the
-// every-mclk BUSA_DO_buf/BUSB_DO_buf pipeline register in SNES.v (the
-// value it holds at SYSCLKF_CE was captured one mclk earlier, 2 fclk
-// after the SDRAM capture in the worst phase). Those endpoints keep
-// the 2-fclk window; listed last so they override the wider budget.
-set_multicycle_path 3 -setup -start -from [get_regs {sdram/cpu_port0*}] -to [get_clocks {mclk}]
-set_multicycle_path 2 -hold -start -from [get_regs {sdram/cpu_port0*}] -to [get_clocks {mclk}]
-set_multicycle_path 3 -setup -start -from [get_regs {sdram/cpu_port1*}] -to [get_clocks {mclk}]
-set_multicycle_path 2 -hold -start -from [get_regs {sdram/cpu_port1*}] -to [get_clocks {mclk}]
-set_multicycle_path 2 -setup -start -from [get_regs {sdram/cpu_port0*}] -to [get_regs {main/SNES/BUSA_DO_buf*}]
-set_multicycle_path 1 -hold -start -from [get_regs {sdram/cpu_port0*}] -to [get_regs {main/SNES/BUSA_DO_buf*}]
-set_multicycle_path 2 -setup -start -from [get_regs {sdram/cpu_port0*}] -to [get_regs {main/SNES/BUSB_DO_buf*}]
-set_multicycle_path 1 -hold -start -from [get_regs {sdram/cpu_port0*}] -to [get_regs {main/SNES/BUSB_DO_buf*}]
-set_multicycle_path 2 -setup -start -from [get_regs {sdram/cpu_port1*}] -to [get_regs {main/SNES/BUSA_DO_buf*}]
-set_multicycle_path 1 -hold -start -from [get_regs {sdram/cpu_port1*}] -to [get_regs {main/SNES/BUSA_DO_buf*}]
-set_multicycle_path 2 -setup -start -from [get_regs {sdram/cpu_port1*}] -to [get_regs {main/SNES/BUSB_DO_buf*}]
-set_multicycle_path 1 -hold -start -from [get_regs {sdram/cpu_port1*}] -to [get_regs {main/SNES/BUSB_DO_buf*}]
+// S-CPU's functional sample. The P65C816 consumes A/B-bus read data
+// only at SYSCLKF_CE, the last edge of the presenting 6/8/12-mclk bus
+// cycle (cpu.v: P65C816 CE = INT_CLKF_CE; its registers update only
+// under CE). sim/sdram_port/run_stable.sh measures the word's age at
+// that sample: minimum 5 fclk (77.5 ns) over both rotation phases and
+// all scenarios. Scope the wider budget to exactly those proven
+// endpoints: cpu_port* keeps the 2-fclk window to everything else
+// (including the every-mclk BUSA_DO_buf/BUSB_DO_buf pipeline registers
+// in SNES.v, whose value at SYSCLKF_CE was captured one mclk earlier,
+// 2 fclk after the SDRAM capture in the worst phase), and only the
+// P65C816 register hierarchy gets 3 fclk (46.5 ns, inside the proven
+// 77.5 ns). Listed after the 2-fclk lines so they take precedence
+// for those endpoints.
+set_multicycle_path 2 -setup -start -from [get_regs {sdram/cpu_port0*}] -to [get_clocks {mclk}]
+set_multicycle_path 1 -hold -start -from [get_regs {sdram/cpu_port0*}] -to [get_clocks {mclk}]
+set_multicycle_path 2 -setup -start -from [get_regs {sdram/cpu_port1*}] -to [get_clocks {mclk}]
+set_multicycle_path 1 -hold -start -from [get_regs {sdram/cpu_port1*}] -to [get_clocks {mclk}]
+set_multicycle_path 3 -setup -start -from [get_regs {sdram/cpu_port0*}] -to [get_regs {main/SNES/CPU/P65C816/* main/SNES/CPU/P65C816/AddrGen/*}]
+set_multicycle_path 2 -hold -start -from [get_regs {sdram/cpu_port0*}] -to [get_regs {main/SNES/CPU/P65C816/* main/SNES/CPU/P65C816/AddrGen/*}]
+set_multicycle_path 3 -setup -start -from [get_regs {sdram/cpu_port1*}] -to [get_regs {main/SNES/CPU/P65C816/* main/SNES/CPU/P65C816/AddrGen/*}]
+set_multicycle_path 2 -hold -start -from [get_regs {sdram/cpu_port1*}] -to [get_regs {main/SNES/CPU/P65C816/* main/SNES/CPU/P65C816/AddrGen/*}]
 set_multicycle_path 2 -setup -start -from [get_regs {sdram/cpu2_dout*}] -to [get_clocks {mclk}]
 set_multicycle_path 1 -hold -start -from [get_regs {sdram/cpu2_dout*}] -to [get_clocks {mclk}]
 set_multicycle_path 2 -setup -start -from [get_regs {sdram/cpu2_req_ack*}] -to [get_clocks {mclk}]
