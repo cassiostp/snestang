@@ -120,6 +120,7 @@ model: $(GEN)/iosys_bl616_cosim.v $(GEN)/sdram_snes_sim.v $(GEN)/uart_fixed_sim.
 
 lint: $(GEN)/iosys_bl616_cosim.v $(GEN)/sdram_snes_sim.v $(GEN)/uart_fixed_sim.v
 	$(IVERILOG) iverilog -g2012 -DCOSIM -o /dev/null -s cosim_top \
+	    -I/coresim-src/src/variant/standard \
 	    /coresim-src/src/verilator/config.v /coresim-src/sim/cosim/cosim_top.sv \
 	    /coresim-build/gen/iosys_bl616_cosim.v /coresim-build/gen/uart_fixed_sim.v \
 	    /coresim-src/src/iosys/textdisp.v /coresim-src/sim/cosim/gowin/gowin_dpb_menu.v \
