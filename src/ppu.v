@@ -1155,7 +1155,11 @@ always @(posedge CLK) begin
         M7_TILE_OUTSIDE <= 1'b0;
     end else begin
         if (ENABLE && DOT_CLKR_CE) begin
-            if (M7_FETCH == 1)
+            // Lag the X counter by one dot so the pixel rendered from a fetch
+            // uses the counter value of its own screen column: without this
+            // the whole Mode7 layer comes out one pixel to the left (the
+            // counter otherwise runs one ahead, e.g. SMK minimap road sides).
+            if (M7_FETCH == 1 && H_CNT != M7_FETCH_START)
                 M7_SCREEN_X <= M7_SCREEN_X + 1;
             else if (H_CNT == LAST_DOT)
                 M7_SCREEN_X <= 0;
