@@ -128,3 +128,13 @@ set_output_delay -clock sdram_clk -min -0.3 [get_ports {IO_sdram_dq*}]
 
 // false paths
 //set_false_path -from [get_regs {main/SNES/smp/CPUO*}] -to [get_regs {sdram/dq_out*}]
+
+// AUDIT ONLY (exp/sdramrob-audit): enumerate pin paths and SDRAM-lane
+// endpoints beyond the default worst-25 report. No constraint change.
+report_timing -setup -from [get_ports {IO_sdram_dq*}] -max_paths 100 -max_common_paths 20
+report_timing -setup -to [get_ports {IO_sdram_dq* O_sdram_addr* O_sdram_ba* O_sdram_dqm* O_sdram_cs_n O_sdram_ras_n O_sdram_cas_n O_sdram_wen_n O_sdram_cke}] -max_paths 100 -max_common_paths 20
+report_timing -hold -from [get_ports {IO_sdram_dq*}] -max_paths 50 -max_common_paths 10
+report_timing -hold -to [get_ports {IO_sdram_dq* O_sdram_addr* O_sdram_ba* O_sdram_dqm* O_sdram_cs_n O_sdram_ras_n O_sdram_cas_n O_sdram_wen_n O_sdram_cke}] -max_paths 50 -max_common_paths 10
+report_timing -setup -from [get_regs {sdram/cpu_port0* sdram/cpu_port1*}] -max_paths 200 -max_common_paths 50
+report_timing -setup -from [get_regs {sdram/bsram_dout_reg*}] -max_paths 100 -max_common_paths 50
+report_timing -setup -from [get_regs {sdram/dq_oen*}] -max_paths 50 -max_common_paths 20
