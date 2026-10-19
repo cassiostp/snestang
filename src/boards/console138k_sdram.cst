@@ -209,3 +209,15 @@ GRP_LOC cap_bsram R[28:45]C[172:181];
 // into the IOB TRIREG in practice (I/O FF count is unchanged with or
 // without it), and left unbound the placer parks it mid-device,
 // which made dq_oen->DQ the worst pin path (+0.062 ns).
+// Anchor the BSRAM read cone's stable-named pieces in the central
+// columns. The BSRAM lane keeps its true 31 ns window (its age at the
+// S-CPU sample is not bounded under save-channel contention), and
+// unanchored the placer scatters this cone across the full width
+// (C57..C179 in one build, -2.279 ns; C88..C124 in another, +1.5 ns).
+// Groups name only LUT/FF objects from RTL signal names (BSRAM_Q mux,
+// P65_DI mux, the 65C816 DB mux and P/PCr/X/Y register cones) -- no
+// hierarchy wildcards, no BSRAM/DSP objects.
+GROUP bsram_q_mux = { "BSRAM_Q*" };
+GRP_LOC bsram_q_mux R[25:45]C[90:135];
+GROUP scpu_data_cone = { "main/SNES/CPU/P65_DI*" "main/SNES/CPU/P65C816/DB*" "main/SNES/CPU/P65C816/P_*" "main/SNES/CPU/P65C816/AddrGen/PCr*" "main/SNES/CPU/P65C816/X_*" "main/SNES/CPU/P65C816/Y_*" };
+GRP_LOC scpu_data_cone R[25:75]C[90:145];
