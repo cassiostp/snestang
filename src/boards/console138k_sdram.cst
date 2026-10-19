@@ -219,10 +219,6 @@ GRP_LOC cap_bsram R[28:45]C[172:181];
 // hierarchy wildcards, no BSRAM/DSP objects.
 GROUP bsram_q_mux = { "BSRAM_Q*" };
 GRP_LOC bsram_q_mux R[25:45]C[90:135];
-// NOTE: grouping the cone LUTs too (P65_DI*/DB*/P_*/PCr*/X_*/Y_*,
-// several hundred LUT+FF objects) stalls the CST reader exactly like
-// exp/gsu2-cpu-near (>12 min at "Reading constraint file", gw_sh at
-// 100% CPU). Anchor only the endpoint registers (the _s0 flops);
-// the timing-driven placer pulls the cone LUTs toward them.
-GROUP scpu_data_regs = { "main/SNES/CPU/P65C816/P_*_s0" "main/SNES/CPU/P65C816/AddrGen/PCr_*_s0" "main/SNES/CPU/P65C816/X_*_s0" "main/SNES/CPU/P65C816/Y_*_s0" };
-GRP_LOC scpu_data_regs R[25:75]C[90:145];
+// Bisect note: scpu_data_cone (LUT cone) and scpu_data_regs
+// (endpoint flops, mid-string "*_s0" patterns) both stalled the
+// CST reader; testing bsram_q_mux alone first.
