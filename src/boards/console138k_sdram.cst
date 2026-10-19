@@ -219,11 +219,12 @@ GRP_LOC cap_bsram R[28:45]C[172:181];
 // hierarchy wildcards, no BSRAM/DSP objects.
 GROUP bsram_q_mux = { "BSRAM_Q*" };
 GRP_LOC bsram_q_mux R[25:45]C[105:140];
-// Bisect results: bsram_q_mux alone parses (and took the std
-// violation from -2.279 to -1.031 ns). scpu_data_cone (LUT cone)
-// and scpu_data_regs (mid-string "*_s0" patterns) stalled the
-// reader. Now testing deep-hierarchy trailing "*" patterns for
-// the DI/DB front of the cone; if this stalls, the deep prefix
-// is the culprit and exact-name INS_LOC is the fallback.
-GROUP scpu_front = { "main/SNES/CPU/P65_DI*" "main/SNES/CPU/P65C816/DB*" };
-GRP_LOC scpu_front R[35:70]C[105:150];
+// CST reader stall bisect (all at "Reading constraint file",
+// gw_sh spinning, builds killed): GROUP patterns with a deep
+// hierarchy prefix stall -- "main/SNES/CPU/*" (exp/gsu2-cpu-near),
+// "main/SNES/CPU/P65C816/{P_*,DB*,...}" cone LUTs, endpoint flops
+// via mid-string "*_s0", and trailing-* "main/SNES/CPU/P65_DI*" +
+// "main/SNES/CPU/P65C816/DB*" alike. Top-level ("BSRAM_Q*") and
+// one-level ("sdram/...") patterns parse in seconds. Do not add
+// deep-hierarchy GROUP patterns to this file; use exact-name
+// INS_LOC if a deep object ever needs anchoring.
