@@ -37,10 +37,30 @@ set_multicycle_path 2 -hold -start -from [get_clocks {fclk}] -to [get_clocks {mc
 // Listed after the general exception so they override it.
 set_multicycle_path 2 -setup -start -from [get_regs {sdram/aram_dout*}] -to [get_clocks {mclk}]
 set_multicycle_path 1 -hold -start -from [get_regs {sdram/aram_dout*}] -to [get_clocks {mclk}]
-set_multicycle_path 2 -setup -start -from [get_regs {sdram/cpu_port0*}] -to [get_clocks {mclk}]
-set_multicycle_path 1 -hold -start -from [get_regs {sdram/cpu_port0*}] -to [get_clocks {mclk}]
-set_multicycle_path 2 -setup -start -from [get_regs {sdram/cpu_port1*}] -to [get_clocks {mclk}]
-set_multicycle_path 1 -hold -start -from [get_regs {sdram/cpu_port1*}] -to [get_clocks {mclk}]
+// cpu_port0/1: the first mclk after the capture (2 fclk) is never the
+// functional sample. The S-CPU/DMA/HDMA consume A/B-bus read data only
+// at SYSCLKF_CE, the last edge of the presenting 6/8/12-mclk bus cycle
+// (cpu.v P65C816 CE, MDR, DMA/HDMA transfers; swram/PPU SYSCLK_CE).
+// sim/sdram_port/run_stable.sh measures the word's age at that sample:
+// minimum 5 fclk (77.5 ns) over both rotation phases, all scenarios.
+// Budget 3 fclk (46.5 ns) here, keeping STA inside the proven window.
+// The one consumer that does capture at the first mclk is the
+// every-mclk BUSA_DO_buf/BUSB_DO_buf pipeline register in SNES.v (the
+// value it holds at SYSCLKF_CE was captured one mclk earlier, 2 fclk
+// after the SDRAM capture in the worst phase). Those endpoints keep
+// the 2-fclk window; listed last so they override the wider budget.
+set_multicycle_path 3 -setup -start -from [get_regs {sdram/cpu_port0*}] -to [get_clocks {mclk}]
+set_multicycle_path 2 -hold -start -from [get_regs {sdram/cpu_port0*}] -to [get_clocks {mclk}]
+set_multicycle_path 3 -setup -start -from [get_regs {sdram/cpu_port1*}] -to [get_clocks {mclk}]
+set_multicycle_path 2 -hold -start -from [get_regs {sdram/cpu_port1*}] -to [get_clocks {mclk}]
+set_multicycle_path 2 -setup -start -from [get_regs {sdram/cpu_port0*}] -to [get_regs {main/SNES/BUSA_DO_buf*}]
+set_multicycle_path 1 -hold -start -from [get_regs {sdram/cpu_port0*}] -to [get_regs {main/SNES/BUSA_DO_buf*}]
+set_multicycle_path 2 -setup -start -from [get_regs {sdram/cpu_port0*}] -to [get_regs {main/SNES/BUSB_DO_buf*}]
+set_multicycle_path 1 -hold -start -from [get_regs {sdram/cpu_port0*}] -to [get_regs {main/SNES/BUSB_DO_buf*}]
+set_multicycle_path 2 -setup -start -from [get_regs {sdram/cpu_port1*}] -to [get_regs {main/SNES/BUSA_DO_buf*}]
+set_multicycle_path 1 -hold -start -from [get_regs {sdram/cpu_port1*}] -to [get_regs {main/SNES/BUSA_DO_buf*}]
+set_multicycle_path 2 -setup -start -from [get_regs {sdram/cpu_port1*}] -to [get_regs {main/SNES/BUSB_DO_buf*}]
+set_multicycle_path 1 -hold -start -from [get_regs {sdram/cpu_port1*}] -to [get_regs {main/SNES/BUSB_DO_buf*}]
 set_multicycle_path 2 -setup -start -from [get_regs {sdram/cpu2_dout*}] -to [get_clocks {mclk}]
 set_multicycle_path 1 -hold -start -from [get_regs {sdram/cpu2_dout*}] -to [get_clocks {mclk}]
 set_multicycle_path 2 -setup -start -from [get_regs {sdram/cpu2_req_ack*}] -to [get_clocks {mclk}]
@@ -63,18 +83,23 @@ set_multicycle_path 1 -hold -start -from [get_regs {sdram/bsram_req_ack*}] -to [
 //set_multicycle_path 6 -setup -end -from [get_nets {main/SNES/PPU/BG*}] -to [get_clocks {fclk}]
 //set_multicycle_path 5 -hold -end -from [get_nets {main/SNES/PPU/BG*}] -to [get_clocks {fclk}]
 
-// SDRAM pin timing. O_sdram_clk is PLL CLKOUT2 at PE 17/7:
-// (17+7/8)/31*360 = 207.581 degrees = 8.9375 ns behind fclk. The controller
+// SDRAM pin timing. O_sdram_clk is PLL CLKOUT2 at PE 18/3:
+// (18+3/8)/31*360 = 213.387 degrees = 9.1875 ns behind fclk. The controller
 // launches CAS on fclk and samples dq_in 3 fclk (46.5 ns) later. The chip
 // launches CL2 data on the sdram edge 2 cycles (31.0 ns) after it takes
-// CAS, so the word is 6.5625 ns old at the sample. The default setup check
+// CAS, so the word is 6.3125 ns old at the sample. The phase is
+// 0.25 ns later than the 17/7 it replaces: with the capture registers
+// bound next to their pins (console138k_sdram.cst), the read window has
+// >1 ns of margin to give, and the pin outputs gain it 1:1 (their
+// slack is phase minus the fclk insertion to the IOB, which placement
+// alone was leaving at +0.07 ns). The default setup check
 // (the next fclk after that sdram edge) is that sample. Do not add a
 // multicycle: it would time a later edge than the one the controller uses.
 //
 // W9825G6KH-6 at CL2: tAC max 6.0, tOH min 3.0, tCMS and tDS 1.5,
 // tCMH and tDH 0.8. Board skew is taken as 0.5 ns each way. That number
 // is an assumption, not a measurement of this board.
-create_generated_clock -name sdram_clk -source [get_nets {fclk}] -master_clock fclk -phase 207.581 -divide_by 1 [get_ports {O_sdram_clk}]
+create_generated_clock -name sdram_clk -source [get_nets {fclk}] -master_clock fclk -phase 213.387 -divide_by 1 [get_ports {O_sdram_clk}]
 # Gowin TA1012: -max and -min are mutually exclusive, so each is its own line.
 set_input_delay -clock sdram_clk -max 6.5 [get_ports {IO_sdram_dq*}]
 set_input_delay -clock sdram_clk -min 2.5 [get_ports {IO_sdram_dq*}]

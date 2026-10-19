@@ -160,9 +160,50 @@ IO_LOC "O_sdram_cas_n" E17;
 IO_PORT "O_sdram_cas_n" IO_TYPE=LVCMOS33;
 IO_LOC "O_sdram_cs_n" F21;      // was F19 on mega60k
 IO_PORT "O_sdram_cs_n" IO_TYPE=LVCMOS33;
-// Bound SDRAM fabric capture and output-enable registers near the DQ pins.
-// These are physical regions only; all data/ack edges and SDC delays stay put.
-GROUP sdram_capture = { "sdram/cpu_port0*" "sdram/cpu_port1*" "sdram/cpu2_dout*" "sdram/bsram_dout_reg*" "sdram/aram_dout*" };
-GRP_LOC sdram_capture R[20:40]C[160:175];
-GROUP sdram_enable = { "sdram/dq_oen*" };
-GRP_LOC sdram_enable R[15:30]C[170:175];
+// Bound SDRAM fabric capture registers next to their DQ pins, one
+// small group per DQ bit so the five flops a pin feeds share one short
+// route tree at the east-edge columns. Band rows follow the pin's IOR
+// site along bank 2 (measured pin->flop routes of 0.7-1.5 ns at these
+// columns, against 2.1-3.8 ns from the old shared C[160:175] region).
+// Physical placement only; all data/ack edges and SDC delays stay put.
+// Do not widen these groups to whole hierarchies: a GROUP over
+// "main/SNES/CPU/*" (thousands of objects incl. BSRAM) stalls the CST
+// reader in PnR (exp/gsu2-cpu-near).
+GROUP cap_dq0 = { "sdram/cpu_port0_0_s*" "sdram/cpu_port1_0_s*" "sdram/cpu2_dout_0_s*" "sdram/aram_dout_0_s*" }; // DQ0 IOR2[B]
+GRP_LOC cap_dq0 R[5:12]C[172:181];
+GROUP cap_dq1 = { "sdram/cpu_port0_1_s*" "sdram/cpu_port1_1_s*" "sdram/cpu2_dout_1_s*" "sdram/aram_dout_1_s*" }; // DQ1 IOR2[A]
+GRP_LOC cap_dq1 R[9:16]C[172:181];
+GROUP cap_dq2 = { "sdram/cpu_port0_2_s*" "sdram/cpu_port1_2_s*" "sdram/cpu2_dout_2_s*" "sdram/aram_dout_2_s*" }; // DQ2 IOR8[B]
+GRP_LOC cap_dq2 R[17:24]C[172:181];
+GROUP cap_dq3 = { "sdram/cpu_port0_3_s*" "sdram/cpu_port1_3_s*" "sdram/cpu2_dout_3_s*" "sdram/aram_dout_3_s*" }; // DQ3 IOR8[A]
+GRP_LOC cap_dq3 R[20:27]C[172:181];
+GROUP cap_dq4 = { "sdram/cpu_port0_4_s*" "sdram/cpu_port1_4_s*" "sdram/cpu2_dout_4_s*" "sdram/aram_dout_4_s*" }; // DQ4 IOR17[B]
+GRP_LOC cap_dq4 R[30:37]C[172:181];
+GROUP cap_dq5 = { "sdram/cpu_port0_5_s*" "sdram/cpu_port1_5_s*" "sdram/cpu2_dout_5_s*" "sdram/aram_dout_5_s*" }; // DQ5 IOR17[A]
+GRP_LOC cap_dq5 R[32:39]C[172:181];
+GROUP cap_dq6 = { "sdram/cpu_port0_6_s*" "sdram/cpu_port1_6_s*" "sdram/cpu2_dout_6_s*" "sdram/aram_dout_6_s*" }; // DQ6 IOR15[B]
+GRP_LOC cap_dq6 R[26:33]C[172:181];
+GROUP cap_dq7 = { "sdram/cpu_port0_7_s*" "sdram/cpu_port1_7_s*" "sdram/cpu2_dout_7_s*" "sdram/aram_dout_7_s*" }; // DQ7 IOR15[A]
+GRP_LOC cap_dq7 R[28:35]C[172:181];
+GROUP cap_dq8 = { "sdram/cpu_port0_8_s*" "sdram/cpu_port1_8_s*" "sdram/cpu2_dout_8_s*" "sdram/aram_dout_8_s*" }; // DQ8 IOR44[A]
+GRP_LOC cap_dq8 R[37:44]C[172:181];
+GROUP cap_dq9 = { "sdram/cpu_port0_9_s*" "sdram/cpu_port1_9_s*" "sdram/cpu2_dout_9_s*" "sdram/aram_dout_9_s*" }; // DQ9 IOR44[B]
+GRP_LOC cap_dq9 R[39:46]C[172:181];
+GROUP cap_dq10 = { "sdram/cpu_port0_10_s*" "sdram/cpu_port1_10_s*" "sdram/cpu2_dout_10_s*" "sdram/aram_dout_10_s*" }; // DQ10 IOR40[A]
+GRP_LOC cap_dq10 R[32:39]C[172:181];
+GROUP cap_dq11 = { "sdram/cpu_port0_11_s*" "sdram/cpu_port1_11_s*" "sdram/cpu2_dout_11_s*" "sdram/aram_dout_11_s*" }; // DQ11 IOR40[B]
+GRP_LOC cap_dq11 R[32:39]C[172:181];
+GROUP cap_dq12 = { "sdram/cpu_port0_12_s*" "sdram/cpu_port1_12_s*" "sdram/cpu2_dout_12_s*" "sdram/aram_dout_12_s*" }; // DQ12 IOR20[A]
+GRP_LOC cap_dq12 R[47:54]C[172:181];
+GROUP cap_dq13 = { "sdram/cpu_port0_13_s*" "sdram/cpu_port1_13_s*" "sdram/cpu2_dout_13_s*" "sdram/aram_dout_13_s*" }; // DQ13 IOR20[B]
+GRP_LOC cap_dq13 R[47:54]C[172:181];
+GROUP cap_dq14 = { "sdram/cpu_port0_14_s*" "sdram/cpu_port1_14_s*" "sdram/cpu2_dout_14_s*" "sdram/aram_dout_14_s*" }; // DQ14 IOR22[A]
+GRP_LOC cap_dq14 R[24:31]C[172:181];
+GROUP cap_dq15 = { "sdram/cpu_port0_15_s*" "sdram/cpu_port1_15_s*" "sdram/cpu2_dout_15_s*" "sdram/aram_dout_15_s*" }; // DQ15 IOR22[B]
+GRP_LOC cap_dq15 R[24:31]C[172:181];
+// The BSRAM byte register is fed (through its byte mux) by DQ[j] and
+// DQ[j+8]; keep it in the same east columns between the two clusters.
+GROUP cap_bsram = { "sdram/bsram_dout_reg*" };
+GRP_LOC cap_bsram R[28:45]C[172:181];
+// Per-pin dq_oen registers are not bound to a fabric region, so
+// nothing here stops them packing into the DQ I/O blocks.

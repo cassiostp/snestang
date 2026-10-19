@@ -262,7 +262,8 @@ assign      gsu_owns_rom = gsu_mode & gsu_rom_req;
 assign      rom_word_cpu2 = cx4_owns_rom ? cx4_rom_q :
                             gsu_owns_rom ? gsu_rom_q : sa1_rom_q;
 wire  [7:0] bwram_q_a;             // SA-1 BW-RAM (block RAM) read data
-wire  [7:0] BSRAM_Q = sa1_mode ? bwram_q_a : (snes_bsram_shadow ? snes_bsram_hold : bsram_dout);
+wire [23:0] gsu_ram_mask;
+wire  [7:0] BSRAM_Q;
 wire  [7:0] BSRAM_D;
 
 wire [15:0] VRAM1_ADDR;
@@ -376,7 +377,7 @@ main #(.USE_DSPn(USE_DSPn), .USE_GSU(USE_GSU), .USE_CX4(USE_CX4), .USE_SA1(USE_S
     .MCLK(mclk), .RESET_N(resetn & ~loading), .ENABLE(enable), 
     .SYSCLKF_CE(sysclkf_ce), .SYSCLKR_CE(sysclkr_ce), .REFRESH(refresh),
 
-    .ROM_TYPE(rom_type), .ROM_MASK(rom_mask), .RAM_MASK(ram_mask),
+    .ROM_TYPE(rom_type), .ROM_MASK(rom_mask), .RAM_MASK(gsu_mode ? gsu_ram_mask : ram_mask),
 
     .ROM_ADDR(ROM_ADDR), .ROM_D(ROM_D), .ROM_Q(ROM_Q),
     .ROM_CE_N(ROM_CE_N), .ROM_OE_N(ROM_OE_N), .ROM_WE_N(ROM_WE_N),
@@ -453,7 +454,11 @@ reg [16:0]  wram_addr_sd;
 reg         wram_wr_r, wram_rd_r;
 
 reg [19:0]  bsram_addr;             // last cartridge-bus BSRAM address queued
-wire        bsram_rd = ~BSRAM_CE_N & (~BSRAM_RD_N || rom_type[7:4] == 4'hC || rom_type[7:4] == 4'h7);	// OBC-1/GSU read BSRAM outside CPU read cycles
+wire        gsu_ram_bus = gsu_mode & gsu_ram_req;				// GSU owns the RAM bus right now
+// GSU writes must not also queue a read. Other mappers keep their original
+// read detection, including OBC-1's accesses outside S-CPU read cycles.
+wire        bsram_rd = ~BSRAM_CE_N & (~BSRAM_RD_N ||
+                       (gsu_mode ? (gsu_ram_bus & BSRAM_WE_N) : rom_type[7:4] == 4'hC));
 wire        bsram_wr = ~BSRAM_CE_N & ~BSRAM_WE_N;
 reg         bsram_rd_r, bsram_wr_r;
 
@@ -534,10 +539,11 @@ wire        sv_req, sv_rreq;
 // ---- Save-RAM <-> BSRAM bridge ----------------------------------------------
 // The SNES cartridge bus and the iosys save channel both need the sdram
 // controller's single BSRAM port (the 128 KB at the start of bank 1). The SNES
-// edge detector above queues each new cartridge access in the 4-deep FIFO
+// edge detector above queues each new cartridge access in the 16-deep FIFO
 // below (a single pending slot was overwritten when the GSU issued byte
 // writes ~4 mclk apart against a ~6+ mclk service time: the first byte of
-// each stw pair was lost); the save channel toggles sv_req (write) /
+// each stw pair was lost; and every write also queued a phantom read, so
+// bulk transfers overran even the 4-deep FIFO and lost bytes); the save channel toggles sv_req (write) /
 // sv_rreq (read). This arbiter owns the
 // controller's req/ack pair and serves one byte at a time, SNES first: save
 // accesses only slip into idle slots, so the SNES never queues behind one,
@@ -547,15 +553,55 @@ wire        sv_req, sv_rreq;
 // synchronized here and routed back to whichever source was served. Reads
 // capture the controller's sticky bsram_dout before the next access can
 // overwrite it, since the arbiter keeps the port until the byte is banked.
-reg  [16:0] bs_fifo_addr [0:3];
-reg   [7:0] bs_fifo_din [0:3];
-reg         bs_fifo_we [0:3];
-reg   [2:0] bs_fifo_wptr = 0, bs_fifo_rptr = 0;
+// 16-deep write queue built from explicit per-stage registers (not arrays:
+// Gowin maps arrays to BSRAM even with an async read side, and the hz 120
+// frame buffer needs those blocks). GSU mirrored reads bypass the queue;
+// other accesses retain the SDRAM path and its original four-entry limit.
+genvar bs_fi;
+generate for (bs_fi = 0; bs_fi < 16; bs_fi = bs_fi + 1) begin : BS_FIFO
+    reg [16:0] addr = 17'h0;
+    reg  [7:0] din = 8'h0;
+    reg        we = 1'b0;
+end endgenerate
+reg   [4:0] bs_fifo_wptr = 0, bs_fifo_rptr = 0;
 wire        bs_fifo_empty = bs_fifo_wptr == bs_fifo_rptr;
-wire        bs_fifo_full  = bs_fifo_wptr == bs_fifo_rptr + 3'd4;
+wire        bs_fifo_full  = bs_fifo_wptr == bs_fifo_rptr + (gsu_mode ? 5'd16 : 5'd4);
+// Only the low 64 KiB of GSU RAM is mirrored. All non-GSU cartridges and
+// the upper 64 KiB retain the SDRAM read and save-data shadow path.
+wire        bs_mirror_sel = gsu_mode && !BSRAM_ADDR[16];
 wire        bs_det_new = (bsram_rd && BSRAM_ADDR != bsram_addr) ||
                          (bsram_wr & ~bsram_wr_r) || (bsram_rd & ~bsram_rd_r);
-wire        bs_push = bs_det_new && ~bs_fifo_full && ~sa1_mode;
+// Mirrored reads need no SDRAM transaction; writes still go through the
+// queue for save-channel coherence. Unmirrored accesses keep the detector.
+wire        bs_push = (bs_mirror_sel ? (bsram_wr & ~bsram_wr_r) : bs_det_new)
+                      && ~bs_fifo_full && ~sa1_mode;
+reg [16:0] bs_issue_addr;
+reg  [7:0] bs_issue_din;
+reg        bs_issue_we;
+always @* begin
+    bs_issue_addr = BS_FIFO[0].addr;
+    bs_issue_din = BS_FIFO[0].din;
+    bs_issue_we = BS_FIFO[0].we;
+    case (bs_fifo_rptr[3:0])
+        4'd0: begin bs_issue_addr = BS_FIFO[0].addr; bs_issue_din = BS_FIFO[0].din; bs_issue_we = BS_FIFO[0].we; end
+        4'd1: begin bs_issue_addr = BS_FIFO[1].addr; bs_issue_din = BS_FIFO[1].din; bs_issue_we = BS_FIFO[1].we; end
+        4'd2: begin bs_issue_addr = BS_FIFO[2].addr; bs_issue_din = BS_FIFO[2].din; bs_issue_we = BS_FIFO[2].we; end
+        4'd3: begin bs_issue_addr = BS_FIFO[3].addr; bs_issue_din = BS_FIFO[3].din; bs_issue_we = BS_FIFO[3].we; end
+        4'd4: begin bs_issue_addr = BS_FIFO[4].addr; bs_issue_din = BS_FIFO[4].din; bs_issue_we = BS_FIFO[4].we; end
+        4'd5: begin bs_issue_addr = BS_FIFO[5].addr; bs_issue_din = BS_FIFO[5].din; bs_issue_we = BS_FIFO[5].we; end
+        4'd6: begin bs_issue_addr = BS_FIFO[6].addr; bs_issue_din = BS_FIFO[6].din; bs_issue_we = BS_FIFO[6].we; end
+        4'd7: begin bs_issue_addr = BS_FIFO[7].addr; bs_issue_din = BS_FIFO[7].din; bs_issue_we = BS_FIFO[7].we; end
+        4'd8: begin bs_issue_addr = BS_FIFO[8].addr; bs_issue_din = BS_FIFO[8].din; bs_issue_we = BS_FIFO[8].we; end
+        4'd9: begin bs_issue_addr = BS_FIFO[9].addr; bs_issue_din = BS_FIFO[9].din; bs_issue_we = BS_FIFO[9].we; end
+        4'd10: begin bs_issue_addr = BS_FIFO[10].addr; bs_issue_din = BS_FIFO[10].din; bs_issue_we = BS_FIFO[10].we; end
+        4'd11: begin bs_issue_addr = BS_FIFO[11].addr; bs_issue_din = BS_FIFO[11].din; bs_issue_we = BS_FIFO[11].we; end
+        4'd12: begin bs_issue_addr = BS_FIFO[12].addr; bs_issue_din = BS_FIFO[12].din; bs_issue_we = BS_FIFO[12].we; end
+        4'd13: begin bs_issue_addr = BS_FIFO[13].addr; bs_issue_din = BS_FIFO[13].din; bs_issue_we = BS_FIFO[13].we; end
+        4'd14: begin bs_issue_addr = BS_FIFO[14].addr; bs_issue_din = BS_FIFO[14].din; bs_issue_we = BS_FIFO[14].we; end
+        4'd15: begin bs_issue_addr = BS_FIFO[15].addr; bs_issue_din = BS_FIFO[15].din; bs_issue_we = BS_FIFO[15].we; end
+    default: begin end
+    endcase
+end
 reg         sv_w_seen = 0, sv_r_seen = 0;
 reg         bs_req_tog = 0;                 // -> controller .bsram_req
 wire        bs_req_ack;                     // <- controller .bsram_req_ack
@@ -573,6 +619,10 @@ wire        sv_w_new    = sv_req != sv_w_seen;
 wire        sv_r_new    = sv_rreq != sv_r_seen;
 wire        bs_free     = bs_req_tog == bs_ack;
 wire        bs_issue_ok = ~bs_busy | bs_free;   // idle, or acked this very clock
+// A GSU cartridge push reserves the mirror's single write port. Queue it
+// first, then issue a pending restore after the cartridge FIFO drains.
+wire        bs_sv_w_issue = bs_issue_ok && sv_w_new && !sa1_mode &&
+                            !(gsu_mode && bs_push);
 
 always @(posedge mclk) begin
     bs_ack_sync <= {bs_ack_sync[1:0], bs_req_ack};
@@ -584,10 +634,26 @@ always @(posedge mclk) begin
     if (bs_det_new)
         bsram_addr <= BSRAM_ADDR;
     if (bs_push) begin
-        bs_fifo_addr[bs_fifo_wptr[1:0]] <= BSRAM_ADDR[16:0];
-        bs_fifo_din[bs_fifo_wptr[1:0]]  <= BSRAM_D;
-        bs_fifo_we[bs_fifo_wptr[1:0]]   <= bsram_wr;
-        bs_fifo_wptr <= bs_fifo_wptr + 3'd1;
+        case (bs_fifo_wptr[3:0])
+        4'd0: begin BS_FIFO[0].addr <= BSRAM_ADDR[16:0]; BS_FIFO[0].din <= BSRAM_D; BS_FIFO[0].we <= bsram_wr; end
+        4'd1: begin BS_FIFO[1].addr <= BSRAM_ADDR[16:0]; BS_FIFO[1].din <= BSRAM_D; BS_FIFO[1].we <= bsram_wr; end
+        4'd2: begin BS_FIFO[2].addr <= BSRAM_ADDR[16:0]; BS_FIFO[2].din <= BSRAM_D; BS_FIFO[2].we <= bsram_wr; end
+        4'd3: begin BS_FIFO[3].addr <= BSRAM_ADDR[16:0]; BS_FIFO[3].din <= BSRAM_D; BS_FIFO[3].we <= bsram_wr; end
+        4'd4: begin BS_FIFO[4].addr <= BSRAM_ADDR[16:0]; BS_FIFO[4].din <= BSRAM_D; BS_FIFO[4].we <= bsram_wr; end
+        4'd5: begin BS_FIFO[5].addr <= BSRAM_ADDR[16:0]; BS_FIFO[5].din <= BSRAM_D; BS_FIFO[5].we <= bsram_wr; end
+        4'd6: begin BS_FIFO[6].addr <= BSRAM_ADDR[16:0]; BS_FIFO[6].din <= BSRAM_D; BS_FIFO[6].we <= bsram_wr; end
+        4'd7: begin BS_FIFO[7].addr <= BSRAM_ADDR[16:0]; BS_FIFO[7].din <= BSRAM_D; BS_FIFO[7].we <= bsram_wr; end
+        4'd8: begin BS_FIFO[8].addr <= BSRAM_ADDR[16:0]; BS_FIFO[8].din <= BSRAM_D; BS_FIFO[8].we <= bsram_wr; end
+        4'd9: begin BS_FIFO[9].addr <= BSRAM_ADDR[16:0]; BS_FIFO[9].din <= BSRAM_D; BS_FIFO[9].we <= bsram_wr; end
+        4'd10: begin BS_FIFO[10].addr <= BSRAM_ADDR[16:0]; BS_FIFO[10].din <= BSRAM_D; BS_FIFO[10].we <= bsram_wr; end
+        4'd11: begin BS_FIFO[11].addr <= BSRAM_ADDR[16:0]; BS_FIFO[11].din <= BSRAM_D; BS_FIFO[11].we <= bsram_wr; end
+        4'd12: begin BS_FIFO[12].addr <= BSRAM_ADDR[16:0]; BS_FIFO[12].din <= BSRAM_D; BS_FIFO[12].we <= bsram_wr; end
+        4'd13: begin BS_FIFO[13].addr <= BSRAM_ADDR[16:0]; BS_FIFO[13].din <= BSRAM_D; BS_FIFO[13].we <= bsram_wr; end
+        4'd14: begin BS_FIFO[14].addr <= BSRAM_ADDR[16:0]; BS_FIFO[14].din <= BSRAM_D; BS_FIFO[14].we <= bsram_wr; end
+        4'd15: begin BS_FIFO[15].addr <= BSRAM_ADDR[16:0]; BS_FIFO[15].din <= BSRAM_D; BS_FIFO[15].we <= bsram_wr; end
+        default: begin end
+        endcase
+        bs_fifo_wptr <= bs_fifo_wptr + 5'd1;
     end
     if (bs_busy && bs_free) begin               // the access just completed
         bs_busy <= 0;
@@ -601,14 +667,14 @@ always @(posedge mclk) begin
     end
     if (bs_issue_ok && snes_bs_new && ~sa1_mode) begin
         snes_bsram_shadow <= 0;                 // the SNES gets the port's data again
-        bs_addr_r <= bs_fifo_addr[bs_fifo_rptr[1:0]];
-        bs_din_r  <= bs_fifo_din[bs_fifo_rptr[1:0]];
-        bs_we_r   <= bs_fifo_we[bs_fifo_rptr[1:0]];
+        bs_addr_r <= bs_issue_addr;
+        bs_din_r  <= bs_issue_din;
+        bs_we_r   <= bs_issue_we;
         bs_owner  <= 0;
         bs_busy   <= 1;
         bs_req_tog <= ~bs_req_tog;
-        bs_fifo_rptr <= bs_fifo_rptr + 3'd1;
-    end else if (bs_issue_ok && sv_w_new && ~sa1_mode) begin
+        bs_fifo_rptr <= bs_fifo_rptr + 5'd1;
+    end else if (bs_sv_w_issue) begin
         if (!snes_bsram_shadow) begin           // keep the SNES's last read data
             snes_bsram_hold <= bsram_dout;
             snes_bsram_shadow <= 1;
@@ -643,6 +709,33 @@ wire sv_core_we = bsram_wr & ~bsram_wr_r;       // the SNES wrote save RAM
 // and the GSU's own queued byte keeps snes_bs_new up behind one.)
 assign gsu_ram_wait = gsu_mode & gsu_ram_req &
                       (bs_det_new | snes_bs_new | (bs_busy & ~bs_owner));
+
+// GSU read mirror: a one-cycle block-RAM read avoids stale
+// S-CPU framebuffer uploads under SDRAM contention. Only GSU low-bank RAM
+// is mirrored; larger windows fall back to SDRAM without address aliasing.
+reg   [7:0] bs_mirror [0:65535];
+reg   [7:0] bs_mirror_q = 8'hFF;
+wire bs_mirror_save = gsu_mode && !snes_bs_new && bs_sv_w_issue && !sv_addr[16];
+wire bs_mirror_write = bs_mirror_save || (bs_push && bsram_wr && bs_mirror_sel);
+wire [15:0] bs_mirror_addr = bs_mirror_save ? sv_addr[15:0] : BSRAM_ADDR[15:0];
+wire [7:0] bs_mirror_din = bs_mirror_save ? sv_din : BSRAM_D;
+always @(posedge mclk) begin
+    // A single address/write-enable template makes GW5A infer WRITE_MODE=0.
+    if (bs_mirror_write)
+        bs_mirror[bs_mirror_addr] <= bs_mirror_din;
+    else
+        bs_mirror_q <= bs_mirror[bs_mirror_addr];
+end
+`ifdef VERILATOR
+// Match the local SDRAM model's initial fill. Hardware RAM is initialized
+// by cartridge software or the save restore path before use.
+initial begin
+    integer i;
+    for (i = 0; i < 65536; i = i + 1) bs_mirror[i] = 8'hFF;
+end
+`endif
+assign BSRAM_Q = sa1_mode ? bwram_q_a : bs_mirror_sel ? bs_mirror_q :
+                (snes_bsram_shadow ? snes_bsram_hold : bsram_dout);
 
 // ---- SA-1: ROM word cache on CPU2, BW-RAM in block RAM ----------------------
 // In SA-1 mode the save channel talks to the BW-RAM's second port (through
@@ -883,6 +976,16 @@ smc_parser smc (
     .header_finished(header_finished)
 );
 
+// The 64-byte loader preamble omits the extended header at $7FB0. Read
+// its GSU expansion-RAM size from the ordinary ROM stream before reset is
+// released; no loader/protocol change is needed.
+gsu_ram_mask_from_rom gsu_ram_metadata (
+    .clk(mclk), .resetn(resetn), .loading(loading),
+    .header_finished(header_finished), .rom_addr(loader_addr),
+    .rom_d(loader_do), .rom_strb(loader_do_valid), .ram_mask(gsu_ram_mask)
+);
+
+
 reg [7:0] loader_do_r;
 reg loading_r;
 always @(posedge mclk) begin
@@ -1099,3 +1202,38 @@ end
 
 endmodule
 
+
+
+// Super FX physical RAM address lines: legacy Star Fox has 32 KiB even
+// though its normal SRAM-size byte is zero. Extended-header carts declare
+// working RAM separately; battery-backed RAM may use the normal size byte.
+module gsu_ram_mask_from_rom (
+    input clk, resetn, loading, header_finished,
+    input [22:0] rom_addr,
+    input [7:0] rom_d,
+    input rom_strb,
+    output reg [23:0] ram_mask = 24'h007fff
+);
+reg [3:0] expansion_size = 0, save_size = 0;
+always @(posedge clk) begin
+    if (!resetn || (loading && !header_finished)) begin
+        expansion_size <= 0;
+        save_size <= 0;
+        ram_mask <= 24'h007fff;
+    end else if (loading && rom_strb) begin
+        case (rom_addr)
+        23'h007fbd: expansion_size <= rom_d[3:0];
+        23'h007fd8: save_size <= rom_d[3:0];
+        23'h007fda: begin
+            if (rom_d == 8'h33 && expansion_size > save_size)
+                ram_mask <= (24'd1024 << expansion_size) - 1'd1;
+            else if (save_size != 0)
+                ram_mask <= (24'd1024 << save_size) - 1'd1;
+            else
+                ram_mask <= 24'h007fff;
+        end
+        default: ;
+        endcase
+    end
+end
+endmodule

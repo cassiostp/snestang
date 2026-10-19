@@ -62,7 +62,7 @@ GSU GSU(
 assign ROM_ADDR = ({2'b00,ROM_A}) & ROM_MASK[22:0];
 assign ROM_CE_N = 1'b0;
 assign ROM_WORD = 1'b0;
-assign BSRAM_ADDR = {3'b000,RAM_A};	// full 17-bit RAM address: up to 128 KB GSU RAM
+assign BSRAM_ADDR = {3'b000,RAM_A} & BSRAM_MASK[19:0]; // physical cartridge RAM mirrors
 assign BSRAM_OE_N =  ~RAM_WE_N;
 assign BSRAM_WE_N = RAM_WE_N;
 
