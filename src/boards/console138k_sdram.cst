@@ -218,6 +218,13 @@ GRP_LOC cap_bsram R[28:45]C[172:181];
 // P65_DI mux, the 65C816 DB mux and P/PCr/X/Y register cones) -- no
 // hierarchy wildcards, no BSRAM/DSP objects.
 GROUP bsram_q_mux = { "BSRAM_Q*" };
-GRP_LOC bsram_q_mux R[25:45]C[90:135];
-GROUP scpu_data_cone = { "main/SNES/CPU/P65_DI*" "main/SNES/CPU/P65C816/DB*" "main/SNES/CPU/P65C816/P_*" "main/SNES/CPU/P65C816/AddrGen/PCr*" "main/SNES/CPU/P65C816/X_*" "main/SNES/CPU/P65C816/Y_*" };
-GRP_LOC scpu_data_cone R[25:75]C[90:145];
+GRP_LOC bsram_q_mux R[25:45]C[105:140];
+// CST reader stall bisect (all at "Reading constraint file",
+// gw_sh spinning, builds killed): GROUP patterns with a deep
+// hierarchy prefix stall -- "main/SNES/CPU/*" (exp/gsu2-cpu-near),
+// "main/SNES/CPU/P65C816/{P_*,DB*,...}" cone LUTs, endpoint flops
+// via mid-string "*_s0", and trailing-* "main/SNES/CPU/P65_DI*" +
+// "main/SNES/CPU/P65C816/DB*" alike. Top-level ("BSRAM_Q*") and
+// one-level ("sdram/...") patterns parse in seconds. Do not add
+// deep-hierarchy GROUP patterns to this file; use exact-name
+// INS_LOC if a deep object ever needs anchoring.
