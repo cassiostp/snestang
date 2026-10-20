@@ -66,7 +66,9 @@ int main(int argc,char**argv) {
   auto image=b.save(); b.end();
   const unsigned n=357380*4;
   std::vector<uint64_t> ref(n);std::vector<uint16_t> right(n);
-  for(unsigned i=0;i<n;++i){b.step();ref[i]=b.sample();right[i]=b.snes->audio_r;}
+  unsigned visible=0, audible=0;
+  for(unsigned i=0;i<n;++i){b.step();ref[i]=b.sample();right[i]=b.snes->audio_r;visible+=b.snes->rgb_out!=0;audible+=(b.snes->audio_l!=0 || b.snes->audio_r!=0);}
+  printf("reference nonzero pixels=%u audio=%u\n",visible,audible);fflush(stdout);
   std::vector<uint16_t> ram(65536+32768+65536);
   for(unsigned i=0;i<65536;++i)ram[i]=b.chip->mem[0x3f0000+i];
   for(unsigned i=0;i<32768;++i)ram[65536+i]=b.chip->mem[0xbc0000+i];

@@ -1,13 +1,16 @@
 
 module AddrGen(CLK, RST_N, EN, LOAD_PC, PCDec, GotInterrupt, ADDR_CTRL, IND_CTRL, D_IN, X, Y, D, S, T, DR, DBR, e6502, PC, AA, AB, DX, AALCarry, JumpNoOfl
 `ifdef SNES_SAVESTATE
-    ,input ss_hold,
-    input [12:0] ss_a,
-    input [7:0] ss_d,
-    input ss_we,
-    output reg [7:0] ss_q
+    ,ss_hold, ss_a, ss_d, ss_we, ss_q
 `endif
 );
+`ifdef SNES_SAVESTATE
+   input ss_hold;
+   input [12:0] ss_a;
+   input [7:0] ss_d;
+   input ss_we;
+   output reg [7:0] ss_q;
+`endif
    input         CLK;
    input         RST_N;
    input         EN;

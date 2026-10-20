@@ -60,6 +60,10 @@ module SCPU(
     output reg [7:0] ss_q
 `endif
 );
+`ifdef SNES_SAVESTATE
+wire [7:0] ss_q_p65;
+`endif
+
 
 `ifdef SNES_SAVESTATE
 wire ss_boundary;
@@ -1648,7 +1652,6 @@ assign JOY2_CLK = OLD_JOY2_CLK | AUTO_JOY_CLK;
 `ifdef SNES_SAVESTATE
 
 `ifdef SNES_SAVESTATE
-wire [7:0] ss_q_p65;
 `endif
 // Register image; RAM and pipeline state are read only while frozen.
 always @* begin

@@ -43,6 +43,10 @@ module DSP(
     output reg [7:0] ss_q
 `endif
 );
+`ifdef SNES_SAVESTATE
+wire [7:0] ss_q_ce;
+`endif
+
 
 `include "dsp.vh"
 
@@ -1877,7 +1881,6 @@ assign SDAT = OUTPUT[31];
 `ifdef SNES_SAVESTATE
 
 `ifdef SNES_SAVESTATE
-wire [7:0] ss_q_ce;
 `endif
 // Register image; RAM and pipeline state are read only while frozen.
 always @* begin

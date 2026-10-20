@@ -323,6 +323,9 @@ assign bsram_dout = bsram_dout_reg;
 //
 always @(posedge clk) begin
     if (~resetn) begin
+`ifdef SNES_SAVESTATE
+        ss_ack <= 0;
+`endif
         busy <= 1'b1;
         dq_oen <= 16'hffff;
         SDRAM_DQM <= 2'b0;

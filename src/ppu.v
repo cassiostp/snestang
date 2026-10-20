@@ -61,6 +61,11 @@ module SPPU(
     output reg [7:0] ss_q
 `endif
 );
+`ifdef SNES_SAVESTATE
+wire [7:0] ss_q_cg;
+wire [7:0] ss_q_oa;
+`endif
+
 
 // types and functions
 `include "ppu_defines.vh"
@@ -2879,8 +2884,6 @@ assign INTERLACE = BGINTERLACE;
 
 
 `ifdef SNES_SAVESTATE
-wire [7:0] ss_q_cg;
-wire [7:0] ss_q_oa;
 // Register image; RAM and pipeline state are read only while frozen.
 always @* begin
     ss_q = 8'b0;

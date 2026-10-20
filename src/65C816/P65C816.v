@@ -39,6 +39,11 @@ module P65C816(
     output reg [7:0] ss_q
 `endif
 );
+`ifdef SNES_SAVESTATE
+wire [7:0] ss_q_ag;
+wire [7:0] ss_q_mc;
+`endif
+
 
 `ifdef SNES_SAVESTATE
 assign ss_boundary = STATE == 0 || WAIExec;
@@ -942,9 +947,7 @@ end
 `ifdef SNES_SAVESTATE
 
 `ifdef SNES_SAVESTATE
-wire [7:0] ss_q_ag;
 `endif
-wire [7:0] ss_q_mc;
 // Register image; RAM and pipeline state are read only while frozen.
 always @* begin
     ss_q = 8'b0;

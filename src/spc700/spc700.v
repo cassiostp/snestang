@@ -24,6 +24,13 @@ module SPC700(
     output reg [7:0] ss_q
 `endif
 );
+`ifdef SNES_SAVESTATE
+wire [7:0] ss_q_ag;
+wire [7:0] ss_q_alu;
+wire [7:0] ss_q_md;
+wire [7:0] ss_q_mc;
+`endif
+
 
 reg [7:0] A; reg [7:0] X; reg [7:0] Y; reg [7:0] SP; reg [7:0] PSW; reg [7:0] T;
 wire [15:0] PC;
@@ -576,11 +583,7 @@ end
 `ifdef SNES_SAVESTATE
 
 `ifdef SNES_SAVESTATE
-wire [7:0] ss_q_ag;
-wire [7:0] ss_q_alu;
-wire [7:0] ss_q_md;
 `endif
-wire [7:0] ss_q_mc;
 // Register image; RAM and pipeline state are read only while frozen.
 always @* begin
     ss_q = 8'b0;

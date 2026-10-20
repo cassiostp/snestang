@@ -107,6 +107,14 @@ module SNES(
     output reg [7:0] ss_q
 `endif
 );
+`ifdef SNES_SAVESTATE
+wire [7:0] ss_q_CPU;
+wire [7:0] ss_q_PPU;
+wire [7:0] ss_q_wram;
+wire [7:0] ss_q_smp;
+wire [7:0] ss_q_dsp;
+`endif
+
 
 wire DSPCLK = MCLK;
 
@@ -350,11 +358,6 @@ assign DBG_BREAK = CPU_BRK | SMP_BRK | PPU_DBG_BRK;
 `ifdef SNES_SAVESTATE
 
 `ifdef SNES_SAVESTATE
-wire [7:0] ss_q_CPU;
-wire [7:0] ss_q_PPU;
-wire [7:0] ss_q_wram;
-wire [7:0] ss_q_smp;
-wire [7:0] ss_q_dsp;
 `endif
 // Register image; RAM and pipeline state are read only while frozen.
 always @* begin

@@ -39,6 +39,10 @@ module SMP (
     output reg [7:0] ss_q
 `endif
 );
+`ifdef SNES_SAVESTATE
+wire [7:0] ss_q_spc;
+`endif
+
 
 reg [7:0] SPC700_D_IN, SPC700_D_OUT;
 wire [15:0] SPC700_A;
@@ -395,7 +399,6 @@ end
 `ifdef SNES_SAVESTATE
 
 `ifdef SNES_SAVESTATE
-wire [7:0] ss_q_spc;
 `endif
 // Register image; RAM and pipeline state are read only while frozen.
 always @* begin
