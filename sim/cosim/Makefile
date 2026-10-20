@@ -28,7 +28,7 @@ CCACHE_OFF :=
 else
 CCACHE_OFF := -e CCACHE_DISABLE=1
 endif
-DOCKER := $(DOCKER_RUN) --user "$(shell id -u):$(shell id -g)" $(CCACHE_OFF)
+DOCKER := $(DOCKER_RUN) --name $(or $(SIM_PREFIX),snestang)_cosim_$(shell date +%s%N) --user "$(shell id -u):$(shell id -g)" $(CCACHE_OFF)
 VMOUNT := -v "$(COSIM)/../..:/coresim-src:ro" -v "$(COSIM)/build:/coresim-build" -w /coresim-build
 VERILATOR := $(DOCKER) $(VMOUNT) verilator/verilator:latest
 IVERILOG := $(DOCKER) -v "$(COSIM)/../..:/coresim-src:ro" -v "$(COSIM)/build:/coresim-build" -w /coresim-build tangcore-iv:1
@@ -82,7 +82,7 @@ $(GEN)/uart_fixed_sim.v: $(RTL)/iosys/uart_fixed.v
 	    $(RTL)/iosys/uart_fixed.v > $@
 	! grep -q "ASSERTION_ERROR PARAMETER_OUT_OF_RANGE(" $@
 
-COSIM_SRCS := /coresim-src/src/verilator/config.v \
+COSIM_SRCS := /coresim-src/src/verilator/config.v /coresim-src/src/savestate.v /coresim-src/src/vram.v \
 	/coresim-src/sim/cosim/cosim_top.sv \
 	/coresim-build/gen/iosys_bl616_cosim.v \
 	/coresim-build/gen/uart_fixed_sim.v \

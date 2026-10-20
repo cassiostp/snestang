@@ -9,6 +9,14 @@ module SPC700_MCode(
     input [7:0] IR,
     input [3:0] STATE,
     output SpcMCode_r M
+
+`ifdef SNES_SAVESTATE
+    ,input ss_hold,
+    input [12:0] ss_a,
+    input [7:0] ss_d,
+    input ss_we,
+    output reg [7:0] ss_q
+`endif
 );
 
 // 31 bits
@@ -25,7 +33,21 @@ SpcRegCtrl_r R;
 always @(posedge CLK) begin
     if (~RST_N)
         MI <= MCODE0[0]; // {2'b0, 2'b0, 6'b0, 5'b1, 2'b0, 5'b0, 6'b0, 3'b0};
-    else if (EN) begin
+
+`ifdef SNES_SAVESTATE
+        else if (ss_we) begin
+            case (ss_a)
+            13'h1b58: MI[7:0] <= ss_d[7:0];
+            13'h1b59: MI[15:8] <= ss_d[7:0];
+            13'h1b5a: MI[23:16] <= ss_d[7:0];
+            13'h1b5b: MI[30:24] <= ss_d[6:0];
+            default: ;
+            endcase
+        end else if (!ss_hold)
+`else
+        else
+`endif
+    if (EN) begin
 		MI <= MCODE0[{IR, STATE[2:0]}];
 		if (IR == 8'h9E && STATE[3])		// DIV
 			MI <= MCODE0[{9'h1,STATE[1:0]}];
@@ -113,4 +135,16 @@ assign M = {ALUFlags,
             MI.busCtrl,
             MI.outBus};
 
+`ifdef SNES_SAVESTATE
+always @* begin
+    ss_q = 0;
+    case (ss_a)
+    13'h1b58: ss_q = 8'(MI[7:0]);
+    13'h1b59: ss_q = 8'(MI[15:8]);
+    13'h1b5a: ss_q = 8'(MI[23:16]);
+    13'h1b5b: ss_q = 8'(MI[30:24]);
+    default: ;
+    endcase
+end
+`endif
 endmodule

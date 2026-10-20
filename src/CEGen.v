@@ -28,10 +28,31 @@ module CEGen(
   input wire [31:0] IN_CLK,
   input wire [31:0] OUT_CLK,
   output reg CE
+
+`ifdef SNES_SAVESTATE
+    ,input ss_hold,
+    input [12:0] ss_a,
+    input [7:0] ss_d,
+    input ss_we,
+    output reg [7:0] ss_q
+`endif
 );
 
+  reg [31:0] CLK_SUM;
   always @(posedge CLK) begin : P1
-    reg [31:0] CLK_SUM;
+`ifdef SNES_SAVESTATE
+    if (ss_we) begin
+      case (ss_a)
+        13'h1ac0: CE <= ss_d[0:0];
+        13'h1ac1: CLK_SUM[7:0] = ss_d;
+        13'h1ac2: CLK_SUM[15:8] = ss_d;
+        13'h1ac3: CLK_SUM[23:16] = ss_d;
+        13'h1ac4: CLK_SUM[31:24] = ss_d;
+        default: ;
+      endcase
+    end else if (!ss_hold || !RST_N) begin
+`endif
+
 
     if(RST_N == 1'b0) begin
       CLK_SUM = 0;
@@ -44,7 +65,26 @@ module CEGen(
         CE <= 1'b1;
       end
     end
-  end
+
+`ifdef SNES_SAVESTATE
+    end
+`endif
+end
 
 
+
+`ifdef SNES_SAVESTATE
+// Register image; RAM and pipeline state are read only while frozen.
+always @* begin
+    ss_q = 8'b0;
+    case (ss_a)
+    13'h1ac0: ss_q = {7'b0, CE};
+    13'h1ac1: ss_q = CLK_SUM[7:0];
+    13'h1ac2: ss_q = CLK_SUM[15:8];
+    13'h1ac3: ss_q = CLK_SUM[23:16];
+    13'h1ac4: ss_q = CLK_SUM[31:24];
+    default: ;
+    endcase
+end
+`endif
 endmodule

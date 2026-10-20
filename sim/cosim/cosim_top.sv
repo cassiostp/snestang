@@ -97,6 +97,47 @@ import configPackage::*;
 reg clkref = 0;
 always @(posedge clk) clkref <= ~clkref;
 
+// Real state transport and bulk-memory paths. This interface bench has no
+// CPU/PPU/APU: the register section is zero, as its original traffic source
+// has no console state. Full-machine restore is tested in sim/savestate.
+wire ss_freeze, ss_loaded;
+wire [2:0] ss_op;
+wire ss_op_stb;
+wire [127:0] ss_status;
+wire [19:0] ss_ra, ss_wa;
+wire [7:0] ss_wd, ss_q;
+wire ss_rd, ss_taken, ss_abort, ss_ready, ss_wr;
+wire [12:0] ss_reg_a;
+wire [7:0] ss_reg_d;
+wire ss_reg_we;
+wire [24:0] ss_addr;
+wire [7:0] ss_din, ss_sd_q, ss_vr_q;
+wire ss_req, ss_we, ss_sd_ack, ss_vr_ack, ss_phase;
+wire ss_vr_sel = ss_addr[24:16] == 9'h180;
+wire ss_ack = ss_vr_sel ? ss_vr_ack : ss_sd_ack;
+wire [7:0] ss_mem_q = ss_vr_sel ? ss_vr_q : ss_sd_q;
+reg [4:0] ss_drain = 0;
+always @(posedge clk) ss_drain <= ss_freeze ? (ss_drain == 31 ? 31 : ss_drain + 1'b1) : 0;
+savestate ss_engine (
+ .clk(clk), .clkref(ss_phase), .resetn(resetn),
+ .mapper_flags({24'h001fff,24'h007fff,4'd3,4'd5,8'd0}),
+ .ss_supported(cosim_core_id == 2 && rom_bytes != 0), .ss_point(1'b1),
+ .ss_freeze(ss_freeze), .ss_reset(), .ss_loaded(ss_loaded), .ss_edge_reset(), .ss_active(),
+ .ss_a(ss_reg_a), .ss_din(ss_reg_d), .ss_we(ss_reg_we), .ss_dout(8'b0),
+ .sd_douta(8'b0), .sd_doutb(8'b0), .sd_ld_we(), .sd_ld_douta(), .sd_ld_doutb(),
+ .mem_addr(ss_addr), .mem_din(ss_din), .mem_we(ss_we), .mem_req(ss_req), .mem_ack(ss_ack), .mem_q(ss_mem_q),
+ .op(ss_op), .op_stb(ss_op_stb), .ss_status(ss_status),
+ .img_raddr(ss_ra), .img_rd_stb(ss_rd), .img_taken(ss_taken), .img_abort(ss_abort), .img_rdy(ss_ready), .img_q(ss_q),
+ .img_waddr(ss_wa), .img_wdin(ss_wd), .img_wr_stb(ss_wr)
+);
+vram ss_vram (
+ .clk(clk), .ss_hold(ss_freeze), .ss_sel(ss_vr_sel), .ss_req(ss_req), .ss_we(ss_we),
+ .ss_addr(ss_addr[15:0]), .ss_din(ss_din), .ss_ack(ss_vr_ack), .ss_q(ss_vr_q),
+ .ss_reg_a(ss_reg_a), .ss_reg_d(ss_reg_d), .ss_reg_we(ss_reg_we), .ss_reg_q(),
+ .vram1_addr(15'b0), .vram1_req(1'b0), .vram1_ack(), .vram1_we(1'b0), .vram1_din(8'b0), .vram1_dout(),
+ .vram2_addr(15'b0), .vram2_req(1'b0), .vram2_ack(), .vram2_we(1'b0), .vram2_din(8'b0), .vram2_dout()
+);
+
 // ---- UART gating (MODE blackout) ----
 wire uart_rx_iosys = silence ? 1'b1 : uart_rx;
 wire uart_tx_iosys;
@@ -126,14 +167,20 @@ end
 
 assign tx_pending = (sys.send_state != 4'd0) || (sys.response_req != sys.response_ack) ||
                     (sys.sv_rd_req != sys.sv_rd_ack) || sys.sv_notify ||
-                    (sys.sv_req != sys.sv_ack);
+                    (sys.sv_req != sys.sv_ack) ||
+                    (sys.ss_rd_req != sys.ss_rd_ack) || (sys.ss_st_req != sys.ss_st_ack) ||
+                    ss_op_stb || ss_wr || (ss_req != ss_ack);
 
 iosys_bl616_cosim #(
+    .SS_IF(1),
     .FREQ(21_492_000),
     .SAVE_IF(1),
     .SAVE_AW(17),
     .SAVE_RDY(1)
 ) sys (
+    .ss_op(ss_op), .ss_op_stb(ss_op_stb), .ss_status(ss_status),
+    .ss_img_raddr(ss_ra), .ss_img_rd_stb(ss_rd), .ss_img_taken(ss_taken), .ss_img_abort(ss_abort),
+    .ss_img_rdy(ss_ready), .ss_img_q(ss_q), .ss_img_waddr(ss_wa), .ss_img_wdin(ss_wd), .ss_img_wr_stb(ss_wr),
     .clk(clk),
     .hclk(hclk),
     .resetn(resetn),
@@ -178,7 +225,7 @@ iosys_bl616_cosim #(
     .sv_rreq(sv_rreq),
     .sv_rack(sv_rack_r),
     .sv_q(sv_q_r),
-    .sv_core_we(sv_core_we),
+    .sv_core_we(sv_core_we | ss_loaded),
 
     .uart_rx(uart_rx_iosys),
     .uart_tx(uart_tx_iosys)
@@ -297,6 +344,8 @@ reg [15:0] aram_addr = 0;               // SPC RAM byte address
 wire [15:0] aram_dout;                   // audio samples; nobody listens here
 
 sdram_snes sdram (
+    .ss_addr(ss_addr), .ss_din(ss_din), .ss_req(ss_req), .ss_we(ss_we), .ss_ack(ss_sd_ack), .ss_q(ss_sd_q),
+    .ss_block(ss_drain >= 8), .ss_reg_a(13'b0), .ss_reg_d(8'b0), .ss_reg_we(1'b0), .ss_reg_q(), .ss_phase(ss_phase),
     .clk(fclk), .mclk(clk), .clkref(clkref), .resetn(resetn), .busy(sdram_busy),
 
     .SDRAM_DQ(sdram_dq), .SDRAM_A(sdram_a), .SDRAM_BA(sdram_ba),
@@ -369,6 +418,7 @@ always @(posedge clk) begin
         churn_div <= 0;
         lfsr <= 16'hACE1;
     end else begin
+        if (!ss_freeze) begin
         tc <= tc + 1;
         lfsr <= lfsr_next(lfsr);
         sv_core_we <= 0;
@@ -445,6 +495,7 @@ always @(posedge clk) begin
         // the "game drove this byte" story straight).
         if (poke_hold != 0)
             poke_hold <= poke_hold - 1'd1;
+        end else sv_core_we <= 0;
     end
 end
 

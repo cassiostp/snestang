@@ -12,6 +12,14 @@ module mcode(
    input [7:0] IR,
    input [3:0] STATE,
    output MCode_r   M
+
+`ifdef SNES_SAVESTATE
+    ,input ss_hold,
+    input [12:0] ss_a,
+    input [7:0] ss_d,
+    input ss_we,
+    output reg [7:0] ss_q
+`endif
 );
 
    logic [51:0] M_TAB [0:2047];
@@ -2361,7 +2369,24 @@ M_TAB[2047]={3'b000, 3'b000, 2'b00, 3'b000, 2'b00, 2'b00, 8'b00000000, 3'b001, 3
         if (~RST_N)
             // MI <= M_TAB[2047];
             MI <= {3'b000, 3'b000, 2'b00, 3'b000, 2'b00, 2'b00, 8'b00000000, 3'b001, 3'b000, 3'b000, 2'b00, 6'b000000, 5'b00000, 2'b00, 3'b000, 2'b11};
-        else begin
+
+`ifdef SNES_SAVESTATE
+        else if (ss_we) begin
+            case (ss_a)
+            13'h1b50: MI[7:0] <= ss_d[7:0];
+            13'h1b51: MI[15:8] <= ss_d[7:0];
+            13'h1b52: MI[23:16] <= ss_d[7:0];
+            13'h1b53: MI[31:24] <= ss_d[7:0];
+            13'h1b54: MI[39:32] <= ss_d[7:0];
+            13'h1b55: MI[47:40] <= ss_d[7:0];
+            13'h1b56: MI[51:48] <= ss_d[3:0];
+            default: ;
+            endcase
+        end else if (!ss_hold)
+`else
+        else
+`endif
+        begin
             STATE2 = STATE - 4'd1;
             if (EN == 1'b1) begin
                 // NOTE: the previous code causes LUT to explode
@@ -2373,4 +2398,19 @@ M_TAB[2047]={3'b000, 3'b000, 2'b00, 3'b000, 2'b00, 2'b00, 8'b00000000, 3'b001, 3
    assign M = {ALUFlags, MI.stateCtrl, MI.addrBus, MI.addrInc, MI.muxCtrl, MI.addrCtrl, MI.loadPC, MI.loadSP, 
                MI.regAXY, MI.loadP, MI.loadT, MI.loadDKB, MI.busCtrl, MI.byteSel, MI.outBus, MI.va};
 
+`ifdef SNES_SAVESTATE
+always @* begin
+    ss_q = 0;
+    case (ss_a)
+    13'h1b50: ss_q = 8'(MI[7:0]);
+    13'h1b51: ss_q = 8'(MI[15:8]);
+    13'h1b52: ss_q = 8'(MI[23:16]);
+    13'h1b53: ss_q = 8'(MI[31:24]);
+    13'h1b54: ss_q = 8'(MI[39:32]);
+    13'h1b55: ss_q = 8'(MI[47:40]);
+    13'h1b56: ss_q = 8'(MI[51:48]);
+    default: ;
+    endcase
+end
+`endif
 endmodule

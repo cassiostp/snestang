@@ -1,6 +1,14 @@
 // This adds memory map and extension chips to SNES.
 
 module main (
+`ifdef SNES_SAVESTATE
+    input ss_hold,
+    input [12:0] ss_a,
+    input [7:0] ss_d,
+    input ss_we,
+    output [7:0] ss_q,
+    output ss_point,
+`endif
 	// input             WCLK,
 	input			  MCLK,
 	input             RESET_N,
@@ -185,6 +193,10 @@ wire  [5:0] MAP_ACTIVE;
 
 SNES SNES
 (
+`ifdef SNES_SAVESTATE
+    .ss_hold(ss_hold), .ss_a(ss_a), .ss_d(ss_d), .ss_we(ss_we), .ss_q(ss_q), .ss_point(ss_point),
+`endif
+
 	.MCLK(MCLK), .RST_N(RESET_N), .ENABLE(ENABLE),
 
 	.CA(CA), .CPURD_N(CPURD_N),	.CPUWR_N(CPUWR_N), .CPURD_CYC_N(CPURD_CYC_N),

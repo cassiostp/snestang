@@ -29,8 +29,20 @@ module P65C816(
    input [7:0]   DBG_DAT_IN,
    output reg [7:0] DBG_DAT_OUT,
 	input         DBG_DAT_WR
+
+`ifdef SNES_SAVESTATE
+    ,output ss_boundary,
+    input ss_hold,
+    input [12:0] ss_a,
+    input [7:0] ss_d,
+    input ss_we,
+    output reg [7:0] ss_q
+`endif
 );
 
+`ifdef SNES_SAVESTATE
+assign ss_boundary = STATE == 0 || WAIExec;
+`endif
    // pins not present: E, MX, PHI2, RWB
 
    reg [15:0]    A;
@@ -183,7 +195,18 @@ module P65C816(
    wire LAST_CYCLE = (NextState == 4'b0000) ? 1'b1 : 1'b0;
 
    always @(posedge CLK)
-      if (RST_N == 1'b0)
+      begin
+
+`ifdef SNES_SAVESTATE
+    if (ss_we) begin
+      case (ss_a)
+        13'h1812: IR[7:0] <= ss_d;
+        13'h1813: STATE[3:0] <= ss_d[3:0];
+        default: ;
+      endcase
+    end else if (!ss_hold || !RST_N) begin
+`endif
+if (RST_N == 1'b0)
       begin
          STATE <= {4{1'b0}};
          IR <= {8{1'b0}};
@@ -196,12 +219,24 @@ module P65C816(
             STATE <= NextState;
          end
       end
+`ifdef SNES_SAVESTATE
+    end
+`endif
+end
 
 
-   mcode MCode(.CLK(CLK), .RST_N(RST_N), .EN(EN), .IR(NextIR), .STATE(NextState), 
+   mcode MCode(
+`ifdef SNES_SAVESTATE
+    .ss_hold(ss_hold), .ss_a(ss_a), .ss_d(ss_d), .ss_we(ss_we), .ss_q(ss_q_mc),
+`endif
+.CLK(CLK), .RST_N(RST_N), .EN(EN), .IR(NextIR), .STATE(NextState),
          .M(MC));
 
-   AddrGen AddrGen(.CLK(CLK), .RST_N(RST_N), .EN(EN), .LOAD_PC(MC.LOAD_PC), 
+   AddrGen AddrGen(
+`ifdef SNES_SAVESTATE
+    .ss_hold(ss_hold), .ss_a(ss_a), .ss_d(ss_d), .ss_we(ss_we), .ss_q(ss_q_ag),
+`endif
+.CLK(CLK), .RST_N(RST_N), .EN(EN), .LOAD_PC(MC.LOAD_PC),
          .PCDec(CO), .GotInterrupt(GotInterrupt), .ADDR_CTRL(MC.ADDR_CTRL), 
          .IND_CTRL(MC.IND_CTRL), .D_IN(D_IN), .X(X), .Y(Y), .D(D), .S(SP), 
          .T(T), .DR(DR), .DBR(DBR), .e6502(EF), .PC(PC), .AA(AA), .AB(AB), 
@@ -243,7 +278,25 @@ module P65C816(
 
 
    always @(posedge CLK)
-      if (RST_N == 1'b0)
+      begin
+
+`ifdef SNES_SAVESTATE
+    if (ss_we) begin
+      case (ss_a)
+        13'h1800: A[7:0] <= ss_d;
+        13'h1801: A[15:8] <= ss_d;
+        13'h1802: X[7:0] <= ss_d;
+        13'h1803: X[15:8] <= ss_d;
+        13'h1804: Y[7:0] <= ss_d;
+        13'h1805: Y[15:8] <= ss_d;
+        13'h1808: SP[7:0] <= ss_d;
+        13'h1809: SP[15:8] <= ss_d;
+        13'h1811: oldXF <= ss_d[0:0];
+        default: ;
+      endcase
+    end else if (!ss_hold || !RST_N) begin
+`endif
+if (RST_N == 1'b0)
       begin
          A <= {16{1'b0}};
          X <= {16{1'b0}};
@@ -348,10 +401,25 @@ module P65C816(
             endcase
          end
       end
+`ifdef SNES_SAVESTATE
+    end
+`endif
+end
 
 
    always @(posedge CLK)
-      if (RST_N == 1'b0)
+      begin
+
+`ifdef SNES_SAVESTATE
+    if (ss_we) begin
+      case (ss_a)
+        13'h180e: P[7:0] <= ss_d;
+        13'h180f: P[8:8] <= ss_d[0:0];
+        default: ;
+      endcase
+    end else if (!ss_hold || !RST_N) begin
+`endif
+if (RST_N == 1'b0)
          P <= 9'b100110100;
       else
       begin
@@ -426,10 +494,30 @@ module P65C816(
                   ;
             endcase
       end
+`ifdef SNES_SAVESTATE
+    end
+`endif
+end
 
 
    always @(posedge CLK)
-      if (RST_N == 1'b0)
+      begin
+
+`ifdef SNES_SAVESTATE
+    if (ss_we) begin
+      case (ss_a)
+        13'h1806: D[7:0] <= ss_d;
+        13'h1807: D[15:8] <= ss_d;
+        13'h180a: T[7:0] <= ss_d;
+        13'h180b: T[15:8] <= ss_d;
+        13'h180c: PBR[7:0] <= ss_d;
+        13'h180d: DBR[7:0] <= ss_d;
+        13'h1810: DR[7:0] <= ss_d;
+        default: ;
+      endcase
+    end else if (!ss_hold || !RST_N) begin
+`endif
+if (RST_N == 1'b0)
       begin
          T <= {16{1'b0}};
          DR <= {8{1'b0}};
@@ -473,6 +561,10 @@ module P65C816(
             endcase
          end
       end
+`ifdef SNES_SAVESTATE
+    end
+`endif
+end
 
    // nand2mario: PHP fix from FpgaSnes
    assign D_OUT = // (MC.OUT_BUS == 3'b001 & MC.BYTE_SEL[1] == 1'b1) ? AluR[15:8] :
@@ -511,7 +603,19 @@ module P65C816(
 
 
    always @(posedge CLK)
-      if (RST_N == 1'b0)
+      begin
+
+`ifdef SNES_SAVESTATE
+    if (ss_we) begin
+      case (ss_a)
+        13'h181a: NMI_SYNC <= ss_d[0:0];
+        13'h181b: IRQ_SYNC <= ss_d[0:0];
+        13'h181e: OLD_NMI_N <= ss_d[0:0];
+        default: ;
+      endcase
+    end else if (!ss_hold || !RST_N) begin
+`endif
+if (RST_N == 1'b0)
       begin
          OLD_NMI_N <= 1'b1;
          NMI_SYNC <= 1'b0;
@@ -529,10 +633,29 @@ module P65C816(
             IRQ_SYNC <= (~IRQ_N);
          end
       end
+`ifdef SNES_SAVESTATE
+    end
+`endif
+end
 
 
    always @(posedge CLK)
-      if (RST_N == 1'b0)
+      begin
+
+`ifdef SNES_SAVESTATE
+    if (ss_we) begin
+      case (ss_a)
+        13'h1814: GotInterrupt <= ss_d[0:0];
+        13'h1815: IsResetInterrupt <= ss_d[0:0];
+        13'h1816: IsNMIInterrupt <= ss_d[0:0];
+        13'h1817: IsIRQInterrupt <= ss_d[0:0];
+        13'h181c: NMI_ACTIVE <= ss_d[0:0];
+        13'h181d: IRQ_ACTIVE <= ss_d[0:0];
+        default: ;
+      endcase
+    end else if (!ss_hold || !RST_N) begin
+`endif
+if (RST_N == 1'b0)
       begin
          IsResetInterrupt <= 1'b1;
          IsNMIInterrupt <= 1'b0;
@@ -565,6 +688,10 @@ module P65C816(
             end
          end
       end
+`ifdef SNES_SAVESTATE
+    end
+`endif
+end
 
    assign IsBRKInterrupt = (IR == 8'h00) ? 1'b1 :
                            1'b0;
@@ -574,7 +701,18 @@ module P65C816(
 
 
    always @(posedge CLK)
-      if (RST_N == 1'b0)
+      begin
+
+`ifdef SNES_SAVESTATE
+    if (ss_we) begin
+      case (ss_a)
+        13'h1818: WAIExec <= ss_d[0:0];
+        13'h1819: STPExec <= ss_d[0:0];
+        default: ;
+      endcase
+    end else if (!ss_hold || !RST_N) begin
+`endif
+if (RST_N == 1'b0)
       begin
          WAIExec <= 1'b0;
          STPExec <= 1'b0;
@@ -599,6 +737,10 @@ module P65C816(
                WAIExec <= 1'b0;
          end
       end
+`ifdef SNES_SAVESTATE
+    end
+`endif
+end
 
 
    always @*
@@ -796,4 +938,52 @@ module P65C816(
    end
 */
 
+
+`ifdef SNES_SAVESTATE
+
+`ifdef SNES_SAVESTATE
+wire [7:0] ss_q_ag;
+`endif
+wire [7:0] ss_q_mc;
+// Register image; RAM and pipeline state are read only while frozen.
+always @* begin
+    ss_q = 8'b0;
+    case (ss_a)
+    13'h1800: ss_q = A[7:0];
+    13'h1801: ss_q = A[15:8];
+    13'h1802: ss_q = X[7:0];
+    13'h1803: ss_q = X[15:8];
+    13'h1804: ss_q = Y[7:0];
+    13'h1805: ss_q = Y[15:8];
+    13'h1806: ss_q = D[7:0];
+    13'h1807: ss_q = D[15:8];
+    13'h1808: ss_q = SP[7:0];
+    13'h1809: ss_q = SP[15:8];
+    13'h180a: ss_q = T[7:0];
+    13'h180b: ss_q = T[15:8];
+    13'h180c: ss_q = PBR[7:0];
+    13'h180d: ss_q = DBR[7:0];
+    13'h180e: ss_q = P[7:0];
+    13'h180f: ss_q = {7'b0, P[8:8]};
+    13'h1810: ss_q = DR[7:0];
+    13'h1811: ss_q = {7'b0, oldXF};
+    13'h1812: ss_q = IR[7:0];
+    13'h1813: ss_q = {4'b0, STATE[3:0]};
+    13'h1814: ss_q = {7'b0, GotInterrupt};
+    13'h1815: ss_q = {7'b0, IsResetInterrupt};
+    13'h1816: ss_q = {7'b0, IsNMIInterrupt};
+    13'h1817: ss_q = {7'b0, IsIRQInterrupt};
+    13'h1818: ss_q = {7'b0, WAIExec};
+    13'h1819: ss_q = {7'b0, STPExec};
+    13'h181a: ss_q = {7'b0, NMI_SYNC};
+    13'h181b: ss_q = {7'b0, IRQ_SYNC};
+    13'h181c: ss_q = {7'b0, NMI_ACTIVE};
+    13'h181d: ss_q = {7'b0, IRQ_ACTIVE};
+    13'h181e: ss_q = {7'b0, OLD_NMI_N};
+    default: ;
+    endcase
+    ss_q = ss_q | ss_q_ag;
+    ss_q = ss_q | ss_q_mc;
+end
+`endif
 endmodule

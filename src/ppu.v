@@ -1,5 +1,5 @@
 
-// nand2mario: ∂ppu2.v is the new version of SPPU translated from PPU.vhd in MIST SNES core
+// nand2mario: ?ppu2.v is the new version of SPPU translated from PPU.vhd in MIST SNES core
 // 2023.12
 
 module SPPU(
@@ -52,6 +52,14 @@ module SPPU(
     output reg FRAME_OUT,
 
     input [4:0] BG_EN
+
+`ifdef SNES_SAVESTATE
+    ,input ss_hold,
+    input [12:0] ss_a,
+    input [7:0] ss_d,
+    input ss_we,
+    output reg [7:0] ss_q
+`endif
 );
 
 // types and functions
@@ -248,6 +256,18 @@ IO_CLK  _____/    \____/    \_
 
 always @(posedge CLK) begin : clock_gen
     reg [2:0] DOT_CYCLES;
+`ifdef SNES_SAVESTATE
+    if (ss_we) begin
+      case (ss_a)
+        13'h0005: DOT_CLK <= ss_d[0:0];
+        13'h0006: DOT_CLKF_CE <= ss_d[0:0];
+        13'h0007: DOT_CLKR_CE <= ss_d[0:0];
+        13'h0008: CLK_CNT[2:0] <= ss_d[2:0];
+        default: ;
+      endcase
+    end else if (!ss_hold || !RST_N) begin
+`endif
+
     if (~RST_N) begin
         CLK_CNT <= 0;
         DOT_CLK <= 1'b0;
@@ -278,16 +298,38 @@ always @(posedge CLK) begin : clock_gen
         if (CLK_CNT == DOT_CYCLES-1-1)
             DOT_CLKR_CE <= 1;
     end
+
+`ifdef SNES_SAVESTATE
+    end
+`endif
 end
 
 // Dual-port CGRAM
 ppucgram cgram (
+`ifdef SNES_SAVESTATE
+ .ss_hold(ss_hold), .ss_a(ss_a), .ss_d(ss_d), .ss_we(ss_we), .ss_q(ss_q_cg),
+`endif
+
   .clock(CLK), 
   .address_a(CGRAM_ADDR), .data_a(CGRAM_D), .wren_a(CGRAM_WE), .q_a(CGRAM_Q),
   .address_b(CGRAM_ADDR_CLR), .data_b({CGRAM_ADDR_CLR[6:0], CGRAM_ADDR_CLR}), .wren_b(~RST_N), .q_b()
 );
 
-always @(posedge CLK) CGRAM_ADDR_CLR <= CGRAM_ADDR_CLR + 1;
+always @(posedge CLK) begin
+
+`ifdef SNES_SAVESTATE
+    if (ss_we) begin
+      case (ss_a)
+        13'h0117: CGRAM_ADDR_CLR[7:0] <= ss_d;
+        default: ;
+      endcase
+    end else if (!ss_hold || !RST_N) begin
+`endif
+CGRAM_ADDR_CLR <= CGRAM_ADDR_CLR + 1;
+`ifdef SNES_SAVESTATE
+    end
+`endif
+end
 
 assign CGRAM_ADDR = (BG_MATH && ~FORCE_BLANK) ? CGRAM_FETCH_ADDR :
                    CGADD[8:1];
@@ -296,6 +338,124 @@ assign CGRAM_WE = (CGADD[0] && ~PAWR_N && PA == 8'h22 && SYSCLK_CE) ? 1 : 0;
 
 // always @(negedge RST_N, negedge IO_CLK) begin : register_access
 always @(posedge CLK) begin : register_access
+`ifdef SNES_SAVESTATE
+    if (ss_we) begin
+      case (ss_a)
+        13'h000c: PARD_Nr <= ss_d[0:0];
+        13'h000d: FORCE_BLANK <= ss_d[0:0];
+        13'h000e: MB[3:0] <= ss_d[3:0];
+        13'h000f: OBJADDR[2:0] <= ss_d[2:0];
+        13'h0010: OBJNAME[1:0] <= ss_d[1:0];
+        13'h0011: OBJSIZE[2:0] <= ss_d[2:0];
+        13'h0012: OAMADD[7:0] <= ss_d;
+        13'h0013: OAMADD[8:8] <= ss_d[0:0];
+        13'h0014: OAM_PRIO <= ss_d[0:0];
+        13'h0015: TM[7:0] <= ss_d;
+        13'h0016: TS[7:0] <= ss_d;
+        13'h0017: BGINTERLACE <= ss_d[0:0];
+        13'h0018: OBJINTERLACE <= ss_d[0:0];
+        13'h0019: OVERSCAN <= ss_d[0:0];
+        13'h001a: PSEUDOHIRES <= ss_d[0:0];
+        13'h001b: M7EXTBG <= ss_d[0:0];
+        13'h001c: BG_MODE[2:0] <= ss_d[2:0];
+        13'h001d: BG3PRIO <= ss_d[0:0];
+        13'h001e: BG_SIZE[3:0] <= ss_d[3:0];
+        13'h001f: BG_MOSAIC_EN[3:0] <= ss_d[3:0];
+        13'h0020: MOSAIC_SIZE[3:0] <= ss_d[3:0];
+        13'h0021: BG_SC_ADDR[0][5:0] <= ss_d[5:0];
+        13'h0022: BG_SC_ADDR[1][5:0] <= ss_d[5:0];
+        13'h0023: BG_SC_ADDR[2][5:0] <= ss_d[5:0];
+        13'h0024: BG_SC_ADDR[3][5:0] <= ss_d[5:0];
+        13'h0025: BG_SC_SIZE[0][1:0] <= ss_d[1:0];
+        13'h0026: BG_SC_SIZE[1][1:0] <= ss_d[1:0];
+        13'h0027: BG_SC_SIZE[2][1:0] <= ss_d[1:0];
+        13'h0028: BG_SC_SIZE[3][1:0] <= ss_d[1:0];
+        13'h0029: BG_NBA[0][3:0] <= ss_d[3:0];
+        13'h002a: BG_NBA[1][3:0] <= ss_d[3:0];
+        13'h002b: BG_NBA[2][3:0] <= ss_d[3:0];
+        13'h002c: BG_NBA[3][3:0] <= ss_d[3:0];
+        13'h002d: CGADD[7:0] <= ss_d;
+        13'h002e: CGADD[8:8] <= ss_d[0:0];
+        13'h002f: VMAIN_ADDRINC <= ss_d[0:0];
+        13'h0030: VMAIN_ADDRTRANS[1:0] <= ss_d[1:0];
+        13'h0031: VMADD[7:0] <= ss_d;
+        13'h0032: VMADD[15:8] <= ss_d;
+        13'h0033: BG_HOFS[0][7:0] <= ss_d;
+        13'h0034: BG_HOFS[0][9:8] <= ss_d[1:0];
+        13'h0035: BG_HOFS[1][7:0] <= ss_d;
+        13'h0036: BG_HOFS[1][9:8] <= ss_d[1:0];
+        13'h0037: BG_HOFS[2][7:0] <= ss_d;
+        13'h0038: BG_HOFS[2][9:8] <= ss_d[1:0];
+        13'h0039: BG_HOFS[3][7:0] <= ss_d;
+        13'h003a: BG_HOFS[3][9:8] <= ss_d[1:0];
+        13'h003b: BG_VOFS[0][7:0] <= ss_d;
+        13'h003c: BG_VOFS[0][9:8] <= ss_d[1:0];
+        13'h003d: BG_VOFS[1][7:0] <= ss_d;
+        13'h003e: BG_VOFS[1][9:8] <= ss_d[1:0];
+        13'h003f: BG_VOFS[2][7:0] <= ss_d;
+        13'h0040: BG_VOFS[2][9:8] <= ss_d[1:0];
+        13'h0041: BG_VOFS[3][7:0] <= ss_d;
+        13'h0042: BG_VOFS[3][9:8] <= ss_d[1:0];
+        13'h0043: M7SEL[7:0] <= ss_d;
+        13'h0044: M7A[7:0] <= ss_d;
+        13'h0045: M7A[15:8] <= ss_d;
+        13'h0046: M7B[7:0] <= ss_d;
+        13'h0047: M7B[15:8] <= ss_d;
+        13'h0048: M7C[7:0] <= ss_d;
+        13'h0049: M7C[15:8] <= ss_d;
+        13'h004a: M7D[7:0] <= ss_d;
+        13'h004b: M7D[15:8] <= ss_d;
+        13'h004c: M7HOFS[7:0] <= ss_d;
+        13'h004d: M7HOFS[12:8] <= ss_d[4:0];
+        13'h004e: M7VOFS[7:0] <= ss_d;
+        13'h004f: M7VOFS[12:8] <= ss_d[4:0];
+        13'h0050: M7X[7:0] <= ss_d;
+        13'h0051: M7X[12:8] <= ss_d[4:0];
+        13'h0052: M7Y[7:0] <= ss_d;
+        13'h0053: M7Y[12:8] <= ss_d[4:0];
+        13'h0054: WH0[7:0] <= ss_d;
+        13'h0055: WH1[7:0] <= ss_d;
+        13'h0056: WH2[7:0] <= ss_d;
+        13'h0057: WH3[7:0] <= ss_d;
+        13'h0058: W12SEL[7:0] <= ss_d;
+        13'h0059: W34SEL[7:0] <= ss_d;
+        13'h005a: WOBJSEL[7:0] <= ss_d;
+        13'h005b: WBGLOG[7:0] <= ss_d;
+        13'h005c: WOBJLOG[7:0] <= ss_d;
+        13'h005d: TMW[7:0] <= ss_d;
+        13'h005e: TSW[7:0] <= ss_d;
+        13'h005f: CGWSEL[7:0] <= ss_d;
+        13'h0060: CGADSUB[7:0] <= ss_d;
+        13'h0061: SUBCOLBD[7:0] <= ss_d;
+        13'h0062: SUBCOLBD[14:8] <= ss_d[6:0];
+        13'h0063: OPHCT[7:0] <= ss_d;
+        13'h0064: OPHCT[8:8] <= ss_d[0:0];
+        13'h0065: OPVCT[7:0] <= ss_d;
+        13'h0066: OPVCT[8:8] <= ss_d[0:0];
+        13'h0067: OPHCT_latch <= ss_d[0:0];
+        13'h0068: OPVCT_latch <= ss_d[0:0];
+        13'h0069: EXTLATCHr <= ss_d[0:0];
+        13'h006a: F_LATCH <= ss_d[0:0];
+        13'h006b: CGRAM_Lsb[7:0] <= ss_d;
+        13'h006c: BGOFS_latch[7:0] <= ss_d;
+        13'h006d: M7_latch[7:0] <= ss_d;
+        13'h006e: BGHOFS_latch[2:0] <= ss_d[2:0];
+        13'h006f: OAM_latch[7:0] <= ss_d;
+        13'h0070: VRAMDATA_Prefetch[7:0] <= ss_d;
+        13'h0071: VRAMDATA_Prefetch[15:8] <= ss_d;
+        13'h0072: VMADD_INC[7:0] <= ss_d;
+        13'h0076: OAM_ADDR_REQ <= ss_d[0:0];
+        13'h0077: OAM_PRIO_REQ <= ss_d[0:0];
+        13'h0078: VRAMPRERD_REQ <= ss_d[0:0];
+        13'h0079: VRAMRD_CNT[1:0] <= ss_d[1:0];
+        13'h00cd: OAM_ADDR[7:0] <= ss_d;
+        13'h00ce: OAM_ADDR[9:8] <= ss_d[1:0];
+        13'h00ef: OAM_PRIO_INDEX[6:0] <= ss_d[6:0];
+        default: ;
+      endcase
+    end else if (!ss_hold || !RST_N) begin
+`endif
+
     if (~RST_N) begin
         FORCE_BLANK <= 1'b1;
         MB <= 4'b0;
@@ -675,9 +835,23 @@ always @(posedge CLK) begin : register_access
             F_LATCH <= 1;
         end
     end
+
+`ifdef SNES_SAVESTATE
+    end
+`endif
 end
 
 always @(posedge CLK) begin
+`ifdef SNES_SAVESTATE
+    if (ss_we) begin
+      case (ss_a)
+        13'h0009: MDR1[7:0] <= ss_d;
+        13'h000a: MDR2[7:0] <= ss_d;
+        default: ;
+      endcase
+    end else if (!ss_hold || !RST_N) begin
+`endif
+
     if (~RST_N) begin
         MDR1 <= 8'b1111_1111;
         MDR2 <= 8'b1111_1111;
@@ -688,9 +862,22 @@ always @(posedge CLK) begin
         if (PA == 8'h38 || PA == 8'h3C || PA == 8'h3D || PA == 8'h3F)
             MDR2 <= D_OUT;
     end
+
+`ifdef SNES_SAVESTATE
+    end
+`endif
 end
 
 always @(posedge CLK) begin
+`ifdef SNES_SAVESTATE
+    if (ss_we) begin
+      case (ss_a)
+        13'h000b: D_OUT[7:0] <= ss_d;
+        default: ;
+      endcase
+    end else if (!ss_hold || !RST_N) begin
+`endif
+
     if (~RST_N) begin
         D_OUT <= 0;
     end else begin
@@ -740,6 +927,10 @@ always @(posedge CLK) begin
             D_OUT <= DI;
         endcase
     end
+
+`ifdef SNES_SAVESTATE
+    end
+`endif
 end
 
 assign DO = D_OUT;
@@ -791,6 +982,25 @@ assign LAST_VIS_LINE = ~OVERSCAN ? {1'b0, 8'hE0} : {1'b0, 8'hEF};
 always @(posedge CLK) begin : hv_counters
     reg [8:0] VSYNC_LINE;
     reg [8:0] VSYNC_HSTART;
+`ifdef SNES_SAVESTATE
+    if (ss_we) begin
+      case (ss_a)
+        13'h0000: HDE <= ss_d[0:0];
+        13'h0001: VDE <= ss_d[0:0];
+        13'h0002: HSYNC <= ss_d[0:0];
+        13'h0003: VSYNC <= ss_d[0:0];
+        13'h007a: H_CNT[7:0] <= ss_d;
+        13'h007b: H_CNT[8:8] <= ss_d[0:0];
+        13'h007c: V_CNT[7:0] <= ss_d;
+        13'h007d: V_CNT[8:8] <= ss_d[0:0];
+        13'h007e: FIELD <= ss_d[0:0];
+        13'h007f: IN_HBL <= ss_d[0:0];
+        13'h0080: IN_VBL <= ss_d[0:0];
+        default: ;
+      endcase
+    end else if (!ss_hold || !RST_N) begin
+`endif
+
 
     if (~RST_N) begin
         H_CNT <= 0;
@@ -850,6 +1060,10 @@ always @(posedge CLK) begin : hv_counters
             end
         end
     end
+
+`ifdef SNES_SAVESTATE
+    end
+`endif
 end
 
 always @* begin : bg_obj_signals
@@ -1147,6 +1361,25 @@ always @* begin : bg_addr_gen
 end
 
 always @(posedge CLK) begin
+`ifdef SNES_SAVESTATE
+    if (ss_we) begin
+      case (ss_a)
+        13'h00c1: M7_SCREEN_X[7:0] <= ss_d;
+        13'h00c2: M7_TEMP_X[7:0] <= ss_d;
+        13'h00c3: M7_TEMP_X[15:8] <= ss_d;
+        13'h00c4: M7_TEMP_X[23:16] <= ss_d;
+        13'h00c5: M7_TEMP_Y[7:0] <= ss_d;
+        13'h00c6: M7_TEMP_Y[15:8] <= ss_d;
+        13'h00c7: M7_TEMP_Y[23:16] <= ss_d;
+        13'h00c8: M7_TILE_N[7:0] <= ss_d;
+        13'h00c9: M7_TILE_ROW[2:0] <= ss_d[2:0];
+        13'h00ca: M7_TILE_COL[2:0] <= ss_d[2:0];
+        13'h00cb: M7_TILE_OUTSIDE <= ss_d[0:0];
+        default: ;
+      endcase
+    end else if (!ss_hold || !RST_N) begin
+`endif
+
     if (~RST_N) begin
         M7_SCREEN_X <= 0;
         M7_TILE_N <= 8'b0;
@@ -1181,11 +1414,77 @@ always @(posedge CLK) begin
         M7_TILE_ROW <= M7_VRAM_Y[10:8];
         M7_TILE_OUTSIDE <= M7_IS_OUTSIDE;
     end
+
+`ifdef SNES_SAVESTATE
+    end
+`endif
 end
 
 // Fetch background tiles from VRAM
 always @(posedge CLK) begin : fetch_bg_tiles
     reg [7:0] M7_PIX;
+`ifdef SNES_SAVESTATE
+    if (ss_we) begin
+      case (ss_a)
+        13'h0075: BG_FORCE_BLANK <= ss_d[0:0];
+        13'h0086: BG_MOSAIC_Y[3:0] <= ss_d[3:0];
+        13'h0087: BG3_OPT_DATA0[7:0] <= ss_d;
+        13'h0088: BG3_OPT_DATA0[15:8] <= ss_d;
+        13'h0089: BG3_OPT_DATA1[7:0] <= ss_d;
+        13'h008a: BG3_OPT_DATA1[15:8] <= ss_d;
+        13'h008b: BG_DATA[0][7:0] <= ss_d;
+        13'h008c: BG_DATA[0][15:8] <= ss_d;
+        13'h008d: BG_DATA[1][7:0] <= ss_d;
+        13'h008e: BG_DATA[1][15:8] <= ss_d;
+        13'h008f: BG_DATA[2][7:0] <= ss_d;
+        13'h0090: BG_DATA[2][15:8] <= ss_d;
+        13'h0091: BG_DATA[3][7:0] <= ss_d;
+        13'h0092: BG_DATA[3][15:8] <= ss_d;
+        13'h0093: BG_DATA[4][7:0] <= ss_d;
+        13'h0094: BG_DATA[4][15:8] <= ss_d;
+        13'h0095: BG_DATA[5][7:0] <= ss_d;
+        13'h0096: BG_DATA[5][15:8] <= ss_d;
+        13'h0097: BG_DATA[6][7:0] <= ss_d;
+        13'h0098: BG_DATA[6][15:8] <= ss_d;
+        13'h0099: BG_DATA[7][7:0] <= ss_d;
+        13'h009a: BG_DATA[7][15:8] <= ss_d;
+        13'h009b: BG_TILES_PLANES[0][0][7:0] <= ss_d;
+        13'h009c: BG_TILES_PLANES[0][1][7:0] <= ss_d;
+        13'h009d: BG_TILES_PLANES[0][2][7:0] <= ss_d;
+        13'h009e: BG_TILES_PLANES[0][3][7:0] <= ss_d;
+        13'h009f: BG_TILES_PLANES[0][4][7:0] <= ss_d;
+        13'h00a0: BG_TILES_PLANES[0][5][7:0] <= ss_d;
+        13'h00a1: BG_TILES_PLANES[0][6][7:0] <= ss_d;
+        13'h00a2: BG_TILES_PLANES[0][7][7:0] <= ss_d;
+        13'h00a3: BG_TILES_PLANES[0][8][7:0] <= ss_d;
+        13'h00a4: BG_TILES_PLANES[0][9][7:0] <= ss_d;
+        13'h00a5: BG_TILES_PLANES[0][10][7:0] <= ss_d;
+        13'h00a6: BG_TILES_PLANES[0][11][7:0] <= ss_d;
+        13'h00a7: BG_TILES_PLANES[1][0][7:0] <= ss_d;
+        13'h00a8: BG_TILES_PLANES[1][1][7:0] <= ss_d;
+        13'h00a9: BG_TILES_PLANES[1][2][7:0] <= ss_d;
+        13'h00aa: BG_TILES_PLANES[1][3][7:0] <= ss_d;
+        13'h00ab: BG_TILES_PLANES[1][4][7:0] <= ss_d;
+        13'h00ac: BG_TILES_PLANES[1][5][7:0] <= ss_d;
+        13'h00ad: BG_TILES_PLANES[1][6][7:0] <= ss_d;
+        13'h00ae: BG_TILES_PLANES[1][7][7:0] <= ss_d;
+        13'h00af: BG_TILES_PLANES[1][8][7:0] <= ss_d;
+        13'h00b0: BG_TILES_PLANES[1][9][7:0] <= ss_d;
+        13'h00b1: BG_TILES_PLANES[1][10][7:0] <= ss_d;
+        13'h00b2: BG_TILES_PLANES[1][11][7:0] <= ss_d;
+        13'h00b3: BG_TILES_ATR[0][0][3:0] <= ss_d[3:0];
+        13'h00b4: BG_TILES_ATR[0][1][3:0] <= ss_d[3:0];
+        13'h00b5: BG_TILES_ATR[0][2][3:0] <= ss_d[3:0];
+        13'h00b6: BG_TILES_ATR[0][3][3:0] <= ss_d[3:0];
+        13'h00b7: BG_TILES_ATR[1][0][3:0] <= ss_d[3:0];
+        13'h00b8: BG_TILES_ATR[1][1][3:0] <= ss_d[3:0];
+        13'h00b9: BG_TILES_ATR[1][2][3:0] <= ss_d[3:0];
+        13'h00ba: BG_TILES_ATR[1][3][3:0] <= ss_d[3:0];
+        default: ;
+      endcase
+    end else if (!ss_hold || !RST_N) begin
+`endif
+
 
     if (~RST_N) begin
         BG_DATA <= '{8{16'b0}};
@@ -1327,6 +1626,10 @@ always @(posedge CLK) begin : fetch_bg_tiles
             end
         end
     end
+
+`ifdef SNES_SAVESTATE
+    end
+`endif
 end
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -1335,6 +1638,10 @@ end
 
 // channel B: range scanning reads of OAM
 ppuoam OAM(
+`ifdef SNES_SAVESTATE
+ .ss_hold(ss_hold), .ss_a(ss_a), .ss_d(ss_d), .ss_we(ss_we), .ss_q(ss_q_oa),
+`endif
+
     .clock(CLK),       
     .data_a(OAM_D), .data_b(32'b0),
     .address_a(OAM_ADDR_A), .address_b(OAM_ADDR_B),
@@ -1350,9 +1657,54 @@ assign OAM_WE = (~OAM_ADDR[9] || (~IN_VBL && ~FORCE_BLANK))
 reg [7:0] HOAM [0:31]  /* synthesis syn_ramstyle="distributed_ram" */;
 
 always @(posedge CLK) begin
+`ifdef SNES_SAVESTATE
+    if (ss_we) begin
+      case (ss_a)
+        13'h00cc: HOAM_Q[7:0] <= ss_d;
+        13'h0124: HOAM[0][7:0] <= ss_d;
+        13'h0125: HOAM[1][7:0] <= ss_d;
+        13'h0126: HOAM[2][7:0] <= ss_d;
+        13'h0127: HOAM[3][7:0] <= ss_d;
+        13'h0128: HOAM[4][7:0] <= ss_d;
+        13'h0129: HOAM[5][7:0] <= ss_d;
+        13'h012a: HOAM[6][7:0] <= ss_d;
+        13'h012b: HOAM[7][7:0] <= ss_d;
+        13'h012c: HOAM[8][7:0] <= ss_d;
+        13'h012d: HOAM[9][7:0] <= ss_d;
+        13'h012e: HOAM[10][7:0] <= ss_d;
+        13'h012f: HOAM[11][7:0] <= ss_d;
+        13'h0130: HOAM[12][7:0] <= ss_d;
+        13'h0131: HOAM[13][7:0] <= ss_d;
+        13'h0132: HOAM[14][7:0] <= ss_d;
+        13'h0133: HOAM[15][7:0] <= ss_d;
+        13'h0134: HOAM[16][7:0] <= ss_d;
+        13'h0135: HOAM[17][7:0] <= ss_d;
+        13'h0136: HOAM[18][7:0] <= ss_d;
+        13'h0137: HOAM[19][7:0] <= ss_d;
+        13'h0138: HOAM[20][7:0] <= ss_d;
+        13'h0139: HOAM[21][7:0] <= ss_d;
+        13'h013a: HOAM[22][7:0] <= ss_d;
+        13'h013b: HOAM[23][7:0] <= ss_d;
+        13'h013c: HOAM[24][7:0] <= ss_d;
+        13'h013d: HOAM[25][7:0] <= ss_d;
+        13'h013e: HOAM[26][7:0] <= ss_d;
+        13'h013f: HOAM[27][7:0] <= ss_d;
+        13'h0140: HOAM[28][7:0] <= ss_d;
+        13'h0141: HOAM[29][7:0] <= ss_d;
+        13'h0142: HOAM[30][7:0] <= ss_d;
+        13'h0143: HOAM[31][7:0] <= ss_d;
+        default: ;
+      endcase
+    end else if (!ss_hold || !RST_N) begin
+`endif
+
     HOAM_Q <= HOAM[HOAM_ADDR];
     if (HOAM_WE)
         HOAM[HOAM_ADDR] <= DI;
+
+`ifdef SNES_SAVESTATE
+    end
+`endif
 end
 
 assign HOAM_ADDR = (~IN_VBL && ~FORCE_BLANK) ? OAM_ADDR[8:4] : OAM_ADDR[4:0];
@@ -1383,6 +1735,75 @@ always @(posedge CLK) begin : calc_sprite_range
     reg OAM_OBJ_HFLIP;
     reg OAM_OBJ_VFLIP;
     reg [5:0] TEMP;
+`ifdef SNES_SAVESTATE
+    if (ss_we) begin
+      case (ss_a)
+        13'h0073: OBJ_TIME_OFL <= ss_d[0:0];
+        13'h0074: OBJ_RANGE_OFL <= ss_d[0:0];
+        13'h00cf: OAM_RANGE[0][6:0] <= ss_d[6:0];
+        13'h00d0: OAM_RANGE[1][6:0] <= ss_d[6:0];
+        13'h00d1: OAM_RANGE[2][6:0] <= ss_d[6:0];
+        13'h00d2: OAM_RANGE[3][6:0] <= ss_d[6:0];
+        13'h00d3: OAM_RANGE[4][6:0] <= ss_d[6:0];
+        13'h00d4: OAM_RANGE[5][6:0] <= ss_d[6:0];
+        13'h00d5: OAM_RANGE[6][6:0] <= ss_d[6:0];
+        13'h00d6: OAM_RANGE[7][6:0] <= ss_d[6:0];
+        13'h00d7: OAM_RANGE[8][6:0] <= ss_d[6:0];
+        13'h00d8: OAM_RANGE[9][6:0] <= ss_d[6:0];
+        13'h00d9: OAM_RANGE[10][6:0] <= ss_d[6:0];
+        13'h00da: OAM_RANGE[11][6:0] <= ss_d[6:0];
+        13'h00db: OAM_RANGE[12][6:0] <= ss_d[6:0];
+        13'h00dc: OAM_RANGE[13][6:0] <= ss_d[6:0];
+        13'h00dd: OAM_RANGE[14][6:0] <= ss_d[6:0];
+        13'h00de: OAM_RANGE[15][6:0] <= ss_d[6:0];
+        13'h00df: OAM_RANGE[16][6:0] <= ss_d[6:0];
+        13'h00e0: OAM_RANGE[17][6:0] <= ss_d[6:0];
+        13'h00e1: OAM_RANGE[18][6:0] <= ss_d[6:0];
+        13'h00e2: OAM_RANGE[19][6:0] <= ss_d[6:0];
+        13'h00e3: OAM_RANGE[20][6:0] <= ss_d[6:0];
+        13'h00e4: OAM_RANGE[21][6:0] <= ss_d[6:0];
+        13'h00e5: OAM_RANGE[22][6:0] <= ss_d[6:0];
+        13'h00e6: OAM_RANGE[23][6:0] <= ss_d[6:0];
+        13'h00e7: OAM_RANGE[24][6:0] <= ss_d[6:0];
+        13'h00e8: OAM_RANGE[25][6:0] <= ss_d[6:0];
+        13'h00e9: OAM_RANGE[26][6:0] <= ss_d[6:0];
+        13'h00ea: OAM_RANGE[27][6:0] <= ss_d[6:0];
+        13'h00eb: OAM_RANGE[28][6:0] <= ss_d[6:0];
+        13'h00ec: OAM_RANGE[29][6:0] <= ss_d[6:0];
+        13'h00ed: OAM_RANGE[30][6:0] <= ss_d[6:0];
+        13'h00ee: OAM_RANGE[31][6:0] <= ss_d[6:0];
+        13'h00f0: OAM_TIME_INDEX[6:0] <= ss_d[6:0];
+        13'h00f1: RANGE_CNT[5:0] <= ss_d[5:0];
+        13'h00f2: TILES_OAM_CNT[5:0] <= ss_d[5:0];
+        13'h00f3: TILES_CNT[2:0] <= ss_d[2:0];
+        13'h00f4: OBJ_RANGE_DONE <= ss_d[0:0];
+        13'h00f5: OBJ_TIME_DONE <= ss_d[0:0];
+        13'h00f6: OBJ_TILE_COL[3:0] <= ss_d[3:0];
+        13'h00f7: OBJ_TILE_ROW[3:0] <= ss_d[3:0];
+        13'h00f8: OBJ_TILE_LINE[2:0] <= ss_d[2:0];
+        13'h00f9: OBJ_TILE_GAP[7:0] <= ss_d;
+        13'h00fa: OBJ_TILE_GAP[14:8] <= ss_d[6:0];
+        13'h00fb: OBJ_TILE_HFLIP <= ss_d[0:0];
+        13'h00fc: OBJ_TILE_PAL[2:0] <= ss_d[2:0];
+        13'h00fd: OBJ_TILE_PRIO[1:0] <= ss_d[1:0];
+        13'h00fe: OBJ_TILE_X[7:0] <= ss_d;
+        13'h00ff: OBJ_TILE_X[8:8] <= ss_d[0:0];
+        13'h0105: SPR_TILE_DATA[7:0] <= ss_d;
+        13'h0106: SPR_TILE_DATA[15:8] <= ss_d;
+        13'h0107: SPR_TILE_DATA[23:16] <= ss_d;
+        13'h0108: SPR_TILE_DATA[31:24] <= ss_d;
+        13'h0109: SPR_TILE_DATA_TEMP[7:0] <= ss_d;
+        13'h010a: SPR_TILE_DATA_TEMP[15:8] <= ss_d;
+        13'h010b: SPR_TILE_X[7:0] <= ss_d;
+        13'h010c: SPR_TILE_X[8:8] <= ss_d[0:0];
+        13'h010d: SPR_TILE_PAL[2:0] <= ss_d[2:0];
+        13'h010e: SPR_TILE_PRIO[1:0] <= ss_d[1:0];
+        13'h010f: OBJ_TIME_SAVE <= ss_d[0:0];
+        default: ;
+      endcase
+    end else if (!ss_hold || !RST_N) begin
+`endif
+
 
     if (~RST_N) begin
         RANGE_CNT <= 6'b11_1111;
@@ -1544,6 +1965,10 @@ always @(posedge CLK) begin : calc_sprite_range
                 OBJ_TIME_SAVE <= 0;
         end
     end
+
+`ifdef SNES_SAVESTATE
+    end
+`endif
 end
 
 assign OBJ_VRAM_ADDR = {OBJADDR, 13'b0} + {1'b0, OBJ_TILE_GAP} + 
@@ -1554,6 +1979,19 @@ assign OBJ_VRAM_ADDR = {OBJADDR, 13'b0} + {1'b0, OBJ_TILE_GAP} +
 always @(posedge CLK) begin : write_spr_buf
     reg [8:0] X;
     reg [3:0] PIX_DATA;
+`ifdef SNES_SAVESTATE
+    if (ss_we) begin
+      case (ss_a)
+        13'h0110: SPR_PIX_D[7:0] <= ss_d;
+        13'h0111: SPR_PIX_D[8:8] <= ss_d[0:0];
+        13'h0114: SPR_PIX_ADDR_A[7:0] <= ss_d;
+        13'h0115: SPR_PIX_WE_A <= ss_d[0:0];
+        13'h0116: SPR_PIX_CNT[2:0] <= ss_d[2:0];
+        default: ;
+      endcase
+    end else if (!ss_hold || !RST_N) begin
+`endif
+
 
     if (~RST_N) begin
         SPR_PIX_WE_A <= 0;
@@ -1583,6 +2021,10 @@ always @(posedge CLK) begin : write_spr_buf
             SPR_PIX_CNT <= SPR_PIX_CNT + 1;
         end
     end
+
+`ifdef SNES_SAVESTATE
+    end
+`endif
 end
 
 // SPR_BUF
@@ -1601,11 +2043,25 @@ always @(posedge CLK) begin     // port A
     if (SPR_PIX_WE_A)
         spr_buf[SPR_PIX_ADDR_A] <= SPR_PIX_D;
 end
-always @(posedge CLK) begin     // port B
+always @(posedge CLK) begin
+`ifdef SNES_SAVESTATE
+    if (ss_we) begin
+      case (ss_a)
+        13'h0112: SPR_PIX_Q[7:0] <= ss_d;
+        13'h0113: SPR_PIX_Q[8:8] <= ss_d[0:0];
+        default: ;
+      endcase
+    end else if (!ss_hold || !RST_N) begin
+`endif
+     // port B
     if (SPR_PIX_WE_B)
         spr_buf[SPR_PIXEL_X] <= 0;
     else
         SPR_PIX_Q <= spr_buf[SPR_PIXEL_X];
+
+`ifdef SNES_SAVESTATE
+    end
+`endif
 end
 
 // SPR_BUF : entity work.dpram generic map(8,9)
@@ -1621,6 +2077,18 @@ end
 assign SPR_PIX_WE_B = SPR_GET_PIXEL && DOT_CLKR_CE ? 1 : 0;
 
 always @(posedge CLK) begin
+`ifdef SNES_SAVESTATE
+    if (ss_we) begin
+      case (ss_a)
+        13'h00c0: M7_PIX_DATA[7:0] <= ss_d;
+        13'h0102: SPR_PIX_DATA_BUF[7:0] <= ss_d;
+        13'h0103: SPR_PIX_DATA_BUF[8:8] <= ss_d[0:0];
+        13'h0104: SPR_PIXEL_X[7:0] <= ss_d;
+        default: ;
+      endcase
+    end else if (!ss_hold || !RST_N) begin
+`endif
+
     if (~RST_N) begin
         SPR_PIX_DATA_BUF <= 0;
         SPR_PIXEL_X <= 0;
@@ -1641,6 +2109,10 @@ always @(posedge CLK) begin
             end
         end
     end
+
+`ifdef SNES_SAVESTATE
+    end
+`endif
 end
 
 
@@ -1654,6 +2126,23 @@ wire [3:0] NN1 = ~(({1'b0,GET_PIXEL_X[2:0]}) + ({1'b0,BG_HOFS[BG1][2:0]}));
 // always @(negedge RST_N, negedge DOT_CLK) begin : bg_pixel_gen
 always @(posedge CLK) begin : bg_pixel_gen
     reg [3:0] N1, N2, N3, N4;
+`ifdef SNES_SAVESTATE
+    if (ss_we) begin
+      case (ss_a)
+        13'h0081: GET_PIXEL_X[7:0] <= ss_d;
+        13'h0085: BG_MOSAIC_X[3:0] <= ss_d[3:0];
+        13'h00bb: BG1_PIX_DATA[7:0] <= ss_d;
+        13'h00bc: BG1_PIX_DATA[11:8] <= ss_d[3:0];
+        13'h00bd: BG2_PIX_DATA[7:0] <= ss_d;
+        13'h00be: BG3_PIX_DATA[5:0] <= ss_d[5:0];
+        13'h00bf: BG4_PIX_DATA[5:0] <= ss_d[5:0];
+        13'h0100: SPR_PIX_DATA[7:0] <= ss_d;
+        13'h0101: SPR_PIX_DATA[8:8] <= ss_d[0:0];
+        default: ;
+      endcase
+    end else if (!ss_hold || !RST_N) begin
+`endif
+
 
     if (~RST_N) begin
         GET_PIXEL_X <= 8'b0;
@@ -1723,6 +2212,10 @@ always @(posedge CLK) begin : bg_pixel_gen
             end
         end
     end
+
+`ifdef SNES_SAVESTATE
+    end
+`endif
 end
 
 // Global signals in pixel_render_addr_gen
@@ -1737,8 +2230,8 @@ reg [4:0] COLOR_MASK;
 /*
 Timings for main/sub frame add-sub pipeline:
 
-CLK     /‾‾‾0‾‾‾\_______/‾‾‾1‾‾‾\_______/
-dotclk   /‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾\_______________/
+CLK     /???0???\_______/???1???\_______/
+dotclk   /???????????????\_______________/
 h_cnt    |                x              | x+1
 
 cycle 0
@@ -2209,6 +2702,30 @@ always @(posedge CLK) begin : pixel_render
     reg HALF;
     reg [14:0] COLOR;
     reg [4:0] MATH_R, MATH_G, MATH_B;
+`ifdef SNES_SAVESTATE
+    if (ss_we) begin
+      case (ss_a)
+        13'h0082: WINDOW_X[7:0] <= ss_d;
+        13'h0118: PREV_COLOR[7:0] <= ss_d;
+        13'h0119: PREV_COLOR[14:8] <= ss_d[6:0];
+        13'h011a: SUB_BD <= ss_d[0:0];
+        13'h011b: MAIN_R[4:0] <= ss_d[4:0];
+        13'h011c: MAIN_G[4:0] <= ss_d[4:0];
+        13'h011d: MAIN_B[4:0] <= ss_d[4:0];
+        13'h011e: SUB_R[4:0] <= ss_d[4:0];
+        13'h011f: SUB_G[4:0] <= ss_d[4:0];
+        13'h0120: SUB_B[4:0] <= ss_d[4:0];
+        13'h0121: SUB_MATH_R[4:0] <= ss_d[4:0];
+        13'h0122: SUB_MATH_G[4:0] <= ss_d[4:0];
+        13'h0123: SUB_MATH_B[4:0] <= ss_d[4:0];
+        13'h0144: SUB_MATH_EN <= ss_d[0:0];
+        13'h0145: MATH_EN <= ss_d[0:0];
+        13'h0146: COLOR_MASK[4:0] <= ss_d[4:0];
+        default: ;
+      endcase
+    end else if (!ss_hold || !RST_N) begin
+`endif
+
 
     if (~RST_N) begin
         WINDOW_X <= 0;
@@ -2304,10 +2821,25 @@ always @(posedge CLK) begin : pixel_render
             end
         end
     end
+
+`ifdef SNES_SAVESTATE
+    end
+`endif
 end
 
 // scan_screen: increment X, Y, and finally generate COLOR_OUT
 always @(posedge CLK) begin : scan_screen
+`ifdef SNES_SAVESTATE
+    if (ss_we) begin
+      case (ss_a)
+        13'h0004: FRAME_OUT <= ss_d[0:0];
+        13'h0083: OUT_X[7:0] <= ss_d;
+        13'h0084: OUT_Y[7:0] <= ss_d;
+        default: ;
+      endcase
+    end else if (!ss_hold || !RST_N) begin
+`endif
+
     if (~RST_N) begin
         OUT_Y <= 8'b0;
         OUT_X <= 8'b0;
@@ -2322,6 +2854,10 @@ always @(posedge CLK) begin : scan_screen
             FRAME_OUT <= BG_OUT;
         end
     end
+
+`ifdef SNES_SAVESTATE
+    end
+`endif
 end
 
 // output COLOR_OUT using last H_CNT's SUB_R/G/B
@@ -2341,4 +2877,344 @@ assign V224 =  ~OVERSCAN;
 assign FIELD_OUT = FIELD;
 assign INTERLACE = BGINTERLACE;
 
+
+`ifdef SNES_SAVESTATE
+wire [7:0] ss_q_cg;
+wire [7:0] ss_q_oa;
+// Register image; RAM and pipeline state are read only while frozen.
+always @* begin
+    ss_q = 8'b0;
+    case (ss_a)
+    13'h0000: ss_q = {7'b0, HDE};
+    13'h0001: ss_q = {7'b0, VDE};
+    13'h0002: ss_q = {7'b0, HSYNC};
+    13'h0003: ss_q = {7'b0, VSYNC};
+    13'h0004: ss_q = {7'b0, FRAME_OUT};
+    13'h0005: ss_q = {7'b0, DOT_CLK};
+    13'h0006: ss_q = {7'b0, DOT_CLKF_CE};
+    13'h0007: ss_q = {7'b0, DOT_CLKR_CE};
+    13'h0008: ss_q = {5'b0, CLK_CNT[2:0]};
+    13'h0009: ss_q = MDR1[7:0];
+    13'h000a: ss_q = MDR2[7:0];
+    13'h000b: ss_q = D_OUT[7:0];
+    13'h000c: ss_q = {7'b0, PARD_Nr};
+    13'h000d: ss_q = {7'b0, FORCE_BLANK};
+    13'h000e: ss_q = {4'b0, MB[3:0]};
+    13'h000f: ss_q = {5'b0, OBJADDR[2:0]};
+    13'h0010: ss_q = {6'b0, OBJNAME[1:0]};
+    13'h0011: ss_q = {5'b0, OBJSIZE[2:0]};
+    13'h0012: ss_q = OAMADD[7:0];
+    13'h0013: ss_q = {7'b0, OAMADD[8:8]};
+    13'h0014: ss_q = {7'b0, OAM_PRIO};
+    13'h0015: ss_q = TM[7:0];
+    13'h0016: ss_q = TS[7:0];
+    13'h0017: ss_q = {7'b0, BGINTERLACE};
+    13'h0018: ss_q = {7'b0, OBJINTERLACE};
+    13'h0019: ss_q = {7'b0, OVERSCAN};
+    13'h001a: ss_q = {7'b0, PSEUDOHIRES};
+    13'h001b: ss_q = {7'b0, M7EXTBG};
+    13'h001c: ss_q = {5'b0, BG_MODE[2:0]};
+    13'h001d: ss_q = {7'b0, BG3PRIO};
+    13'h001e: ss_q = {4'b0, BG_SIZE[3:0]};
+    13'h001f: ss_q = {4'b0, BG_MOSAIC_EN[3:0]};
+    13'h0020: ss_q = {4'b0, MOSAIC_SIZE[3:0]};
+    13'h0021: ss_q = {2'b0, BG_SC_ADDR[0][5:0]};
+    13'h0022: ss_q = {2'b0, BG_SC_ADDR[1][5:0]};
+    13'h0023: ss_q = {2'b0, BG_SC_ADDR[2][5:0]};
+    13'h0024: ss_q = {2'b0, BG_SC_ADDR[3][5:0]};
+    13'h0025: ss_q = {6'b0, BG_SC_SIZE[0][1:0]};
+    13'h0026: ss_q = {6'b0, BG_SC_SIZE[1][1:0]};
+    13'h0027: ss_q = {6'b0, BG_SC_SIZE[2][1:0]};
+    13'h0028: ss_q = {6'b0, BG_SC_SIZE[3][1:0]};
+    13'h0029: ss_q = {4'b0, BG_NBA[0][3:0]};
+    13'h002a: ss_q = {4'b0, BG_NBA[1][3:0]};
+    13'h002b: ss_q = {4'b0, BG_NBA[2][3:0]};
+    13'h002c: ss_q = {4'b0, BG_NBA[3][3:0]};
+    13'h002d: ss_q = CGADD[7:0];
+    13'h002e: ss_q = {7'b0, CGADD[8:8]};
+    13'h002f: ss_q = {7'b0, VMAIN_ADDRINC};
+    13'h0030: ss_q = {6'b0, VMAIN_ADDRTRANS[1:0]};
+    13'h0031: ss_q = VMADD[7:0];
+    13'h0032: ss_q = VMADD[15:8];
+    13'h0033: ss_q = BG_HOFS[0][7:0];
+    13'h0034: ss_q = {6'b0, BG_HOFS[0][9:8]};
+    13'h0035: ss_q = BG_HOFS[1][7:0];
+    13'h0036: ss_q = {6'b0, BG_HOFS[1][9:8]};
+    13'h0037: ss_q = BG_HOFS[2][7:0];
+    13'h0038: ss_q = {6'b0, BG_HOFS[2][9:8]};
+    13'h0039: ss_q = BG_HOFS[3][7:0];
+    13'h003a: ss_q = {6'b0, BG_HOFS[3][9:8]};
+    13'h003b: ss_q = BG_VOFS[0][7:0];
+    13'h003c: ss_q = {6'b0, BG_VOFS[0][9:8]};
+    13'h003d: ss_q = BG_VOFS[1][7:0];
+    13'h003e: ss_q = {6'b0, BG_VOFS[1][9:8]};
+    13'h003f: ss_q = BG_VOFS[2][7:0];
+    13'h0040: ss_q = {6'b0, BG_VOFS[2][9:8]};
+    13'h0041: ss_q = BG_VOFS[3][7:0];
+    13'h0042: ss_q = {6'b0, BG_VOFS[3][9:8]};
+    13'h0043: ss_q = M7SEL[7:0];
+    13'h0044: ss_q = M7A[7:0];
+    13'h0045: ss_q = M7A[15:8];
+    13'h0046: ss_q = M7B[7:0];
+    13'h0047: ss_q = M7B[15:8];
+    13'h0048: ss_q = M7C[7:0];
+    13'h0049: ss_q = M7C[15:8];
+    13'h004a: ss_q = M7D[7:0];
+    13'h004b: ss_q = M7D[15:8];
+    13'h004c: ss_q = M7HOFS[7:0];
+    13'h004d: ss_q = {3'b0, M7HOFS[12:8]};
+    13'h004e: ss_q = M7VOFS[7:0];
+    13'h004f: ss_q = {3'b0, M7VOFS[12:8]};
+    13'h0050: ss_q = M7X[7:0];
+    13'h0051: ss_q = {3'b0, M7X[12:8]};
+    13'h0052: ss_q = M7Y[7:0];
+    13'h0053: ss_q = {3'b0, M7Y[12:8]};
+    13'h0054: ss_q = WH0[7:0];
+    13'h0055: ss_q = WH1[7:0];
+    13'h0056: ss_q = WH2[7:0];
+    13'h0057: ss_q = WH3[7:0];
+    13'h0058: ss_q = W12SEL[7:0];
+    13'h0059: ss_q = W34SEL[7:0];
+    13'h005a: ss_q = WOBJSEL[7:0];
+    13'h005b: ss_q = WBGLOG[7:0];
+    13'h005c: ss_q = WOBJLOG[7:0];
+    13'h005d: ss_q = TMW[7:0];
+    13'h005e: ss_q = TSW[7:0];
+    13'h005f: ss_q = CGWSEL[7:0];
+    13'h0060: ss_q = CGADSUB[7:0];
+    13'h0061: ss_q = SUBCOLBD[7:0];
+    13'h0062: ss_q = {1'b0, SUBCOLBD[14:8]};
+    13'h0063: ss_q = OPHCT[7:0];
+    13'h0064: ss_q = {7'b0, OPHCT[8:8]};
+    13'h0065: ss_q = OPVCT[7:0];
+    13'h0066: ss_q = {7'b0, OPVCT[8:8]};
+    13'h0067: ss_q = {7'b0, OPHCT_latch};
+    13'h0068: ss_q = {7'b0, OPVCT_latch};
+    13'h0069: ss_q = {7'b0, EXTLATCHr};
+    13'h006a: ss_q = {7'b0, F_LATCH};
+    13'h006b: ss_q = CGRAM_Lsb[7:0];
+    13'h006c: ss_q = BGOFS_latch[7:0];
+    13'h006d: ss_q = M7_latch[7:0];
+    13'h006e: ss_q = {5'b0, BGHOFS_latch[2:0]};
+    13'h006f: ss_q = OAM_latch[7:0];
+    13'h0070: ss_q = VRAMDATA_Prefetch[7:0];
+    13'h0071: ss_q = VRAMDATA_Prefetch[15:8];
+    13'h0072: ss_q = VMADD_INC[7:0];
+    13'h0073: ss_q = {7'b0, OBJ_TIME_OFL};
+    13'h0074: ss_q = {7'b0, OBJ_RANGE_OFL};
+    13'h0075: ss_q = {7'b0, BG_FORCE_BLANK};
+    13'h0076: ss_q = {7'b0, OAM_ADDR_REQ};
+    13'h0077: ss_q = {7'b0, OAM_PRIO_REQ};
+    13'h0078: ss_q = {7'b0, VRAMPRERD_REQ};
+    13'h0079: ss_q = {6'b0, VRAMRD_CNT[1:0]};
+    13'h007a: ss_q = H_CNT[7:0];
+    13'h007b: ss_q = {7'b0, H_CNT[8:8]};
+    13'h007c: ss_q = V_CNT[7:0];
+    13'h007d: ss_q = {7'b0, V_CNT[8:8]};
+    13'h007e: ss_q = {7'b0, FIELD};
+    13'h007f: ss_q = {7'b0, IN_HBL};
+    13'h0080: ss_q = {7'b0, IN_VBL};
+    13'h0081: ss_q = GET_PIXEL_X[7:0];
+    13'h0082: ss_q = WINDOW_X[7:0];
+    13'h0083: ss_q = OUT_X[7:0];
+    13'h0084: ss_q = OUT_Y[7:0];
+    13'h0085: ss_q = {4'b0, BG_MOSAIC_X[3:0]};
+    13'h0086: ss_q = {4'b0, BG_MOSAIC_Y[3:0]};
+    13'h0087: ss_q = BG3_OPT_DATA0[7:0];
+    13'h0088: ss_q = BG3_OPT_DATA0[15:8];
+    13'h0089: ss_q = BG3_OPT_DATA1[7:0];
+    13'h008a: ss_q = BG3_OPT_DATA1[15:8];
+    13'h008b: ss_q = BG_DATA[0][7:0];
+    13'h008c: ss_q = BG_DATA[0][15:8];
+    13'h008d: ss_q = BG_DATA[1][7:0];
+    13'h008e: ss_q = BG_DATA[1][15:8];
+    13'h008f: ss_q = BG_DATA[2][7:0];
+    13'h0090: ss_q = BG_DATA[2][15:8];
+    13'h0091: ss_q = BG_DATA[3][7:0];
+    13'h0092: ss_q = BG_DATA[3][15:8];
+    13'h0093: ss_q = BG_DATA[4][7:0];
+    13'h0094: ss_q = BG_DATA[4][15:8];
+    13'h0095: ss_q = BG_DATA[5][7:0];
+    13'h0096: ss_q = BG_DATA[5][15:8];
+    13'h0097: ss_q = BG_DATA[6][7:0];
+    13'h0098: ss_q = BG_DATA[6][15:8];
+    13'h0099: ss_q = BG_DATA[7][7:0];
+    13'h009a: ss_q = BG_DATA[7][15:8];
+    13'h009b: ss_q = BG_TILES_PLANES[0][0][7:0];
+    13'h009c: ss_q = BG_TILES_PLANES[0][1][7:0];
+    13'h009d: ss_q = BG_TILES_PLANES[0][2][7:0];
+    13'h009e: ss_q = BG_TILES_PLANES[0][3][7:0];
+    13'h009f: ss_q = BG_TILES_PLANES[0][4][7:0];
+    13'h00a0: ss_q = BG_TILES_PLANES[0][5][7:0];
+    13'h00a1: ss_q = BG_TILES_PLANES[0][6][7:0];
+    13'h00a2: ss_q = BG_TILES_PLANES[0][7][7:0];
+    13'h00a3: ss_q = BG_TILES_PLANES[0][8][7:0];
+    13'h00a4: ss_q = BG_TILES_PLANES[0][9][7:0];
+    13'h00a5: ss_q = BG_TILES_PLANES[0][10][7:0];
+    13'h00a6: ss_q = BG_TILES_PLANES[0][11][7:0];
+    13'h00a7: ss_q = BG_TILES_PLANES[1][0][7:0];
+    13'h00a8: ss_q = BG_TILES_PLANES[1][1][7:0];
+    13'h00a9: ss_q = BG_TILES_PLANES[1][2][7:0];
+    13'h00aa: ss_q = BG_TILES_PLANES[1][3][7:0];
+    13'h00ab: ss_q = BG_TILES_PLANES[1][4][7:0];
+    13'h00ac: ss_q = BG_TILES_PLANES[1][5][7:0];
+    13'h00ad: ss_q = BG_TILES_PLANES[1][6][7:0];
+    13'h00ae: ss_q = BG_TILES_PLANES[1][7][7:0];
+    13'h00af: ss_q = BG_TILES_PLANES[1][8][7:0];
+    13'h00b0: ss_q = BG_TILES_PLANES[1][9][7:0];
+    13'h00b1: ss_q = BG_TILES_PLANES[1][10][7:0];
+    13'h00b2: ss_q = BG_TILES_PLANES[1][11][7:0];
+    13'h00b3: ss_q = {4'b0, BG_TILES_ATR[0][0][3:0]};
+    13'h00b4: ss_q = {4'b0, BG_TILES_ATR[0][1][3:0]};
+    13'h00b5: ss_q = {4'b0, BG_TILES_ATR[0][2][3:0]};
+    13'h00b6: ss_q = {4'b0, BG_TILES_ATR[0][3][3:0]};
+    13'h00b7: ss_q = {4'b0, BG_TILES_ATR[1][0][3:0]};
+    13'h00b8: ss_q = {4'b0, BG_TILES_ATR[1][1][3:0]};
+    13'h00b9: ss_q = {4'b0, BG_TILES_ATR[1][2][3:0]};
+    13'h00ba: ss_q = {4'b0, BG_TILES_ATR[1][3][3:0]};
+    13'h00bb: ss_q = BG1_PIX_DATA[7:0];
+    13'h00bc: ss_q = {4'b0, BG1_PIX_DATA[11:8]};
+    13'h00bd: ss_q = BG2_PIX_DATA[7:0];
+    13'h00be: ss_q = {2'b0, BG3_PIX_DATA[5:0]};
+    13'h00bf: ss_q = {2'b0, BG4_PIX_DATA[5:0]};
+    13'h00c0: ss_q = M7_PIX_DATA[7:0];
+    13'h00c1: ss_q = M7_SCREEN_X[7:0];
+    13'h00c2: ss_q = M7_TEMP_X[7:0];
+    13'h00c3: ss_q = M7_TEMP_X[15:8];
+    13'h00c4: ss_q = M7_TEMP_X[23:16];
+    13'h00c5: ss_q = M7_TEMP_Y[7:0];
+    13'h00c6: ss_q = M7_TEMP_Y[15:8];
+    13'h00c7: ss_q = M7_TEMP_Y[23:16];
+    13'h00c8: ss_q = M7_TILE_N[7:0];
+    13'h00c9: ss_q = {5'b0, M7_TILE_ROW[2:0]};
+    13'h00ca: ss_q = {5'b0, M7_TILE_COL[2:0]};
+    13'h00cb: ss_q = {7'b0, M7_TILE_OUTSIDE};
+    13'h00cc: ss_q = HOAM_Q[7:0];
+    13'h00cd: ss_q = OAM_ADDR[7:0];
+    13'h00ce: ss_q = {6'b0, OAM_ADDR[9:8]};
+    13'h00cf: ss_q = {1'b0, OAM_RANGE[0][6:0]};
+    13'h00d0: ss_q = {1'b0, OAM_RANGE[1][6:0]};
+    13'h00d1: ss_q = {1'b0, OAM_RANGE[2][6:0]};
+    13'h00d2: ss_q = {1'b0, OAM_RANGE[3][6:0]};
+    13'h00d3: ss_q = {1'b0, OAM_RANGE[4][6:0]};
+    13'h00d4: ss_q = {1'b0, OAM_RANGE[5][6:0]};
+    13'h00d5: ss_q = {1'b0, OAM_RANGE[6][6:0]};
+    13'h00d6: ss_q = {1'b0, OAM_RANGE[7][6:0]};
+    13'h00d7: ss_q = {1'b0, OAM_RANGE[8][6:0]};
+    13'h00d8: ss_q = {1'b0, OAM_RANGE[9][6:0]};
+    13'h00d9: ss_q = {1'b0, OAM_RANGE[10][6:0]};
+    13'h00da: ss_q = {1'b0, OAM_RANGE[11][6:0]};
+    13'h00db: ss_q = {1'b0, OAM_RANGE[12][6:0]};
+    13'h00dc: ss_q = {1'b0, OAM_RANGE[13][6:0]};
+    13'h00dd: ss_q = {1'b0, OAM_RANGE[14][6:0]};
+    13'h00de: ss_q = {1'b0, OAM_RANGE[15][6:0]};
+    13'h00df: ss_q = {1'b0, OAM_RANGE[16][6:0]};
+    13'h00e0: ss_q = {1'b0, OAM_RANGE[17][6:0]};
+    13'h00e1: ss_q = {1'b0, OAM_RANGE[18][6:0]};
+    13'h00e2: ss_q = {1'b0, OAM_RANGE[19][6:0]};
+    13'h00e3: ss_q = {1'b0, OAM_RANGE[20][6:0]};
+    13'h00e4: ss_q = {1'b0, OAM_RANGE[21][6:0]};
+    13'h00e5: ss_q = {1'b0, OAM_RANGE[22][6:0]};
+    13'h00e6: ss_q = {1'b0, OAM_RANGE[23][6:0]};
+    13'h00e7: ss_q = {1'b0, OAM_RANGE[24][6:0]};
+    13'h00e8: ss_q = {1'b0, OAM_RANGE[25][6:0]};
+    13'h00e9: ss_q = {1'b0, OAM_RANGE[26][6:0]};
+    13'h00ea: ss_q = {1'b0, OAM_RANGE[27][6:0]};
+    13'h00eb: ss_q = {1'b0, OAM_RANGE[28][6:0]};
+    13'h00ec: ss_q = {1'b0, OAM_RANGE[29][6:0]};
+    13'h00ed: ss_q = {1'b0, OAM_RANGE[30][6:0]};
+    13'h00ee: ss_q = {1'b0, OAM_RANGE[31][6:0]};
+    13'h00ef: ss_q = {1'b0, OAM_PRIO_INDEX[6:0]};
+    13'h00f0: ss_q = {1'b0, OAM_TIME_INDEX[6:0]};
+    13'h00f1: ss_q = {2'b0, RANGE_CNT[5:0]};
+    13'h00f2: ss_q = {2'b0, TILES_OAM_CNT[5:0]};
+    13'h00f3: ss_q = {5'b0, TILES_CNT[2:0]};
+    13'h00f4: ss_q = {7'b0, OBJ_RANGE_DONE};
+    13'h00f5: ss_q = {7'b0, OBJ_TIME_DONE};
+    13'h00f6: ss_q = {4'b0, OBJ_TILE_COL[3:0]};
+    13'h00f7: ss_q = {4'b0, OBJ_TILE_ROW[3:0]};
+    13'h00f8: ss_q = {5'b0, OBJ_TILE_LINE[2:0]};
+    13'h00f9: ss_q = OBJ_TILE_GAP[7:0];
+    13'h00fa: ss_q = {1'b0, OBJ_TILE_GAP[14:8]};
+    13'h00fb: ss_q = {7'b0, OBJ_TILE_HFLIP};
+    13'h00fc: ss_q = {5'b0, OBJ_TILE_PAL[2:0]};
+    13'h00fd: ss_q = {6'b0, OBJ_TILE_PRIO[1:0]};
+    13'h00fe: ss_q = OBJ_TILE_X[7:0];
+    13'h00ff: ss_q = {7'b0, OBJ_TILE_X[8:8]};
+    13'h0100: ss_q = SPR_PIX_DATA[7:0];
+    13'h0101: ss_q = {7'b0, SPR_PIX_DATA[8:8]};
+    13'h0102: ss_q = SPR_PIX_DATA_BUF[7:0];
+    13'h0103: ss_q = {7'b0, SPR_PIX_DATA_BUF[8:8]};
+    13'h0104: ss_q = SPR_PIXEL_X[7:0];
+    13'h0105: ss_q = SPR_TILE_DATA[7:0];
+    13'h0106: ss_q = SPR_TILE_DATA[15:8];
+    13'h0107: ss_q = SPR_TILE_DATA[23:16];
+    13'h0108: ss_q = SPR_TILE_DATA[31:24];
+    13'h0109: ss_q = SPR_TILE_DATA_TEMP[7:0];
+    13'h010a: ss_q = SPR_TILE_DATA_TEMP[15:8];
+    13'h010b: ss_q = SPR_TILE_X[7:0];
+    13'h010c: ss_q = {7'b0, SPR_TILE_X[8:8]};
+    13'h010d: ss_q = {5'b0, SPR_TILE_PAL[2:0]};
+    13'h010e: ss_q = {6'b0, SPR_TILE_PRIO[1:0]};
+    13'h010f: ss_q = {7'b0, OBJ_TIME_SAVE};
+    13'h0110: ss_q = SPR_PIX_D[7:0];
+    13'h0111: ss_q = {7'b0, SPR_PIX_D[8:8]};
+    13'h0112: ss_q = SPR_PIX_Q[7:0];
+    13'h0113: ss_q = {7'b0, SPR_PIX_Q[8:8]};
+    13'h0114: ss_q = SPR_PIX_ADDR_A[7:0];
+    13'h0115: ss_q = {7'b0, SPR_PIX_WE_A};
+    13'h0116: ss_q = {5'b0, SPR_PIX_CNT[2:0]};
+    13'h0117: ss_q = CGRAM_ADDR_CLR[7:0];
+    13'h0118: ss_q = PREV_COLOR[7:0];
+    13'h0119: ss_q = {1'b0, PREV_COLOR[14:8]};
+    13'h011a: ss_q = {7'b0, SUB_BD};
+    13'h011b: ss_q = {3'b0, MAIN_R[4:0]};
+    13'h011c: ss_q = {3'b0, MAIN_G[4:0]};
+    13'h011d: ss_q = {3'b0, MAIN_B[4:0]};
+    13'h011e: ss_q = {3'b0, SUB_R[4:0]};
+    13'h011f: ss_q = {3'b0, SUB_G[4:0]};
+    13'h0120: ss_q = {3'b0, SUB_B[4:0]};
+    13'h0121: ss_q = {3'b0, SUB_MATH_R[4:0]};
+    13'h0122: ss_q = {3'b0, SUB_MATH_G[4:0]};
+    13'h0123: ss_q = {3'b0, SUB_MATH_B[4:0]};
+    13'h0124: ss_q = HOAM[0][7:0];
+    13'h0125: ss_q = HOAM[1][7:0];
+    13'h0126: ss_q = HOAM[2][7:0];
+    13'h0127: ss_q = HOAM[3][7:0];
+    13'h0128: ss_q = HOAM[4][7:0];
+    13'h0129: ss_q = HOAM[5][7:0];
+    13'h012a: ss_q = HOAM[6][7:0];
+    13'h012b: ss_q = HOAM[7][7:0];
+    13'h012c: ss_q = HOAM[8][7:0];
+    13'h012d: ss_q = HOAM[9][7:0];
+    13'h012e: ss_q = HOAM[10][7:0];
+    13'h012f: ss_q = HOAM[11][7:0];
+    13'h0130: ss_q = HOAM[12][7:0];
+    13'h0131: ss_q = HOAM[13][7:0];
+    13'h0132: ss_q = HOAM[14][7:0];
+    13'h0133: ss_q = HOAM[15][7:0];
+    13'h0134: ss_q = HOAM[16][7:0];
+    13'h0135: ss_q = HOAM[17][7:0];
+    13'h0136: ss_q = HOAM[18][7:0];
+    13'h0137: ss_q = HOAM[19][7:0];
+    13'h0138: ss_q = HOAM[20][7:0];
+    13'h0139: ss_q = HOAM[21][7:0];
+    13'h013a: ss_q = HOAM[22][7:0];
+    13'h013b: ss_q = HOAM[23][7:0];
+    13'h013c: ss_q = HOAM[24][7:0];
+    13'h013d: ss_q = HOAM[25][7:0];
+    13'h013e: ss_q = HOAM[26][7:0];
+    13'h013f: ss_q = HOAM[27][7:0];
+    13'h0140: ss_q = HOAM[28][7:0];
+    13'h0141: ss_q = HOAM[29][7:0];
+    13'h0142: ss_q = HOAM[30][7:0];
+    13'h0143: ss_q = HOAM[31][7:0];
+    13'h0144: ss_q = {7'b0, SUB_MATH_EN};
+    13'h0145: ss_q = {7'b0, MATH_EN};
+    13'h0146: ss_q = {3'b0, COLOR_MASK[4:0]};
+    default: ;
+    endcase
+    ss_q = ss_q | ss_q_cg | ss_q_oa;
+end
+`endif
 endmodule

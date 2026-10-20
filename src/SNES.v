@@ -97,6 +97,15 @@ module SNES(
     input [7:0] DBG_DAT_IN,
     output [7:0] DBG_DAT_OUT,
     output DBG_BREAK
+
+`ifdef SNES_SAVESTATE
+    ,output ss_point,
+    input ss_hold,
+    input [12:0] ss_a,
+    input [7:0] ss_d,
+    input ss_we,
+    output reg [7:0] ss_q
+`endif
 );
 
 wire DSPCLK = MCLK;
@@ -152,6 +161,10 @@ wire [7:0] DBG_CPU_TEMP;
 
 // CPU
 SCPU CPU(
+`ifdef SNES_SAVESTATE
+    .ss_hold(ss_hold), .ss_a(ss_a), .ss_d(ss_d), .ss_we(ss_we), .ss_q(ss_q_CPU), .ss_point(ss_point),
+`endif
+
     .CLK(MCLK), .RST_N(RST_N), 
     .ENABLE(ENABLE), .IRQ_N(IRQ_N), .HBLANK(INT_HBLANK), .VBLANK(INT_VBLANK),     
     .CA(INT_CA), .CPURD_N(INT_CPURD_N), .CPUWR_N(INT_CPUWR_N),
@@ -170,12 +183,29 @@ SCPU CPU(
 
 reg INT_RAMSEL_N_buf, BUSA_SEL_buf, BUSB_SEL_buf;
 reg [7:0] BUSA_DO_buf, BUSB_DO_buf;
-always @(posedge MCLK) begin 
+always @(posedge MCLK) begin
+`ifdef SNES_SAVESTATE
+    if (ss_we) begin
+      case (ss_a)
+        13'h1b20: INT_RAMSEL_N_buf <= ss_d[0:0];
+        13'h1b21: BUSA_SEL_buf <= ss_d[0:0];
+        13'h1b22: BUSB_SEL_buf <= ss_d[0:0];
+        13'h1b23: BUSA_DO_buf[7:0] <= ss_d;
+        13'h1b24: BUSB_DO_buf[7:0] <= ss_d;
+        default: ;
+      endcase
+    end else if (!ss_hold || !RST_N) begin
+`endif
+
     INT_RAMSEL_N_buf <= INT_RAMSEL_N;
     BUSA_SEL_buf <= BUSA_SEL;
     BUSA_DO_buf <= BUSA_DO;
     BUSB_SEL_buf <= BUSB_SEL;
     BUSB_DO_buf <= BUSB_DO;
+
+`ifdef SNES_SAVESTATE
+    end
+`endif
 end
 
 assign BUSA_SEL =   INT_CA[22] == 1'b0 && INT_CA[15:8] == 8'h20 ? 1'b1 : 
@@ -204,6 +234,10 @@ assign WRAM_DI =    BUSA_SEL ? BUSA_DO :
                     CPU_DO;
 
 SWRAM wram (
+`ifdef SNES_SAVESTATE
+    .ss_hold(ss_hold), .ss_a(ss_a), .ss_d(ss_d), .ss_we(ss_we), .ss_q(ss_q_wram),
+`endif
+
     .CLK(MCLK), .SYSCLK_CE(INT_SYSCLKF_CE), .RST_N(RST_N), .ENABLE(ENABLE),
     .CA(INT_CA), .CPURD_N(INT_CPURD_N), .CPUWR_N(INT_CPUWR_N), .RAMSEL_N(INT_RAMSEL_N),
     .PA(INT_PA), .PARD_N(INT_PARD_N), .PAWR_N(INT_PAWR_N),
@@ -219,6 +253,10 @@ assign  PPU_DI = BUSA_SEL ? BUSA_DO :
         CPU_DO;
 
 SPPU PPU(
+`ifdef SNES_SAVESTATE
+    .ss_hold(ss_hold), .ss_a(ss_a), .ss_d(ss_d), .ss_we(ss_we), .ss_q(ss_q_PPU),
+`endif
+
     .CLK(MCLK), .RST_N(RST_N), .SYSCLK_CE(INT_SYSCLKF_CE), .ENABLE(ENABLE), 
     .DIS_SHORTLINE(DIS_SHORTLINE),
     .PA(INT_PA), .PARD_N(INT_PARD_N), .PAWR_N(INT_PAWR_N), .DI(PPU_DI), .DO(PPU_DO),
@@ -243,6 +281,10 @@ assign SMP_CPU_DI = BUSA_SEL ? BUSA_DO :
 
 // SMP
 SMP smp(
+`ifdef SNES_SAVESTATE
+    .ss_hold(ss_hold), .ss_a(ss_a), .ss_d(ss_d), .ss_we(ss_we), .ss_q(ss_q_smp),
+`endif
+
    .CLK(DSPCLK), .RST_N(RST_N), .CE(SMP_CE), .ENABLE(SMP_EN), .SYSCLKF_CE(INT_SYSCLKF_CE),
    .A(SMP_A), .DI(SMP_DI), .DO(SMP_DO), .WE_N(SMP_WE_N),
    .PA(INT_PA[1:0]), .PARD_N(INT_PARD_N), .PAWR_N(INT_PAWR_N), .CPU_DI(SMP_CPU_DI), .CPU_DO(SMP_CPU_DO),
@@ -253,6 +295,10 @@ SMP smp(
 
 // DSP 
 DSP dsp(
+`ifdef SNES_SAVESTATE
+    .ss_hold(ss_hold), .ss_a(ss_a), .ss_d(ss_d), .ss_we(ss_we), .ss_q(ss_q_dsp),
+`endif
+
     .CLK(DSPCLK), .RST_N(RST_N), .ENABLE(ENABLE), .PAL(PAL),
     .SMP_EN(SMP_EN), .SMP_A(SMP_A), .SMP_DO(SMP_DO), .SMP_DI(SMP_DI),
     .SMP_WE_N(SMP_WE_N), .SMP_CE(SMP_CE),
@@ -300,4 +346,28 @@ assign DBG_DAT_OUT = DBG_SEL[0] ? DBG_CPU_DAT :
                     DBG_SEL[6] ? DBG_DSP_DAT : 8'h00;
 assign DBG_BREAK = CPU_BRK | SMP_BRK | PPU_DBG_BRK;
 
+
+`ifdef SNES_SAVESTATE
+
+`ifdef SNES_SAVESTATE
+wire [7:0] ss_q_CPU;
+wire [7:0] ss_q_PPU;
+wire [7:0] ss_q_wram;
+wire [7:0] ss_q_smp;
+wire [7:0] ss_q_dsp;
+`endif
+// Register image; RAM and pipeline state are read only while frozen.
+always @* begin
+    ss_q = 8'b0;
+    case (ss_a)
+    13'h1b20: ss_q = {7'b0, INT_RAMSEL_N_buf};
+    13'h1b21: ss_q = {7'b0, BUSA_SEL_buf};
+    13'h1b22: ss_q = {7'b0, BUSB_SEL_buf};
+    13'h1b23: ss_q = BUSA_DO_buf[7:0];
+    13'h1b24: ss_q = BUSB_DO_buf[7:0];
+    default: ;
+    endcase
+    ss_q = ss_q | ss_q_CPU | ss_q_PPU | ss_q_wram | ss_q_smp | ss_q_dsp;
+end
+`endif
 endmodule

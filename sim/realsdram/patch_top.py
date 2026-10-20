@@ -30,6 +30,34 @@ for ln in lines:
 if not joy:
     sys.exit("VERILATOR else not found")
 text = "".join(out)
+
+controls = """
+`ifdef SNES_SAVESTATE
+reg [2:0] tb_ss_op /*verilator public*/ = 0;
+reg tb_ss_op_stb /*verilator public*/ = 0;
+reg [19:0] tb_ss_raddr /*verilator public*/ = 0;
+reg [19:0] tb_ss_waddr /*verilator public*/ = 0;
+reg [7:0] tb_ss_wdin /*verilator public*/ = 0;
+reg tb_ss_rd /*verilator public*/ = 0;
+reg tb_ss_taken /*verilator public*/ = 0;
+reg tb_ss_wr /*verilator public*/ = 0;
+reg tb_game_reset /*verilator public*/ = 0;
+assign ss_op = tb_ss_op;
+assign ss_op_stb = tb_ss_op_stb;
+assign ss_img_raddr = tb_ss_raddr;
+assign ss_img_waddr = tb_ss_waddr;
+assign ss_img_wdin = tb_ss_wdin;
+assign ss_img_rd_stb = tb_ss_rd;
+assign ss_img_taken = tb_ss_taken;
+assign ss_img_abort = 1'b0;
+assign ss_img_wr_stb = tb_ss_wr;
+`endif
+"""
+text = text.replace("wire ss_img_rd_stb, ss_img_taken, ss_img_abort, ss_img_rdy, ss_img_wr_stb;", "wire ss_img_rd_stb, ss_img_taken, ss_img_abort, ss_img_wr_stb; wire ss_img_rdy /*verilator public*/;")
+text = text.replace("wire [7:0] ss_img_q, ss_img_wdin;", "wire [7:0] ss_img_wdin; wire [7:0] ss_img_q /*verilator public*/;")
+text = text.replace("`else       // VERILATOR", "`else       // VERILATOR\n" + controls)
+text = text.replace("resetn & ~loading & ~ss_reset", "resetn & ~loading & ~ss_reset & ~tb_game_reset")
+
 old = "test_loader test_loader (\n    .clk(mclk), .resetn(resetn),"
 new = "test_loader test_loader (\n    .clk(mclk), .resetn(resetn & ~sdram_busy),"
 if old not in text:

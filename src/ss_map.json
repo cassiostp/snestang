@@ -1,0 +1,6353 @@
+{
+  "ppu.v": [
+    {
+      "address": 0,
+      "expression": "HDE",
+      "bits": 1
+    },
+    {
+      "address": 1,
+      "expression": "VDE",
+      "bits": 1
+    },
+    {
+      "address": 2,
+      "expression": "HSYNC",
+      "bits": 1
+    },
+    {
+      "address": 3,
+      "expression": "VSYNC",
+      "bits": 1
+    },
+    {
+      "address": 4,
+      "expression": "FRAME_OUT",
+      "bits": 1
+    },
+    {
+      "address": 5,
+      "expression": "DOT_CLK",
+      "bits": 1
+    },
+    {
+      "address": 6,
+      "expression": "DOT_CLKF_CE",
+      "bits": 1
+    },
+    {
+      "address": 7,
+      "expression": "DOT_CLKR_CE",
+      "bits": 1
+    },
+    {
+      "address": 8,
+      "expression": "CLK_CNT[2:0]",
+      "bits": 3
+    },
+    {
+      "address": 9,
+      "expression": "MDR1[7:0]",
+      "bits": 8
+    },
+    {
+      "address": 10,
+      "expression": "MDR2[7:0]",
+      "bits": 8
+    },
+    {
+      "address": 11,
+      "expression": "D_OUT[7:0]",
+      "bits": 8
+    },
+    {
+      "address": 12,
+      "expression": "PARD_Nr",
+      "bits": 1
+    },
+    {
+      "address": 13,
+      "expression": "FORCE_BLANK",
+      "bits": 1
+    },
+    {
+      "address": 14,
+      "expression": "MB[3:0]",
+      "bits": 4
+    },
+    {
+      "address": 15,
+      "expression": "OBJADDR[2:0]",
+      "bits": 3
+    },
+    {
+      "address": 16,
+      "expression": "OBJNAME[1:0]",
+      "bits": 2
+    },
+    {
+      "address": 17,
+      "expression": "OBJSIZE[2:0]",
+      "bits": 3
+    },
+    {
+      "address": 18,
+      "expression": "OAMADD[7:0]",
+      "bits": 8
+    },
+    {
+      "address": 19,
+      "expression": "OAMADD[8:8]",
+      "bits": 1
+    },
+    {
+      "address": 20,
+      "expression": "OAM_PRIO",
+      "bits": 1
+    },
+    {
+      "address": 21,
+      "expression": "TM[7:0]",
+      "bits": 8
+    },
+    {
+      "address": 22,
+      "expression": "TS[7:0]",
+      "bits": 8
+    },
+    {
+      "address": 23,
+      "expression": "BGINTERLACE",
+      "bits": 1
+    },
+    {
+      "address": 24,
+      "expression": "OBJINTERLACE",
+      "bits": 1
+    },
+    {
+      "address": 25,
+      "expression": "OVERSCAN",
+      "bits": 1
+    },
+    {
+      "address": 26,
+      "expression": "PSEUDOHIRES",
+      "bits": 1
+    },
+    {
+      "address": 27,
+      "expression": "M7EXTBG",
+      "bits": 1
+    },
+    {
+      "address": 28,
+      "expression": "BG_MODE[2:0]",
+      "bits": 3
+    },
+    {
+      "address": 29,
+      "expression": "BG3PRIO",
+      "bits": 1
+    },
+    {
+      "address": 30,
+      "expression": "BG_SIZE[3:0]",
+      "bits": 4
+    },
+    {
+      "address": 31,
+      "expression": "BG_MOSAIC_EN[3:0]",
+      "bits": 4
+    },
+    {
+      "address": 32,
+      "expression": "MOSAIC_SIZE[3:0]",
+      "bits": 4
+    },
+    {
+      "address": 33,
+      "expression": "BG_SC_ADDR[0][5:0]",
+      "bits": 6
+    },
+    {
+      "address": 34,
+      "expression": "BG_SC_ADDR[1][5:0]",
+      "bits": 6
+    },
+    {
+      "address": 35,
+      "expression": "BG_SC_ADDR[2][5:0]",
+      "bits": 6
+    },
+    {
+      "address": 36,
+      "expression": "BG_SC_ADDR[3][5:0]",
+      "bits": 6
+    },
+    {
+      "address": 37,
+      "expression": "BG_SC_SIZE[0][1:0]",
+      "bits": 2
+    },
+    {
+      "address": 38,
+      "expression": "BG_SC_SIZE[1][1:0]",
+      "bits": 2
+    },
+    {
+      "address": 39,
+      "expression": "BG_SC_SIZE[2][1:0]",
+      "bits": 2
+    },
+    {
+      "address": 40,
+      "expression": "BG_SC_SIZE[3][1:0]",
+      "bits": 2
+    },
+    {
+      "address": 41,
+      "expression": "BG_NBA[0][3:0]",
+      "bits": 4
+    },
+    {
+      "address": 42,
+      "expression": "BG_NBA[1][3:0]",
+      "bits": 4
+    },
+    {
+      "address": 43,
+      "expression": "BG_NBA[2][3:0]",
+      "bits": 4
+    },
+    {
+      "address": 44,
+      "expression": "BG_NBA[3][3:0]",
+      "bits": 4
+    },
+    {
+      "address": 45,
+      "expression": "CGADD[7:0]",
+      "bits": 8
+    },
+    {
+      "address": 46,
+      "expression": "CGADD[8:8]",
+      "bits": 1
+    },
+    {
+      "address": 47,
+      "expression": "VMAIN_ADDRINC",
+      "bits": 1
+    },
+    {
+      "address": 48,
+      "expression": "VMAIN_ADDRTRANS[1:0]",
+      "bits": 2
+    },
+    {
+      "address": 49,
+      "expression": "VMADD[7:0]",
+      "bits": 8
+    },
+    {
+      "address": 50,
+      "expression": "VMADD[15:8]",
+      "bits": 8
+    },
+    {
+      "address": 51,
+      "expression": "BG_HOFS[0][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 52,
+      "expression": "BG_HOFS[0][9:8]",
+      "bits": 2
+    },
+    {
+      "address": 53,
+      "expression": "BG_HOFS[1][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 54,
+      "expression": "BG_HOFS[1][9:8]",
+      "bits": 2
+    },
+    {
+      "address": 55,
+      "expression": "BG_HOFS[2][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 56,
+      "expression": "BG_HOFS[2][9:8]",
+      "bits": 2
+    },
+    {
+      "address": 57,
+      "expression": "BG_HOFS[3][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 58,
+      "expression": "BG_HOFS[3][9:8]",
+      "bits": 2
+    },
+    {
+      "address": 59,
+      "expression": "BG_VOFS[0][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 60,
+      "expression": "BG_VOFS[0][9:8]",
+      "bits": 2
+    },
+    {
+      "address": 61,
+      "expression": "BG_VOFS[1][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 62,
+      "expression": "BG_VOFS[1][9:8]",
+      "bits": 2
+    },
+    {
+      "address": 63,
+      "expression": "BG_VOFS[2][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 64,
+      "expression": "BG_VOFS[2][9:8]",
+      "bits": 2
+    },
+    {
+      "address": 65,
+      "expression": "BG_VOFS[3][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 66,
+      "expression": "BG_VOFS[3][9:8]",
+      "bits": 2
+    },
+    {
+      "address": 67,
+      "expression": "M7SEL[7:0]",
+      "bits": 8
+    },
+    {
+      "address": 68,
+      "expression": "M7A[7:0]",
+      "bits": 8
+    },
+    {
+      "address": 69,
+      "expression": "M7A[15:8]",
+      "bits": 8
+    },
+    {
+      "address": 70,
+      "expression": "M7B[7:0]",
+      "bits": 8
+    },
+    {
+      "address": 71,
+      "expression": "M7B[15:8]",
+      "bits": 8
+    },
+    {
+      "address": 72,
+      "expression": "M7C[7:0]",
+      "bits": 8
+    },
+    {
+      "address": 73,
+      "expression": "M7C[15:8]",
+      "bits": 8
+    },
+    {
+      "address": 74,
+      "expression": "M7D[7:0]",
+      "bits": 8
+    },
+    {
+      "address": 75,
+      "expression": "M7D[15:8]",
+      "bits": 8
+    },
+    {
+      "address": 76,
+      "expression": "M7HOFS[7:0]",
+      "bits": 8
+    },
+    {
+      "address": 77,
+      "expression": "M7HOFS[12:8]",
+      "bits": 5
+    },
+    {
+      "address": 78,
+      "expression": "M7VOFS[7:0]",
+      "bits": 8
+    },
+    {
+      "address": 79,
+      "expression": "M7VOFS[12:8]",
+      "bits": 5
+    },
+    {
+      "address": 80,
+      "expression": "M7X[7:0]",
+      "bits": 8
+    },
+    {
+      "address": 81,
+      "expression": "M7X[12:8]",
+      "bits": 5
+    },
+    {
+      "address": 82,
+      "expression": "M7Y[7:0]",
+      "bits": 8
+    },
+    {
+      "address": 83,
+      "expression": "M7Y[12:8]",
+      "bits": 5
+    },
+    {
+      "address": 84,
+      "expression": "WH0[7:0]",
+      "bits": 8
+    },
+    {
+      "address": 85,
+      "expression": "WH1[7:0]",
+      "bits": 8
+    },
+    {
+      "address": 86,
+      "expression": "WH2[7:0]",
+      "bits": 8
+    },
+    {
+      "address": 87,
+      "expression": "WH3[7:0]",
+      "bits": 8
+    },
+    {
+      "address": 88,
+      "expression": "W12SEL[7:0]",
+      "bits": 8
+    },
+    {
+      "address": 89,
+      "expression": "W34SEL[7:0]",
+      "bits": 8
+    },
+    {
+      "address": 90,
+      "expression": "WOBJSEL[7:0]",
+      "bits": 8
+    },
+    {
+      "address": 91,
+      "expression": "WBGLOG[7:0]",
+      "bits": 8
+    },
+    {
+      "address": 92,
+      "expression": "WOBJLOG[7:0]",
+      "bits": 8
+    },
+    {
+      "address": 93,
+      "expression": "TMW[7:0]",
+      "bits": 8
+    },
+    {
+      "address": 94,
+      "expression": "TSW[7:0]",
+      "bits": 8
+    },
+    {
+      "address": 95,
+      "expression": "CGWSEL[7:0]",
+      "bits": 8
+    },
+    {
+      "address": 96,
+      "expression": "CGADSUB[7:0]",
+      "bits": 8
+    },
+    {
+      "address": 97,
+      "expression": "SUBCOLBD[7:0]",
+      "bits": 8
+    },
+    {
+      "address": 98,
+      "expression": "SUBCOLBD[14:8]",
+      "bits": 7
+    },
+    {
+      "address": 99,
+      "expression": "OPHCT[7:0]",
+      "bits": 8
+    },
+    {
+      "address": 100,
+      "expression": "OPHCT[8:8]",
+      "bits": 1
+    },
+    {
+      "address": 101,
+      "expression": "OPVCT[7:0]",
+      "bits": 8
+    },
+    {
+      "address": 102,
+      "expression": "OPVCT[8:8]",
+      "bits": 1
+    },
+    {
+      "address": 103,
+      "expression": "OPHCT_latch",
+      "bits": 1
+    },
+    {
+      "address": 104,
+      "expression": "OPVCT_latch",
+      "bits": 1
+    },
+    {
+      "address": 105,
+      "expression": "EXTLATCHr",
+      "bits": 1
+    },
+    {
+      "address": 106,
+      "expression": "F_LATCH",
+      "bits": 1
+    },
+    {
+      "address": 107,
+      "expression": "CGRAM_Lsb[7:0]",
+      "bits": 8
+    },
+    {
+      "address": 108,
+      "expression": "BGOFS_latch[7:0]",
+      "bits": 8
+    },
+    {
+      "address": 109,
+      "expression": "M7_latch[7:0]",
+      "bits": 8
+    },
+    {
+      "address": 110,
+      "expression": "BGHOFS_latch[2:0]",
+      "bits": 3
+    },
+    {
+      "address": 111,
+      "expression": "OAM_latch[7:0]",
+      "bits": 8
+    },
+    {
+      "address": 112,
+      "expression": "VRAMDATA_Prefetch[7:0]",
+      "bits": 8
+    },
+    {
+      "address": 113,
+      "expression": "VRAMDATA_Prefetch[15:8]",
+      "bits": 8
+    },
+    {
+      "address": 114,
+      "expression": "VMADD_INC[7:0]",
+      "bits": 8
+    },
+    {
+      "address": 115,
+      "expression": "OBJ_TIME_OFL",
+      "bits": 1
+    },
+    {
+      "address": 116,
+      "expression": "OBJ_RANGE_OFL",
+      "bits": 1
+    },
+    {
+      "address": 117,
+      "expression": "BG_FORCE_BLANK",
+      "bits": 1
+    },
+    {
+      "address": 118,
+      "expression": "OAM_ADDR_REQ",
+      "bits": 1
+    },
+    {
+      "address": 119,
+      "expression": "OAM_PRIO_REQ",
+      "bits": 1
+    },
+    {
+      "address": 120,
+      "expression": "VRAMPRERD_REQ",
+      "bits": 1
+    },
+    {
+      "address": 121,
+      "expression": "VRAMRD_CNT[1:0]",
+      "bits": 2
+    },
+    {
+      "address": 122,
+      "expression": "H_CNT[7:0]",
+      "bits": 8
+    },
+    {
+      "address": 123,
+      "expression": "H_CNT[8:8]",
+      "bits": 1
+    },
+    {
+      "address": 124,
+      "expression": "V_CNT[7:0]",
+      "bits": 8
+    },
+    {
+      "address": 125,
+      "expression": "V_CNT[8:8]",
+      "bits": 1
+    },
+    {
+      "address": 126,
+      "expression": "FIELD",
+      "bits": 1
+    },
+    {
+      "address": 127,
+      "expression": "IN_HBL",
+      "bits": 1
+    },
+    {
+      "address": 128,
+      "expression": "IN_VBL",
+      "bits": 1
+    },
+    {
+      "address": 129,
+      "expression": "GET_PIXEL_X[7:0]",
+      "bits": 8
+    },
+    {
+      "address": 130,
+      "expression": "WINDOW_X[7:0]",
+      "bits": 8
+    },
+    {
+      "address": 131,
+      "expression": "OUT_X[7:0]",
+      "bits": 8
+    },
+    {
+      "address": 132,
+      "expression": "OUT_Y[7:0]",
+      "bits": 8
+    },
+    {
+      "address": 133,
+      "expression": "BG_MOSAIC_X[3:0]",
+      "bits": 4
+    },
+    {
+      "address": 134,
+      "expression": "BG_MOSAIC_Y[3:0]",
+      "bits": 4
+    },
+    {
+      "address": 135,
+      "expression": "BG3_OPT_DATA0[7:0]",
+      "bits": 8
+    },
+    {
+      "address": 136,
+      "expression": "BG3_OPT_DATA0[15:8]",
+      "bits": 8
+    },
+    {
+      "address": 137,
+      "expression": "BG3_OPT_DATA1[7:0]",
+      "bits": 8
+    },
+    {
+      "address": 138,
+      "expression": "BG3_OPT_DATA1[15:8]",
+      "bits": 8
+    },
+    {
+      "address": 139,
+      "expression": "BG_DATA[0][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 140,
+      "expression": "BG_DATA[0][15:8]",
+      "bits": 8
+    },
+    {
+      "address": 141,
+      "expression": "BG_DATA[1][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 142,
+      "expression": "BG_DATA[1][15:8]",
+      "bits": 8
+    },
+    {
+      "address": 143,
+      "expression": "BG_DATA[2][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 144,
+      "expression": "BG_DATA[2][15:8]",
+      "bits": 8
+    },
+    {
+      "address": 145,
+      "expression": "BG_DATA[3][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 146,
+      "expression": "BG_DATA[3][15:8]",
+      "bits": 8
+    },
+    {
+      "address": 147,
+      "expression": "BG_DATA[4][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 148,
+      "expression": "BG_DATA[4][15:8]",
+      "bits": 8
+    },
+    {
+      "address": 149,
+      "expression": "BG_DATA[5][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 150,
+      "expression": "BG_DATA[5][15:8]",
+      "bits": 8
+    },
+    {
+      "address": 151,
+      "expression": "BG_DATA[6][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 152,
+      "expression": "BG_DATA[6][15:8]",
+      "bits": 8
+    },
+    {
+      "address": 153,
+      "expression": "BG_DATA[7][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 154,
+      "expression": "BG_DATA[7][15:8]",
+      "bits": 8
+    },
+    {
+      "address": 155,
+      "expression": "BG_TILES_PLANES[0][0][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 156,
+      "expression": "BG_TILES_PLANES[0][1][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 157,
+      "expression": "BG_TILES_PLANES[0][2][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 158,
+      "expression": "BG_TILES_PLANES[0][3][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 159,
+      "expression": "BG_TILES_PLANES[0][4][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 160,
+      "expression": "BG_TILES_PLANES[0][5][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 161,
+      "expression": "BG_TILES_PLANES[0][6][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 162,
+      "expression": "BG_TILES_PLANES[0][7][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 163,
+      "expression": "BG_TILES_PLANES[0][8][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 164,
+      "expression": "BG_TILES_PLANES[0][9][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 165,
+      "expression": "BG_TILES_PLANES[0][10][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 166,
+      "expression": "BG_TILES_PLANES[0][11][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 167,
+      "expression": "BG_TILES_PLANES[1][0][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 168,
+      "expression": "BG_TILES_PLANES[1][1][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 169,
+      "expression": "BG_TILES_PLANES[1][2][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 170,
+      "expression": "BG_TILES_PLANES[1][3][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 171,
+      "expression": "BG_TILES_PLANES[1][4][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 172,
+      "expression": "BG_TILES_PLANES[1][5][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 173,
+      "expression": "BG_TILES_PLANES[1][6][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 174,
+      "expression": "BG_TILES_PLANES[1][7][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 175,
+      "expression": "BG_TILES_PLANES[1][8][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 176,
+      "expression": "BG_TILES_PLANES[1][9][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 177,
+      "expression": "BG_TILES_PLANES[1][10][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 178,
+      "expression": "BG_TILES_PLANES[1][11][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 179,
+      "expression": "BG_TILES_ATR[0][0][3:0]",
+      "bits": 4
+    },
+    {
+      "address": 180,
+      "expression": "BG_TILES_ATR[0][1][3:0]",
+      "bits": 4
+    },
+    {
+      "address": 181,
+      "expression": "BG_TILES_ATR[0][2][3:0]",
+      "bits": 4
+    },
+    {
+      "address": 182,
+      "expression": "BG_TILES_ATR[0][3][3:0]",
+      "bits": 4
+    },
+    {
+      "address": 183,
+      "expression": "BG_TILES_ATR[1][0][3:0]",
+      "bits": 4
+    },
+    {
+      "address": 184,
+      "expression": "BG_TILES_ATR[1][1][3:0]",
+      "bits": 4
+    },
+    {
+      "address": 185,
+      "expression": "BG_TILES_ATR[1][2][3:0]",
+      "bits": 4
+    },
+    {
+      "address": 186,
+      "expression": "BG_TILES_ATR[1][3][3:0]",
+      "bits": 4
+    },
+    {
+      "address": 187,
+      "expression": "BG1_PIX_DATA[7:0]",
+      "bits": 8
+    },
+    {
+      "address": 188,
+      "expression": "BG1_PIX_DATA[11:8]",
+      "bits": 4
+    },
+    {
+      "address": 189,
+      "expression": "BG2_PIX_DATA[7:0]",
+      "bits": 8
+    },
+    {
+      "address": 190,
+      "expression": "BG3_PIX_DATA[5:0]",
+      "bits": 6
+    },
+    {
+      "address": 191,
+      "expression": "BG4_PIX_DATA[5:0]",
+      "bits": 6
+    },
+    {
+      "address": 192,
+      "expression": "M7_PIX_DATA[7:0]",
+      "bits": 8
+    },
+    {
+      "address": 193,
+      "expression": "M7_SCREEN_X[7:0]",
+      "bits": 8
+    },
+    {
+      "address": 194,
+      "expression": "M7_TEMP_X[7:0]",
+      "bits": 8
+    },
+    {
+      "address": 195,
+      "expression": "M7_TEMP_X[15:8]",
+      "bits": 8
+    },
+    {
+      "address": 196,
+      "expression": "M7_TEMP_X[23:16]",
+      "bits": 8
+    },
+    {
+      "address": 197,
+      "expression": "M7_TEMP_Y[7:0]",
+      "bits": 8
+    },
+    {
+      "address": 198,
+      "expression": "M7_TEMP_Y[15:8]",
+      "bits": 8
+    },
+    {
+      "address": 199,
+      "expression": "M7_TEMP_Y[23:16]",
+      "bits": 8
+    },
+    {
+      "address": 200,
+      "expression": "M7_TILE_N[7:0]",
+      "bits": 8
+    },
+    {
+      "address": 201,
+      "expression": "M7_TILE_ROW[2:0]",
+      "bits": 3
+    },
+    {
+      "address": 202,
+      "expression": "M7_TILE_COL[2:0]",
+      "bits": 3
+    },
+    {
+      "address": 203,
+      "expression": "M7_TILE_OUTSIDE",
+      "bits": 1
+    },
+    {
+      "address": 204,
+      "expression": "HOAM_Q[7:0]",
+      "bits": 8
+    },
+    {
+      "address": 205,
+      "expression": "OAM_ADDR[7:0]",
+      "bits": 8
+    },
+    {
+      "address": 206,
+      "expression": "OAM_ADDR[9:8]",
+      "bits": 2
+    },
+    {
+      "address": 207,
+      "expression": "OAM_RANGE[0][6:0]",
+      "bits": 7
+    },
+    {
+      "address": 208,
+      "expression": "OAM_RANGE[1][6:0]",
+      "bits": 7
+    },
+    {
+      "address": 209,
+      "expression": "OAM_RANGE[2][6:0]",
+      "bits": 7
+    },
+    {
+      "address": 210,
+      "expression": "OAM_RANGE[3][6:0]",
+      "bits": 7
+    },
+    {
+      "address": 211,
+      "expression": "OAM_RANGE[4][6:0]",
+      "bits": 7
+    },
+    {
+      "address": 212,
+      "expression": "OAM_RANGE[5][6:0]",
+      "bits": 7
+    },
+    {
+      "address": 213,
+      "expression": "OAM_RANGE[6][6:0]",
+      "bits": 7
+    },
+    {
+      "address": 214,
+      "expression": "OAM_RANGE[7][6:0]",
+      "bits": 7
+    },
+    {
+      "address": 215,
+      "expression": "OAM_RANGE[8][6:0]",
+      "bits": 7
+    },
+    {
+      "address": 216,
+      "expression": "OAM_RANGE[9][6:0]",
+      "bits": 7
+    },
+    {
+      "address": 217,
+      "expression": "OAM_RANGE[10][6:0]",
+      "bits": 7
+    },
+    {
+      "address": 218,
+      "expression": "OAM_RANGE[11][6:0]",
+      "bits": 7
+    },
+    {
+      "address": 219,
+      "expression": "OAM_RANGE[12][6:0]",
+      "bits": 7
+    },
+    {
+      "address": 220,
+      "expression": "OAM_RANGE[13][6:0]",
+      "bits": 7
+    },
+    {
+      "address": 221,
+      "expression": "OAM_RANGE[14][6:0]",
+      "bits": 7
+    },
+    {
+      "address": 222,
+      "expression": "OAM_RANGE[15][6:0]",
+      "bits": 7
+    },
+    {
+      "address": 223,
+      "expression": "OAM_RANGE[16][6:0]",
+      "bits": 7
+    },
+    {
+      "address": 224,
+      "expression": "OAM_RANGE[17][6:0]",
+      "bits": 7
+    },
+    {
+      "address": 225,
+      "expression": "OAM_RANGE[18][6:0]",
+      "bits": 7
+    },
+    {
+      "address": 226,
+      "expression": "OAM_RANGE[19][6:0]",
+      "bits": 7
+    },
+    {
+      "address": 227,
+      "expression": "OAM_RANGE[20][6:0]",
+      "bits": 7
+    },
+    {
+      "address": 228,
+      "expression": "OAM_RANGE[21][6:0]",
+      "bits": 7
+    },
+    {
+      "address": 229,
+      "expression": "OAM_RANGE[22][6:0]",
+      "bits": 7
+    },
+    {
+      "address": 230,
+      "expression": "OAM_RANGE[23][6:0]",
+      "bits": 7
+    },
+    {
+      "address": 231,
+      "expression": "OAM_RANGE[24][6:0]",
+      "bits": 7
+    },
+    {
+      "address": 232,
+      "expression": "OAM_RANGE[25][6:0]",
+      "bits": 7
+    },
+    {
+      "address": 233,
+      "expression": "OAM_RANGE[26][6:0]",
+      "bits": 7
+    },
+    {
+      "address": 234,
+      "expression": "OAM_RANGE[27][6:0]",
+      "bits": 7
+    },
+    {
+      "address": 235,
+      "expression": "OAM_RANGE[28][6:0]",
+      "bits": 7
+    },
+    {
+      "address": 236,
+      "expression": "OAM_RANGE[29][6:0]",
+      "bits": 7
+    },
+    {
+      "address": 237,
+      "expression": "OAM_RANGE[30][6:0]",
+      "bits": 7
+    },
+    {
+      "address": 238,
+      "expression": "OAM_RANGE[31][6:0]",
+      "bits": 7
+    },
+    {
+      "address": 239,
+      "expression": "OAM_PRIO_INDEX[6:0]",
+      "bits": 7
+    },
+    {
+      "address": 240,
+      "expression": "OAM_TIME_INDEX[6:0]",
+      "bits": 7
+    },
+    {
+      "address": 241,
+      "expression": "RANGE_CNT[5:0]",
+      "bits": 6
+    },
+    {
+      "address": 242,
+      "expression": "TILES_OAM_CNT[5:0]",
+      "bits": 6
+    },
+    {
+      "address": 243,
+      "expression": "TILES_CNT[2:0]",
+      "bits": 3
+    },
+    {
+      "address": 244,
+      "expression": "OBJ_RANGE_DONE",
+      "bits": 1
+    },
+    {
+      "address": 245,
+      "expression": "OBJ_TIME_DONE",
+      "bits": 1
+    },
+    {
+      "address": 246,
+      "expression": "OBJ_TILE_COL[3:0]",
+      "bits": 4
+    },
+    {
+      "address": 247,
+      "expression": "OBJ_TILE_ROW[3:0]",
+      "bits": 4
+    },
+    {
+      "address": 248,
+      "expression": "OBJ_TILE_LINE[2:0]",
+      "bits": 3
+    },
+    {
+      "address": 249,
+      "expression": "OBJ_TILE_GAP[7:0]",
+      "bits": 8
+    },
+    {
+      "address": 250,
+      "expression": "OBJ_TILE_GAP[14:8]",
+      "bits": 7
+    },
+    {
+      "address": 251,
+      "expression": "OBJ_TILE_HFLIP",
+      "bits": 1
+    },
+    {
+      "address": 252,
+      "expression": "OBJ_TILE_PAL[2:0]",
+      "bits": 3
+    },
+    {
+      "address": 253,
+      "expression": "OBJ_TILE_PRIO[1:0]",
+      "bits": 2
+    },
+    {
+      "address": 254,
+      "expression": "OBJ_TILE_X[7:0]",
+      "bits": 8
+    },
+    {
+      "address": 255,
+      "expression": "OBJ_TILE_X[8:8]",
+      "bits": 1
+    },
+    {
+      "address": 256,
+      "expression": "SPR_PIX_DATA[7:0]",
+      "bits": 8
+    },
+    {
+      "address": 257,
+      "expression": "SPR_PIX_DATA[8:8]",
+      "bits": 1
+    },
+    {
+      "address": 258,
+      "expression": "SPR_PIX_DATA_BUF[7:0]",
+      "bits": 8
+    },
+    {
+      "address": 259,
+      "expression": "SPR_PIX_DATA_BUF[8:8]",
+      "bits": 1
+    },
+    {
+      "address": 260,
+      "expression": "SPR_PIXEL_X[7:0]",
+      "bits": 8
+    },
+    {
+      "address": 261,
+      "expression": "SPR_TILE_DATA[7:0]",
+      "bits": 8
+    },
+    {
+      "address": 262,
+      "expression": "SPR_TILE_DATA[15:8]",
+      "bits": 8
+    },
+    {
+      "address": 263,
+      "expression": "SPR_TILE_DATA[23:16]",
+      "bits": 8
+    },
+    {
+      "address": 264,
+      "expression": "SPR_TILE_DATA[31:24]",
+      "bits": 8
+    },
+    {
+      "address": 265,
+      "expression": "SPR_TILE_DATA_TEMP[7:0]",
+      "bits": 8
+    },
+    {
+      "address": 266,
+      "expression": "SPR_TILE_DATA_TEMP[15:8]",
+      "bits": 8
+    },
+    {
+      "address": 267,
+      "expression": "SPR_TILE_X[7:0]",
+      "bits": 8
+    },
+    {
+      "address": 268,
+      "expression": "SPR_TILE_X[8:8]",
+      "bits": 1
+    },
+    {
+      "address": 269,
+      "expression": "SPR_TILE_PAL[2:0]",
+      "bits": 3
+    },
+    {
+      "address": 270,
+      "expression": "SPR_TILE_PRIO[1:0]",
+      "bits": 2
+    },
+    {
+      "address": 271,
+      "expression": "OBJ_TIME_SAVE",
+      "bits": 1
+    },
+    {
+      "address": 272,
+      "expression": "SPR_PIX_D[7:0]",
+      "bits": 8
+    },
+    {
+      "address": 273,
+      "expression": "SPR_PIX_D[8:8]",
+      "bits": 1
+    },
+    {
+      "address": 274,
+      "expression": "SPR_PIX_Q[7:0]",
+      "bits": 8
+    },
+    {
+      "address": 275,
+      "expression": "SPR_PIX_Q[8:8]",
+      "bits": 1
+    },
+    {
+      "address": 276,
+      "expression": "SPR_PIX_ADDR_A[7:0]",
+      "bits": 8
+    },
+    {
+      "address": 277,
+      "expression": "SPR_PIX_WE_A",
+      "bits": 1
+    },
+    {
+      "address": 278,
+      "expression": "SPR_PIX_CNT[2:0]",
+      "bits": 3
+    },
+    {
+      "address": 279,
+      "expression": "CGRAM_ADDR_CLR[7:0]",
+      "bits": 8
+    },
+    {
+      "address": 280,
+      "expression": "PREV_COLOR[7:0]",
+      "bits": 8
+    },
+    {
+      "address": 281,
+      "expression": "PREV_COLOR[14:8]",
+      "bits": 7
+    },
+    {
+      "address": 282,
+      "expression": "SUB_BD",
+      "bits": 1
+    },
+    {
+      "address": 283,
+      "expression": "MAIN_R[4:0]",
+      "bits": 5
+    },
+    {
+      "address": 284,
+      "expression": "MAIN_G[4:0]",
+      "bits": 5
+    },
+    {
+      "address": 285,
+      "expression": "MAIN_B[4:0]",
+      "bits": 5
+    },
+    {
+      "address": 286,
+      "expression": "SUB_R[4:0]",
+      "bits": 5
+    },
+    {
+      "address": 287,
+      "expression": "SUB_G[4:0]",
+      "bits": 5
+    },
+    {
+      "address": 288,
+      "expression": "SUB_B[4:0]",
+      "bits": 5
+    },
+    {
+      "address": 289,
+      "expression": "SUB_MATH_R[4:0]",
+      "bits": 5
+    },
+    {
+      "address": 290,
+      "expression": "SUB_MATH_G[4:0]",
+      "bits": 5
+    },
+    {
+      "address": 291,
+      "expression": "SUB_MATH_B[4:0]",
+      "bits": 5
+    },
+    {
+      "address": 292,
+      "expression": "HOAM[0][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 293,
+      "expression": "HOAM[1][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 294,
+      "expression": "HOAM[2][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 295,
+      "expression": "HOAM[3][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 296,
+      "expression": "HOAM[4][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 297,
+      "expression": "HOAM[5][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 298,
+      "expression": "HOAM[6][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 299,
+      "expression": "HOAM[7][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 300,
+      "expression": "HOAM[8][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 301,
+      "expression": "HOAM[9][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 302,
+      "expression": "HOAM[10][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 303,
+      "expression": "HOAM[11][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 304,
+      "expression": "HOAM[12][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 305,
+      "expression": "HOAM[13][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 306,
+      "expression": "HOAM[14][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 307,
+      "expression": "HOAM[15][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 308,
+      "expression": "HOAM[16][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 309,
+      "expression": "HOAM[17][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 310,
+      "expression": "HOAM[18][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 311,
+      "expression": "HOAM[19][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 312,
+      "expression": "HOAM[20][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 313,
+      "expression": "HOAM[21][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 314,
+      "expression": "HOAM[22][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 315,
+      "expression": "HOAM[23][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 316,
+      "expression": "HOAM[24][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 317,
+      "expression": "HOAM[25][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 318,
+      "expression": "HOAM[26][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 319,
+      "expression": "HOAM[27][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 320,
+      "expression": "HOAM[28][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 321,
+      "expression": "HOAM[29][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 322,
+      "expression": "HOAM[30][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 323,
+      "expression": "HOAM[31][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 324,
+      "expression": "SUB_MATH_EN",
+      "bits": 1
+    },
+    {
+      "address": 325,
+      "expression": "MATH_EN",
+      "bits": 1
+    },
+    {
+      "address": 326,
+      "expression": "COLOR_MASK[4:0]",
+      "bits": 5
+    }
+  ],
+  "dsp.v": [
+    {
+      "address": 4096,
+      "expression": "AUDIO_L[7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4097,
+      "expression": "AUDIO_L[15:8]",
+      "bits": 8
+    },
+    {
+      "address": 4098,
+      "expression": "AUDIO_R[7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4099,
+      "expression": "AUDIO_R[15:8]",
+      "bits": 8
+    },
+    {
+      "address": 4100,
+      "expression": "SND_RDY",
+      "bits": 1
+    },
+    {
+      "address": 4101,
+      "expression": "RI[7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4102,
+      "expression": "REGS_DO[7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4103,
+      "expression": "STEP_CNT[4:0]",
+      "bits": 5
+    },
+    {
+      "address": 4104,
+      "expression": "SUBSTEP_CNT[1:0]",
+      "bits": 2
+    },
+    {
+      "address": 4105,
+      "expression": "RST_FLG",
+      "bits": 1
+    },
+    {
+      "address": 4106,
+      "expression": "MUTE_FLG",
+      "bits": 1
+    },
+    {
+      "address": 4107,
+      "expression": "ECEN_FLG",
+      "bits": 1
+    },
+    {
+      "address": 4108,
+      "expression": "WKON[7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4109,
+      "expression": "TKON[7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4110,
+      "expression": "TKOFF[7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4111,
+      "expression": "KON_CNT[0][2:0]",
+      "bits": 3
+    },
+    {
+      "address": 4112,
+      "expression": "KON_CNT[1][2:0]",
+      "bits": 3
+    },
+    {
+      "address": 4113,
+      "expression": "KON_CNT[2][2:0]",
+      "bits": 3
+    },
+    {
+      "address": 4114,
+      "expression": "KON_CNT[3][2:0]",
+      "bits": 3
+    },
+    {
+      "address": 4115,
+      "expression": "KON_CNT[4][2:0]",
+      "bits": 3
+    },
+    {
+      "address": 4116,
+      "expression": "KON_CNT[5][2:0]",
+      "bits": 3
+    },
+    {
+      "address": 4117,
+      "expression": "KON_CNT[6][2:0]",
+      "bits": 3
+    },
+    {
+      "address": 4118,
+      "expression": "KON_CNT[7][2:0]",
+      "bits": 3
+    },
+    {
+      "address": 4119,
+      "expression": "TSRCN[7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4120,
+      "expression": "TDIR[7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4121,
+      "expression": "TPITCH[7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4122,
+      "expression": "TPITCH[14:8]",
+      "bits": 7
+    },
+    {
+      "address": 4123,
+      "expression": "TADSR1[7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4124,
+      "expression": "TADSR2[7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4125,
+      "expression": "TNON[7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4126,
+      "expression": "TESA[7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4127,
+      "expression": "TEON[7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4128,
+      "expression": "TPMON[7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4129,
+      "expression": "ENDX[7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4130,
+      "expression": "ENDX_BUF[7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4131,
+      "expression": "OUTX_OUT[7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4132,
+      "expression": "ENVX_OUT[7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4133,
+      "expression": "TENVX[0][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4134,
+      "expression": "TENVX[1][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4135,
+      "expression": "TENVX[2][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4136,
+      "expression": "TENVX[3][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4137,
+      "expression": "TENVX[4][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4138,
+      "expression": "TENVX[5][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4139,
+      "expression": "TENVX[6][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4140,
+      "expression": "TENVX[7][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4141,
+      "expression": "EVEN_SAMPLE",
+      "bits": 1
+    },
+    {
+      "address": 4142,
+      "expression": "BRR_DECODE_EN",
+      "bits": 1
+    },
+    {
+      "address": 4143,
+      "expression": "TOUT[7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4144,
+      "expression": "TOUT[15:8]",
+      "bits": 8
+    },
+    {
+      "address": 4145,
+      "expression": "NOISE[7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4146,
+      "expression": "NOISE[14:8]",
+      "bits": 7
+    },
+    {
+      "address": 4147,
+      "expression": "OUTL[7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4148,
+      "expression": "OUTL[15:8]",
+      "bits": 8
+    },
+    {
+      "address": 4149,
+      "expression": "OUTR[7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4150,
+      "expression": "OUTR[15:8]",
+      "bits": 8
+    },
+    {
+      "address": 4151,
+      "expression": "OUTPUT[7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4152,
+      "expression": "OUTPUT[15:8]",
+      "bits": 8
+    },
+    {
+      "address": 4153,
+      "expression": "OUTPUT[23:16]",
+      "bits": 8
+    },
+    {
+      "address": 4154,
+      "expression": "OUTPUT[31:24]",
+      "bits": 8
+    },
+    {
+      "address": 4155,
+      "expression": "MOUT[0][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4156,
+      "expression": "MOUT[0][15:8]",
+      "bits": 8
+    },
+    {
+      "address": 4157,
+      "expression": "MOUT[1][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4158,
+      "expression": "MOUT[1][15:8]",
+      "bits": 8
+    },
+    {
+      "address": 4159,
+      "expression": "EOUT[0][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4160,
+      "expression": "EOUT[0][15:8]",
+      "bits": 8
+    },
+    {
+      "address": 4161,
+      "expression": "EOUT[1][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4162,
+      "expression": "EOUT[1][15:8]",
+      "bits": 8
+    },
+    {
+      "address": 4163,
+      "expression": "TDIR_ADDR[7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4164,
+      "expression": "TDIR_ADDR[15:8]",
+      "bits": 8
+    },
+    {
+      "address": 4165,
+      "expression": "BRR_NEXT_ADDR[7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4166,
+      "expression": "BRR_NEXT_ADDR[15:8]",
+      "bits": 8
+    },
+    {
+      "address": 4167,
+      "expression": "BRR_ADDR[0][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4168,
+      "expression": "BRR_ADDR[0][15:8]",
+      "bits": 8
+    },
+    {
+      "address": 4169,
+      "expression": "BRR_ADDR[1][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4170,
+      "expression": "BRR_ADDR[1][15:8]",
+      "bits": 8
+    },
+    {
+      "address": 4171,
+      "expression": "BRR_ADDR[2][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4172,
+      "expression": "BRR_ADDR[2][15:8]",
+      "bits": 8
+    },
+    {
+      "address": 4173,
+      "expression": "BRR_ADDR[3][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4174,
+      "expression": "BRR_ADDR[3][15:8]",
+      "bits": 8
+    },
+    {
+      "address": 4175,
+      "expression": "BRR_ADDR[4][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4176,
+      "expression": "BRR_ADDR[4][15:8]",
+      "bits": 8
+    },
+    {
+      "address": 4177,
+      "expression": "BRR_ADDR[5][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4178,
+      "expression": "BRR_ADDR[5][15:8]",
+      "bits": 8
+    },
+    {
+      "address": 4179,
+      "expression": "BRR_ADDR[6][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4180,
+      "expression": "BRR_ADDR[6][15:8]",
+      "bits": 8
+    },
+    {
+      "address": 4181,
+      "expression": "BRR_ADDR[7][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4182,
+      "expression": "BRR_ADDR[7][15:8]",
+      "bits": 8
+    },
+    {
+      "address": 4183,
+      "expression": "BRR_OFFS[0][2:0]",
+      "bits": 3
+    },
+    {
+      "address": 4184,
+      "expression": "BRR_OFFS[1][2:0]",
+      "bits": 3
+    },
+    {
+      "address": 4185,
+      "expression": "BRR_OFFS[2][2:0]",
+      "bits": 3
+    },
+    {
+      "address": 4186,
+      "expression": "BRR_OFFS[3][2:0]",
+      "bits": 3
+    },
+    {
+      "address": 4187,
+      "expression": "BRR_OFFS[4][2:0]",
+      "bits": 3
+    },
+    {
+      "address": 4188,
+      "expression": "BRR_OFFS[5][2:0]",
+      "bits": 3
+    },
+    {
+      "address": 4189,
+      "expression": "BRR_OFFS[6][2:0]",
+      "bits": 3
+    },
+    {
+      "address": 4190,
+      "expression": "BRR_OFFS[7][2:0]",
+      "bits": 3
+    },
+    {
+      "address": 4191,
+      "expression": "TBRRDAT[7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4192,
+      "expression": "TBRRDAT[15:8]",
+      "bits": 8
+    },
+    {
+      "address": 4193,
+      "expression": "TBRRHDR[7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4194,
+      "expression": "BRR_END[7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4195,
+      "expression": "BRR_BUF_ADDR[0][3:0]",
+      "bits": 4
+    },
+    {
+      "address": 4196,
+      "expression": "BRR_BUF_ADDR[1][3:0]",
+      "bits": 4
+    },
+    {
+      "address": 4197,
+      "expression": "BRR_BUF_ADDR[2][3:0]",
+      "bits": 4
+    },
+    {
+      "address": 4198,
+      "expression": "BRR_BUF_ADDR[3][3:0]",
+      "bits": 4
+    },
+    {
+      "address": 4199,
+      "expression": "BRR_BUF_ADDR[4][3:0]",
+      "bits": 4
+    },
+    {
+      "address": 4200,
+      "expression": "BRR_BUF_ADDR[5][3:0]",
+      "bits": 4
+    },
+    {
+      "address": 4201,
+      "expression": "BRR_BUF_ADDR[6][3:0]",
+      "bits": 4
+    },
+    {
+      "address": 4202,
+      "expression": "BRR_BUF_ADDR[7][3:0]",
+      "bits": 4
+    },
+    {
+      "address": 4203,
+      "expression": "BRR_BUF_ADDR_A[6:0]",
+      "bits": 7
+    },
+    {
+      "address": 4204,
+      "expression": "BRR_BUF_WE",
+      "bits": 1
+    },
+    {
+      "address": 4205,
+      "expression": "BRR_BUF_DI[7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4206,
+      "expression": "BRR_BUF_DI[15:8]",
+      "bits": 8
+    },
+    {
+      "address": 4207,
+      "expression": "BRR_BUF_DO[7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4208,
+      "expression": "BRR_BUF_DO[15:8]",
+      "bits": 8
+    },
+    {
+      "address": 4209,
+      "expression": "BRR_BUF_ADDR_B[6:0]",
+      "bits": 7
+    },
+    {
+      "address": 4210,
+      "expression": "BRR_BUF_GAUSS_DO[7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4211,
+      "expression": "BRR_BUF_GAUSS_DO[15:8]",
+      "bits": 8
+    },
+    {
+      "address": 4212,
+      "expression": "GS_STATE[2:0]",
+      "bits": 3
+    },
+    {
+      "address": 4213,
+      "expression": "GTBL_ADDR[7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4214,
+      "expression": "GTBL_ADDR[8:8]",
+      "bits": 1
+    },
+    {
+      "address": 4215,
+      "expression": "GTBL_DO[7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4216,
+      "expression": "GTBL_DO[11:8]",
+      "bits": 4
+    },
+    {
+      "address": 4217,
+      "expression": "G_VOICE[2:0]",
+      "bits": 3
+    },
+    {
+      "address": 4218,
+      "expression": "SUM012[7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4219,
+      "expression": "SUM012[15:8]",
+      "bits": 8
+    },
+    {
+      "address": 4220,
+      "expression": "SUM012[16:16]",
+      "bits": 1
+    },
+    {
+      "address": 4221,
+      "expression": "BD_STATE[1:0]",
+      "bits": 2
+    },
+    {
+      "address": 4222,
+      "expression": "SR[7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4223,
+      "expression": "SR[15:8]",
+      "bits": 8
+    },
+    {
+      "address": 4224,
+      "expression": "BD_VOICE[2:0]",
+      "bits": 3
+    },
+    {
+      "address": 4225,
+      "expression": "P0[7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4226,
+      "expression": "P0[15:8]",
+      "bits": 8
+    },
+    {
+      "address": 4227,
+      "expression": "P0[16:16]",
+      "bits": 1
+    },
+    {
+      "address": 4228,
+      "expression": "ECHO_POS[7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4229,
+      "expression": "ECHO_POS[14:8]",
+      "bits": 7
+    },
+    {
+      "address": 4230,
+      "expression": "ECHO_ADDR[7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4231,
+      "expression": "ECHO_ADDR[15:8]",
+      "bits": 8
+    },
+    {
+      "address": 4232,
+      "expression": "ECHO_BUF[0][0][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4233,
+      "expression": "ECHO_BUF[0][0][14:8]",
+      "bits": 7
+    },
+    {
+      "address": 4234,
+      "expression": "ECHO_BUF[0][1][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4235,
+      "expression": "ECHO_BUF[0][1][14:8]",
+      "bits": 7
+    },
+    {
+      "address": 4236,
+      "expression": "ECHO_BUF[0][2][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4237,
+      "expression": "ECHO_BUF[0][2][14:8]",
+      "bits": 7
+    },
+    {
+      "address": 4238,
+      "expression": "ECHO_BUF[0][3][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4239,
+      "expression": "ECHO_BUF[0][3][14:8]",
+      "bits": 7
+    },
+    {
+      "address": 4240,
+      "expression": "ECHO_BUF[0][4][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4241,
+      "expression": "ECHO_BUF[0][4][14:8]",
+      "bits": 7
+    },
+    {
+      "address": 4242,
+      "expression": "ECHO_BUF[0][5][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4243,
+      "expression": "ECHO_BUF[0][5][14:8]",
+      "bits": 7
+    },
+    {
+      "address": 4244,
+      "expression": "ECHO_BUF[0][6][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4245,
+      "expression": "ECHO_BUF[0][6][14:8]",
+      "bits": 7
+    },
+    {
+      "address": 4246,
+      "expression": "ECHO_BUF[0][7][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4247,
+      "expression": "ECHO_BUF[0][7][14:8]",
+      "bits": 7
+    },
+    {
+      "address": 4248,
+      "expression": "ECHO_BUF[1][0][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4249,
+      "expression": "ECHO_BUF[1][0][14:8]",
+      "bits": 7
+    },
+    {
+      "address": 4250,
+      "expression": "ECHO_BUF[1][1][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4251,
+      "expression": "ECHO_BUF[1][1][14:8]",
+      "bits": 7
+    },
+    {
+      "address": 4252,
+      "expression": "ECHO_BUF[1][2][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4253,
+      "expression": "ECHO_BUF[1][2][14:8]",
+      "bits": 7
+    },
+    {
+      "address": 4254,
+      "expression": "ECHO_BUF[1][3][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4255,
+      "expression": "ECHO_BUF[1][3][14:8]",
+      "bits": 7
+    },
+    {
+      "address": 4256,
+      "expression": "ECHO_BUF[1][4][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4257,
+      "expression": "ECHO_BUF[1][4][14:8]",
+      "bits": 7
+    },
+    {
+      "address": 4258,
+      "expression": "ECHO_BUF[1][5][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4259,
+      "expression": "ECHO_BUF[1][5][14:8]",
+      "bits": 7
+    },
+    {
+      "address": 4260,
+      "expression": "ECHO_BUF[1][6][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4261,
+      "expression": "ECHO_BUF[1][6][14:8]",
+      "bits": 7
+    },
+    {
+      "address": 4262,
+      "expression": "ECHO_BUF[1][7][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4263,
+      "expression": "ECHO_BUF[1][7][14:8]",
+      "bits": 7
+    },
+    {
+      "address": 4264,
+      "expression": "ECHO_LEN[7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4265,
+      "expression": "ECHO_LEN[14:8]",
+      "bits": 7
+    },
+    {
+      "address": 4266,
+      "expression": "ECHO_DATA_TEMP[6:0]",
+      "bits": 7
+    },
+    {
+      "address": 4267,
+      "expression": "ECHO_WR_EN",
+      "bits": 1
+    },
+    {
+      "address": 4268,
+      "expression": "ECHO_FIR[0][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4269,
+      "expression": "ECHO_FIR[0][15:8]",
+      "bits": 8
+    },
+    {
+      "address": 4270,
+      "expression": "ECHO_FIR[1][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4271,
+      "expression": "ECHO_FIR[1][15:8]",
+      "bits": 8
+    },
+    {
+      "address": 4272,
+      "expression": "ECHO_FFC[0][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4273,
+      "expression": "ECHO_FFC[1][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4274,
+      "expression": "ECHO_FFC[2][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4275,
+      "expression": "ECHO_FFC[3][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4276,
+      "expression": "ECHO_FFC[4][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4277,
+      "expression": "ECHO_FFC[5][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4278,
+      "expression": "ECHO_FFC[6][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4279,
+      "expression": "ECHO_FFC[7][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4280,
+      "expression": "FFC_CNT[2:0]",
+      "bits": 3
+    },
+    {
+      "address": 4281,
+      "expression": "ECHO_FIR_TEMP[0][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4282,
+      "expression": "ECHO_FIR_TEMP[0][15:8]",
+      "bits": 8
+    },
+    {
+      "address": 4283,
+      "expression": "ECHO_FIR_TEMP[1][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4284,
+      "expression": "ECHO_FIR_TEMP[1][15:8]",
+      "bits": 8
+    },
+    {
+      "address": 4285,
+      "expression": "ENV_MODE[0][1:0]",
+      "bits": 2
+    },
+    {
+      "address": 4286,
+      "expression": "ENV_MODE[1][1:0]",
+      "bits": 2
+    },
+    {
+      "address": 4287,
+      "expression": "ENV_MODE[2][1:0]",
+      "bits": 2
+    },
+    {
+      "address": 4288,
+      "expression": "ENV_MODE[3][1:0]",
+      "bits": 2
+    },
+    {
+      "address": 4289,
+      "expression": "ENV_MODE[4][1:0]",
+      "bits": 2
+    },
+    {
+      "address": 4290,
+      "expression": "ENV_MODE[5][1:0]",
+      "bits": 2
+    },
+    {
+      "address": 4291,
+      "expression": "ENV_MODE[6][1:0]",
+      "bits": 2
+    },
+    {
+      "address": 4292,
+      "expression": "ENV_MODE[7][1:0]",
+      "bits": 2
+    },
+    {
+      "address": 4293,
+      "expression": "ENV[0][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4294,
+      "expression": "ENV[0][11:8]",
+      "bits": 4
+    },
+    {
+      "address": 4295,
+      "expression": "ENV[1][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4296,
+      "expression": "ENV[1][11:8]",
+      "bits": 4
+    },
+    {
+      "address": 4297,
+      "expression": "ENV[2][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4298,
+      "expression": "ENV[2][11:8]",
+      "bits": 4
+    },
+    {
+      "address": 4299,
+      "expression": "ENV[3][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4300,
+      "expression": "ENV[3][11:8]",
+      "bits": 4
+    },
+    {
+      "address": 4301,
+      "expression": "ENV[4][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4302,
+      "expression": "ENV[4][11:8]",
+      "bits": 4
+    },
+    {
+      "address": 4303,
+      "expression": "ENV[5][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4304,
+      "expression": "ENV[5][11:8]",
+      "bits": 4
+    },
+    {
+      "address": 4305,
+      "expression": "ENV[6][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4306,
+      "expression": "ENV[6][11:8]",
+      "bits": 4
+    },
+    {
+      "address": 4307,
+      "expression": "ENV[7][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4308,
+      "expression": "ENV[7][11:8]",
+      "bits": 4
+    },
+    {
+      "address": 4309,
+      "expression": "BENT_INC_MODE[7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4310,
+      "expression": "INTERP_POS[0][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4311,
+      "expression": "INTERP_POS[0][15:8]",
+      "bits": 8
+    },
+    {
+      "address": 4312,
+      "expression": "INTERP_POS[1][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4313,
+      "expression": "INTERP_POS[1][15:8]",
+      "bits": 8
+    },
+    {
+      "address": 4314,
+      "expression": "INTERP_POS[2][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4315,
+      "expression": "INTERP_POS[2][15:8]",
+      "bits": 8
+    },
+    {
+      "address": 4316,
+      "expression": "INTERP_POS[3][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4317,
+      "expression": "INTERP_POS[3][15:8]",
+      "bits": 8
+    },
+    {
+      "address": 4318,
+      "expression": "INTERP_POS[4][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4319,
+      "expression": "INTERP_POS[4][15:8]",
+      "bits": 8
+    },
+    {
+      "address": 4320,
+      "expression": "INTERP_POS[5][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4321,
+      "expression": "INTERP_POS[5][15:8]",
+      "bits": 8
+    },
+    {
+      "address": 4322,
+      "expression": "INTERP_POS[6][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4323,
+      "expression": "INTERP_POS[6][15:8]",
+      "bits": 8
+    },
+    {
+      "address": 4324,
+      "expression": "INTERP_POS[7][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4325,
+      "expression": "INTERP_POS[7][15:8]",
+      "bits": 8
+    },
+    {
+      "address": 4326,
+      "expression": "LAST_ENV[7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4327,
+      "expression": "LAST_ENV[11:8]",
+      "bits": 4
+    },
+    {
+      "address": 4328,
+      "expression": "GCNT_BY1[7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4329,
+      "expression": "GCNT_BY1[11:8]",
+      "bits": 4
+    },
+    {
+      "address": 4330,
+      "expression": "GCNT_BY3[7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4331,
+      "expression": "GCNT_BY3[11:8]",
+      "bits": 4
+    },
+    {
+      "address": 4332,
+      "expression": "GCNT_BY5[7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4333,
+      "expression": "GCNT_BY5[11:8]",
+      "bits": 4
+    },
+    {
+      "address": 4334,
+      "expression": "REGRAM[0][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4335,
+      "expression": "REGRAM[1][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4336,
+      "expression": "REGRAM[2][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4337,
+      "expression": "REGRAM[3][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4338,
+      "expression": "REGRAM[4][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4339,
+      "expression": "REGRAM[5][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4340,
+      "expression": "REGRAM[6][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4341,
+      "expression": "REGRAM[7][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4342,
+      "expression": "REGRAM[8][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4343,
+      "expression": "REGRAM[9][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4344,
+      "expression": "REGRAM[10][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4345,
+      "expression": "REGRAM[11][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4346,
+      "expression": "REGRAM[12][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4347,
+      "expression": "REGRAM[13][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4348,
+      "expression": "REGRAM[14][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4349,
+      "expression": "REGRAM[15][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4350,
+      "expression": "REGRAM[16][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4351,
+      "expression": "REGRAM[17][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4352,
+      "expression": "REGRAM[18][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4353,
+      "expression": "REGRAM[19][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4354,
+      "expression": "REGRAM[20][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4355,
+      "expression": "REGRAM[21][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4356,
+      "expression": "REGRAM[22][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4357,
+      "expression": "REGRAM[23][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4358,
+      "expression": "REGRAM[24][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4359,
+      "expression": "REGRAM[25][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4360,
+      "expression": "REGRAM[26][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4361,
+      "expression": "REGRAM[27][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4362,
+      "expression": "REGRAM[28][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4363,
+      "expression": "REGRAM[29][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4364,
+      "expression": "REGRAM[30][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4365,
+      "expression": "REGRAM[31][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4366,
+      "expression": "REGRAM[32][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4367,
+      "expression": "REGRAM[33][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4368,
+      "expression": "REGRAM[34][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4369,
+      "expression": "REGRAM[35][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4370,
+      "expression": "REGRAM[36][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4371,
+      "expression": "REGRAM[37][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4372,
+      "expression": "REGRAM[38][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4373,
+      "expression": "REGRAM[39][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4374,
+      "expression": "REGRAM[40][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4375,
+      "expression": "REGRAM[41][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4376,
+      "expression": "REGRAM[42][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4377,
+      "expression": "REGRAM[43][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4378,
+      "expression": "REGRAM[44][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4379,
+      "expression": "REGRAM[45][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4380,
+      "expression": "REGRAM[46][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4381,
+      "expression": "REGRAM[47][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4382,
+      "expression": "REGRAM[48][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4383,
+      "expression": "REGRAM[49][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4384,
+      "expression": "REGRAM[50][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4385,
+      "expression": "REGRAM[51][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4386,
+      "expression": "REGRAM[52][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4387,
+      "expression": "REGRAM[53][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4388,
+      "expression": "REGRAM[54][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4389,
+      "expression": "REGRAM[55][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4390,
+      "expression": "REGRAM[56][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4391,
+      "expression": "REGRAM[57][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4392,
+      "expression": "REGRAM[58][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4393,
+      "expression": "REGRAM[59][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4394,
+      "expression": "REGRAM[60][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4395,
+      "expression": "REGRAM[61][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4396,
+      "expression": "REGRAM[62][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4397,
+      "expression": "REGRAM[63][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4398,
+      "expression": "REGRAM[64][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4399,
+      "expression": "REGRAM[65][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4400,
+      "expression": "REGRAM[66][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4401,
+      "expression": "REGRAM[67][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4402,
+      "expression": "REGRAM[68][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4403,
+      "expression": "REGRAM[69][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4404,
+      "expression": "REGRAM[70][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4405,
+      "expression": "REGRAM[71][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4406,
+      "expression": "REGRAM[72][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4407,
+      "expression": "REGRAM[73][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4408,
+      "expression": "REGRAM[74][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4409,
+      "expression": "REGRAM[75][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4410,
+      "expression": "REGRAM[76][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4411,
+      "expression": "REGRAM[77][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4412,
+      "expression": "REGRAM[78][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4413,
+      "expression": "REGRAM[79][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4414,
+      "expression": "REGRAM[80][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4415,
+      "expression": "REGRAM[81][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4416,
+      "expression": "REGRAM[82][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4417,
+      "expression": "REGRAM[83][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4418,
+      "expression": "REGRAM[84][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4419,
+      "expression": "REGRAM[85][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4420,
+      "expression": "REGRAM[86][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4421,
+      "expression": "REGRAM[87][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4422,
+      "expression": "REGRAM[88][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4423,
+      "expression": "REGRAM[89][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4424,
+      "expression": "REGRAM[90][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4425,
+      "expression": "REGRAM[91][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4426,
+      "expression": "REGRAM[92][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4427,
+      "expression": "REGRAM[93][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4428,
+      "expression": "REGRAM[94][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4429,
+      "expression": "REGRAM[95][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4430,
+      "expression": "REGRAM[96][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4431,
+      "expression": "REGRAM[97][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4432,
+      "expression": "REGRAM[98][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4433,
+      "expression": "REGRAM[99][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4434,
+      "expression": "REGRAM[100][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4435,
+      "expression": "REGRAM[101][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4436,
+      "expression": "REGRAM[102][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4437,
+      "expression": "REGRAM[103][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4438,
+      "expression": "REGRAM[104][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4439,
+      "expression": "REGRAM[105][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4440,
+      "expression": "REGRAM[106][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4441,
+      "expression": "REGRAM[107][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4442,
+      "expression": "REGRAM[108][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4443,
+      "expression": "REGRAM[109][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4444,
+      "expression": "REGRAM[110][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4445,
+      "expression": "REGRAM[111][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4446,
+      "expression": "REGRAM[112][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4447,
+      "expression": "REGRAM[113][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4448,
+      "expression": "REGRAM[114][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4449,
+      "expression": "REGRAM[115][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4450,
+      "expression": "REGRAM[116][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4451,
+      "expression": "REGRAM[117][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4452,
+      "expression": "REGRAM[118][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4453,
+      "expression": "REGRAM[119][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4454,
+      "expression": "REGRAM[120][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4455,
+      "expression": "REGRAM[121][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4456,
+      "expression": "REGRAM[122][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4457,
+      "expression": "REGRAM[123][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4458,
+      "expression": "REGRAM[124][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4459,
+      "expression": "REGRAM[125][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4460,
+      "expression": "REGRAM[126][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4461,
+      "expression": "REGRAM[127][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4462,
+      "expression": "SMP_DO_buf[7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4463,
+      "expression": "SMP_A_buf[7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4464,
+      "expression": "SMP_A_buf[15:8]",
+      "bits": 8
+    },
+    {
+      "address": 4465,
+      "expression": "SMP_WE_N_buf",
+      "bits": 1
+    },
+    {
+      "address": 4466,
+      "expression": "BRR_BUF[0][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4467,
+      "expression": "BRR_BUF[0][15:8]",
+      "bits": 8
+    },
+    {
+      "address": 4468,
+      "expression": "BRR_BUF[1][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4469,
+      "expression": "BRR_BUF[1][15:8]",
+      "bits": 8
+    },
+    {
+      "address": 4470,
+      "expression": "BRR_BUF[2][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4471,
+      "expression": "BRR_BUF[2][15:8]",
+      "bits": 8
+    },
+    {
+      "address": 4472,
+      "expression": "BRR_BUF[3][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4473,
+      "expression": "BRR_BUF[3][15:8]",
+      "bits": 8
+    },
+    {
+      "address": 4474,
+      "expression": "BRR_BUF[4][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4475,
+      "expression": "BRR_BUF[4][15:8]",
+      "bits": 8
+    },
+    {
+      "address": 4476,
+      "expression": "BRR_BUF[5][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4477,
+      "expression": "BRR_BUF[5][15:8]",
+      "bits": 8
+    },
+    {
+      "address": 4478,
+      "expression": "BRR_BUF[6][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4479,
+      "expression": "BRR_BUF[6][15:8]",
+      "bits": 8
+    },
+    {
+      "address": 4480,
+      "expression": "BRR_BUF[7][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4481,
+      "expression": "BRR_BUF[7][15:8]",
+      "bits": 8
+    },
+    {
+      "address": 4482,
+      "expression": "BRR_BUF[8][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4483,
+      "expression": "BRR_BUF[8][15:8]",
+      "bits": 8
+    },
+    {
+      "address": 4484,
+      "expression": "BRR_BUF[9][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4485,
+      "expression": "BRR_BUF[9][15:8]",
+      "bits": 8
+    },
+    {
+      "address": 4486,
+      "expression": "BRR_BUF[10][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4487,
+      "expression": "BRR_BUF[10][15:8]",
+      "bits": 8
+    },
+    {
+      "address": 4488,
+      "expression": "BRR_BUF[11][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4489,
+      "expression": "BRR_BUF[11][15:8]",
+      "bits": 8
+    },
+    {
+      "address": 4490,
+      "expression": "BRR_BUF[12][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4491,
+      "expression": "BRR_BUF[12][15:8]",
+      "bits": 8
+    },
+    {
+      "address": 4492,
+      "expression": "BRR_BUF[13][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4493,
+      "expression": "BRR_BUF[13][15:8]",
+      "bits": 8
+    },
+    {
+      "address": 4494,
+      "expression": "BRR_BUF[14][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4495,
+      "expression": "BRR_BUF[14][15:8]",
+      "bits": 8
+    },
+    {
+      "address": 4496,
+      "expression": "BRR_BUF[15][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4497,
+      "expression": "BRR_BUF[15][15:8]",
+      "bits": 8
+    },
+    {
+      "address": 4498,
+      "expression": "BRR_BUF[16][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4499,
+      "expression": "BRR_BUF[16][15:8]",
+      "bits": 8
+    },
+    {
+      "address": 4500,
+      "expression": "BRR_BUF[17][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4501,
+      "expression": "BRR_BUF[17][15:8]",
+      "bits": 8
+    },
+    {
+      "address": 4502,
+      "expression": "BRR_BUF[18][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4503,
+      "expression": "BRR_BUF[18][15:8]",
+      "bits": 8
+    },
+    {
+      "address": 4504,
+      "expression": "BRR_BUF[19][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4505,
+      "expression": "BRR_BUF[19][15:8]",
+      "bits": 8
+    },
+    {
+      "address": 4506,
+      "expression": "BRR_BUF[20][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4507,
+      "expression": "BRR_BUF[20][15:8]",
+      "bits": 8
+    },
+    {
+      "address": 4508,
+      "expression": "BRR_BUF[21][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4509,
+      "expression": "BRR_BUF[21][15:8]",
+      "bits": 8
+    },
+    {
+      "address": 4510,
+      "expression": "BRR_BUF[22][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4511,
+      "expression": "BRR_BUF[22][15:8]",
+      "bits": 8
+    },
+    {
+      "address": 4512,
+      "expression": "BRR_BUF[23][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4513,
+      "expression": "BRR_BUF[23][15:8]",
+      "bits": 8
+    },
+    {
+      "address": 4514,
+      "expression": "BRR_BUF[24][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4515,
+      "expression": "BRR_BUF[24][15:8]",
+      "bits": 8
+    },
+    {
+      "address": 4516,
+      "expression": "BRR_BUF[25][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4517,
+      "expression": "BRR_BUF[25][15:8]",
+      "bits": 8
+    },
+    {
+      "address": 4518,
+      "expression": "BRR_BUF[26][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4519,
+      "expression": "BRR_BUF[26][15:8]",
+      "bits": 8
+    },
+    {
+      "address": 4520,
+      "expression": "BRR_BUF[27][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4521,
+      "expression": "BRR_BUF[27][15:8]",
+      "bits": 8
+    },
+    {
+      "address": 4522,
+      "expression": "BRR_BUF[28][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4523,
+      "expression": "BRR_BUF[28][15:8]",
+      "bits": 8
+    },
+    {
+      "address": 4524,
+      "expression": "BRR_BUF[29][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4525,
+      "expression": "BRR_BUF[29][15:8]",
+      "bits": 8
+    },
+    {
+      "address": 4526,
+      "expression": "BRR_BUF[30][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4527,
+      "expression": "BRR_BUF[30][15:8]",
+      "bits": 8
+    },
+    {
+      "address": 4528,
+      "expression": "BRR_BUF[31][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4529,
+      "expression": "BRR_BUF[31][15:8]",
+      "bits": 8
+    },
+    {
+      "address": 4530,
+      "expression": "BRR_BUF[32][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4531,
+      "expression": "BRR_BUF[32][15:8]",
+      "bits": 8
+    },
+    {
+      "address": 4532,
+      "expression": "BRR_BUF[33][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4533,
+      "expression": "BRR_BUF[33][15:8]",
+      "bits": 8
+    },
+    {
+      "address": 4534,
+      "expression": "BRR_BUF[34][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4535,
+      "expression": "BRR_BUF[34][15:8]",
+      "bits": 8
+    },
+    {
+      "address": 4536,
+      "expression": "BRR_BUF[35][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4537,
+      "expression": "BRR_BUF[35][15:8]",
+      "bits": 8
+    },
+    {
+      "address": 4538,
+      "expression": "BRR_BUF[36][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4539,
+      "expression": "BRR_BUF[36][15:8]",
+      "bits": 8
+    },
+    {
+      "address": 4540,
+      "expression": "BRR_BUF[37][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4541,
+      "expression": "BRR_BUF[37][15:8]",
+      "bits": 8
+    },
+    {
+      "address": 4542,
+      "expression": "BRR_BUF[38][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4543,
+      "expression": "BRR_BUF[38][15:8]",
+      "bits": 8
+    },
+    {
+      "address": 4544,
+      "expression": "BRR_BUF[39][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4545,
+      "expression": "BRR_BUF[39][15:8]",
+      "bits": 8
+    },
+    {
+      "address": 4546,
+      "expression": "BRR_BUF[40][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4547,
+      "expression": "BRR_BUF[40][15:8]",
+      "bits": 8
+    },
+    {
+      "address": 4548,
+      "expression": "BRR_BUF[41][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4549,
+      "expression": "BRR_BUF[41][15:8]",
+      "bits": 8
+    },
+    {
+      "address": 4550,
+      "expression": "BRR_BUF[42][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4551,
+      "expression": "BRR_BUF[42][15:8]",
+      "bits": 8
+    },
+    {
+      "address": 4552,
+      "expression": "BRR_BUF[43][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4553,
+      "expression": "BRR_BUF[43][15:8]",
+      "bits": 8
+    },
+    {
+      "address": 4554,
+      "expression": "BRR_BUF[44][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4555,
+      "expression": "BRR_BUF[44][15:8]",
+      "bits": 8
+    },
+    {
+      "address": 4556,
+      "expression": "BRR_BUF[45][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4557,
+      "expression": "BRR_BUF[45][15:8]",
+      "bits": 8
+    },
+    {
+      "address": 4558,
+      "expression": "BRR_BUF[46][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4559,
+      "expression": "BRR_BUF[46][15:8]",
+      "bits": 8
+    },
+    {
+      "address": 4560,
+      "expression": "BRR_BUF[47][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4561,
+      "expression": "BRR_BUF[47][15:8]",
+      "bits": 8
+    },
+    {
+      "address": 4562,
+      "expression": "BRR_BUF[48][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4563,
+      "expression": "BRR_BUF[48][15:8]",
+      "bits": 8
+    },
+    {
+      "address": 4564,
+      "expression": "BRR_BUF[49][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4565,
+      "expression": "BRR_BUF[49][15:8]",
+      "bits": 8
+    },
+    {
+      "address": 4566,
+      "expression": "BRR_BUF[50][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4567,
+      "expression": "BRR_BUF[50][15:8]",
+      "bits": 8
+    },
+    {
+      "address": 4568,
+      "expression": "BRR_BUF[51][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4569,
+      "expression": "BRR_BUF[51][15:8]",
+      "bits": 8
+    },
+    {
+      "address": 4570,
+      "expression": "BRR_BUF[52][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4571,
+      "expression": "BRR_BUF[52][15:8]",
+      "bits": 8
+    },
+    {
+      "address": 4572,
+      "expression": "BRR_BUF[53][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4573,
+      "expression": "BRR_BUF[53][15:8]",
+      "bits": 8
+    },
+    {
+      "address": 4574,
+      "expression": "BRR_BUF[54][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4575,
+      "expression": "BRR_BUF[54][15:8]",
+      "bits": 8
+    },
+    {
+      "address": 4576,
+      "expression": "BRR_BUF[55][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4577,
+      "expression": "BRR_BUF[55][15:8]",
+      "bits": 8
+    },
+    {
+      "address": 4578,
+      "expression": "BRR_BUF[56][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4579,
+      "expression": "BRR_BUF[56][15:8]",
+      "bits": 8
+    },
+    {
+      "address": 4580,
+      "expression": "BRR_BUF[57][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4581,
+      "expression": "BRR_BUF[57][15:8]",
+      "bits": 8
+    },
+    {
+      "address": 4582,
+      "expression": "BRR_BUF[58][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4583,
+      "expression": "BRR_BUF[58][15:8]",
+      "bits": 8
+    },
+    {
+      "address": 4584,
+      "expression": "BRR_BUF[59][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4585,
+      "expression": "BRR_BUF[59][15:8]",
+      "bits": 8
+    },
+    {
+      "address": 4586,
+      "expression": "BRR_BUF[60][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4587,
+      "expression": "BRR_BUF[60][15:8]",
+      "bits": 8
+    },
+    {
+      "address": 4588,
+      "expression": "BRR_BUF[61][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4589,
+      "expression": "BRR_BUF[61][15:8]",
+      "bits": 8
+    },
+    {
+      "address": 4590,
+      "expression": "BRR_BUF[62][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4591,
+      "expression": "BRR_BUF[62][15:8]",
+      "bits": 8
+    },
+    {
+      "address": 4592,
+      "expression": "BRR_BUF[63][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4593,
+      "expression": "BRR_BUF[63][15:8]",
+      "bits": 8
+    },
+    {
+      "address": 4594,
+      "expression": "BRR_BUF[64][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4595,
+      "expression": "BRR_BUF[64][15:8]",
+      "bits": 8
+    },
+    {
+      "address": 4596,
+      "expression": "BRR_BUF[65][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4597,
+      "expression": "BRR_BUF[65][15:8]",
+      "bits": 8
+    },
+    {
+      "address": 4598,
+      "expression": "BRR_BUF[66][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4599,
+      "expression": "BRR_BUF[66][15:8]",
+      "bits": 8
+    },
+    {
+      "address": 4600,
+      "expression": "BRR_BUF[67][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4601,
+      "expression": "BRR_BUF[67][15:8]",
+      "bits": 8
+    },
+    {
+      "address": 4602,
+      "expression": "BRR_BUF[68][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4603,
+      "expression": "BRR_BUF[68][15:8]",
+      "bits": 8
+    },
+    {
+      "address": 4604,
+      "expression": "BRR_BUF[69][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4605,
+      "expression": "BRR_BUF[69][15:8]",
+      "bits": 8
+    },
+    {
+      "address": 4606,
+      "expression": "BRR_BUF[70][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4607,
+      "expression": "BRR_BUF[70][15:8]",
+      "bits": 8
+    },
+    {
+      "address": 4608,
+      "expression": "BRR_BUF[71][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4609,
+      "expression": "BRR_BUF[71][15:8]",
+      "bits": 8
+    },
+    {
+      "address": 4610,
+      "expression": "BRR_BUF[72][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4611,
+      "expression": "BRR_BUF[72][15:8]",
+      "bits": 8
+    },
+    {
+      "address": 4612,
+      "expression": "BRR_BUF[73][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4613,
+      "expression": "BRR_BUF[73][15:8]",
+      "bits": 8
+    },
+    {
+      "address": 4614,
+      "expression": "BRR_BUF[74][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4615,
+      "expression": "BRR_BUF[74][15:8]",
+      "bits": 8
+    },
+    {
+      "address": 4616,
+      "expression": "BRR_BUF[75][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4617,
+      "expression": "BRR_BUF[75][15:8]",
+      "bits": 8
+    },
+    {
+      "address": 4618,
+      "expression": "BRR_BUF[76][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4619,
+      "expression": "BRR_BUF[76][15:8]",
+      "bits": 8
+    },
+    {
+      "address": 4620,
+      "expression": "BRR_BUF[77][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4621,
+      "expression": "BRR_BUF[77][15:8]",
+      "bits": 8
+    },
+    {
+      "address": 4622,
+      "expression": "BRR_BUF[78][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4623,
+      "expression": "BRR_BUF[78][15:8]",
+      "bits": 8
+    },
+    {
+      "address": 4624,
+      "expression": "BRR_BUF[79][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4625,
+      "expression": "BRR_BUF[79][15:8]",
+      "bits": 8
+    },
+    {
+      "address": 4626,
+      "expression": "BRR_BUF[80][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4627,
+      "expression": "BRR_BUF[80][15:8]",
+      "bits": 8
+    },
+    {
+      "address": 4628,
+      "expression": "BRR_BUF[81][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4629,
+      "expression": "BRR_BUF[81][15:8]",
+      "bits": 8
+    },
+    {
+      "address": 4630,
+      "expression": "BRR_BUF[82][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4631,
+      "expression": "BRR_BUF[82][15:8]",
+      "bits": 8
+    },
+    {
+      "address": 4632,
+      "expression": "BRR_BUF[83][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4633,
+      "expression": "BRR_BUF[83][15:8]",
+      "bits": 8
+    },
+    {
+      "address": 4634,
+      "expression": "BRR_BUF[84][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4635,
+      "expression": "BRR_BUF[84][15:8]",
+      "bits": 8
+    },
+    {
+      "address": 4636,
+      "expression": "BRR_BUF[85][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4637,
+      "expression": "BRR_BUF[85][15:8]",
+      "bits": 8
+    },
+    {
+      "address": 4638,
+      "expression": "BRR_BUF[86][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4639,
+      "expression": "BRR_BUF[86][15:8]",
+      "bits": 8
+    },
+    {
+      "address": 4640,
+      "expression": "BRR_BUF[87][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4641,
+      "expression": "BRR_BUF[87][15:8]",
+      "bits": 8
+    },
+    {
+      "address": 4642,
+      "expression": "BRR_BUF[88][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4643,
+      "expression": "BRR_BUF[88][15:8]",
+      "bits": 8
+    },
+    {
+      "address": 4644,
+      "expression": "BRR_BUF[89][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4645,
+      "expression": "BRR_BUF[89][15:8]",
+      "bits": 8
+    },
+    {
+      "address": 4646,
+      "expression": "BRR_BUF[90][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4647,
+      "expression": "BRR_BUF[90][15:8]",
+      "bits": 8
+    },
+    {
+      "address": 4648,
+      "expression": "BRR_BUF[91][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4649,
+      "expression": "BRR_BUF[91][15:8]",
+      "bits": 8
+    },
+    {
+      "address": 4650,
+      "expression": "BRR_BUF[92][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4651,
+      "expression": "BRR_BUF[92][15:8]",
+      "bits": 8
+    },
+    {
+      "address": 4652,
+      "expression": "BRR_BUF[93][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4653,
+      "expression": "BRR_BUF[93][15:8]",
+      "bits": 8
+    },
+    {
+      "address": 4654,
+      "expression": "BRR_BUF[94][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4655,
+      "expression": "BRR_BUF[94][15:8]",
+      "bits": 8
+    },
+    {
+      "address": 4656,
+      "expression": "BRR_BUF[95][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4657,
+      "expression": "BRR_BUF[95][15:8]",
+      "bits": 8
+    },
+    {
+      "address": 4658,
+      "expression": "BRR_BUF[96][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4659,
+      "expression": "BRR_BUF[96][15:8]",
+      "bits": 8
+    },
+    {
+      "address": 4660,
+      "expression": "BRR_BUF[97][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4661,
+      "expression": "BRR_BUF[97][15:8]",
+      "bits": 8
+    },
+    {
+      "address": 4662,
+      "expression": "BRR_BUF[98][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4663,
+      "expression": "BRR_BUF[98][15:8]",
+      "bits": 8
+    },
+    {
+      "address": 4664,
+      "expression": "BRR_BUF[99][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4665,
+      "expression": "BRR_BUF[99][15:8]",
+      "bits": 8
+    },
+    {
+      "address": 4666,
+      "expression": "BRR_BUF[100][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4667,
+      "expression": "BRR_BUF[100][15:8]",
+      "bits": 8
+    },
+    {
+      "address": 4668,
+      "expression": "BRR_BUF[101][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4669,
+      "expression": "BRR_BUF[101][15:8]",
+      "bits": 8
+    },
+    {
+      "address": 4670,
+      "expression": "BRR_BUF[102][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4671,
+      "expression": "BRR_BUF[102][15:8]",
+      "bits": 8
+    },
+    {
+      "address": 4672,
+      "expression": "BRR_BUF[103][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4673,
+      "expression": "BRR_BUF[103][15:8]",
+      "bits": 8
+    },
+    {
+      "address": 4674,
+      "expression": "BRR_BUF[104][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4675,
+      "expression": "BRR_BUF[104][15:8]",
+      "bits": 8
+    },
+    {
+      "address": 4676,
+      "expression": "BRR_BUF[105][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4677,
+      "expression": "BRR_BUF[105][15:8]",
+      "bits": 8
+    },
+    {
+      "address": 4678,
+      "expression": "BRR_BUF[106][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4679,
+      "expression": "BRR_BUF[106][15:8]",
+      "bits": 8
+    },
+    {
+      "address": 4680,
+      "expression": "BRR_BUF[107][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4681,
+      "expression": "BRR_BUF[107][15:8]",
+      "bits": 8
+    },
+    {
+      "address": 4682,
+      "expression": "BRR_BUF[108][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4683,
+      "expression": "BRR_BUF[108][15:8]",
+      "bits": 8
+    },
+    {
+      "address": 4684,
+      "expression": "BRR_BUF[109][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4685,
+      "expression": "BRR_BUF[109][15:8]",
+      "bits": 8
+    },
+    {
+      "address": 4686,
+      "expression": "BRR_BUF[110][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4687,
+      "expression": "BRR_BUF[110][15:8]",
+      "bits": 8
+    },
+    {
+      "address": 4688,
+      "expression": "BRR_BUF[111][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4689,
+      "expression": "BRR_BUF[111][15:8]",
+      "bits": 8
+    },
+    {
+      "address": 4690,
+      "expression": "BRR_BUF[112][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4691,
+      "expression": "BRR_BUF[112][15:8]",
+      "bits": 8
+    },
+    {
+      "address": 4692,
+      "expression": "BRR_BUF[113][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4693,
+      "expression": "BRR_BUF[113][15:8]",
+      "bits": 8
+    },
+    {
+      "address": 4694,
+      "expression": "BRR_BUF[114][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4695,
+      "expression": "BRR_BUF[114][15:8]",
+      "bits": 8
+    },
+    {
+      "address": 4696,
+      "expression": "BRR_BUF[115][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4697,
+      "expression": "BRR_BUF[115][15:8]",
+      "bits": 8
+    },
+    {
+      "address": 4698,
+      "expression": "BRR_BUF[116][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4699,
+      "expression": "BRR_BUF[116][15:8]",
+      "bits": 8
+    },
+    {
+      "address": 4700,
+      "expression": "BRR_BUF[117][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4701,
+      "expression": "BRR_BUF[117][15:8]",
+      "bits": 8
+    },
+    {
+      "address": 4702,
+      "expression": "BRR_BUF[118][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4703,
+      "expression": "BRR_BUF[118][15:8]",
+      "bits": 8
+    },
+    {
+      "address": 4704,
+      "expression": "BRR_BUF[119][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4705,
+      "expression": "BRR_BUF[119][15:8]",
+      "bits": 8
+    },
+    {
+      "address": 4706,
+      "expression": "BRR_BUF[120][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4707,
+      "expression": "BRR_BUF[120][15:8]",
+      "bits": 8
+    },
+    {
+      "address": 4708,
+      "expression": "BRR_BUF[121][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4709,
+      "expression": "BRR_BUF[121][15:8]",
+      "bits": 8
+    },
+    {
+      "address": 4710,
+      "expression": "BRR_BUF[122][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4711,
+      "expression": "BRR_BUF[122][15:8]",
+      "bits": 8
+    },
+    {
+      "address": 4712,
+      "expression": "BRR_BUF[123][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4713,
+      "expression": "BRR_BUF[123][15:8]",
+      "bits": 8
+    },
+    {
+      "address": 4714,
+      "expression": "BRR_BUF[124][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4715,
+      "expression": "BRR_BUF[124][15:8]",
+      "bits": 8
+    },
+    {
+      "address": 4716,
+      "expression": "BRR_BUF[125][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4717,
+      "expression": "BRR_BUF[125][15:8]",
+      "bits": 8
+    },
+    {
+      "address": 4718,
+      "expression": "BRR_BUF[126][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4719,
+      "expression": "BRR_BUF[126][15:8]",
+      "bits": 8
+    },
+    {
+      "address": 4720,
+      "expression": "BRR_BUF[127][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 4721,
+      "expression": "BRR_BUF[127][15:8]",
+      "bits": 8
+    }
+  ],
+  "cpu.v": [
+    {
+      "address": 5632,
+      "expression": "INT_CLK",
+      "bits": 1
+    },
+    {
+      "address": 5633,
+      "expression": "INT_CLKF_CE",
+      "bits": 1
+    },
+    {
+      "address": 5634,
+      "expression": "INT_CLKR_CE",
+      "bits": 1
+    },
+    {
+      "address": 5635,
+      "expression": "DOT_CLK_CE",
+      "bits": 1
+    },
+    {
+      "address": 5636,
+      "expression": "P65_CLK_CNT[3:0]",
+      "bits": 4
+    },
+    {
+      "address": 5637,
+      "expression": "DMA_CLK_CNT[2:0]",
+      "bits": 3
+    },
+    {
+      "address": 5638,
+      "expression": "CPU_ACTIVEr",
+      "bits": 1
+    },
+    {
+      "address": 5639,
+      "expression": "DMA_ACTIVEr",
+      "bits": 1
+    },
+    {
+      "address": 5640,
+      "expression": "DOT_CLK_CNT[1:0]",
+      "bits": 2
+    },
+    {
+      "address": 5641,
+      "expression": "H_CNT[7:0]",
+      "bits": 8
+    },
+    {
+      "address": 5642,
+      "expression": "H_CNT[8:8]",
+      "bits": 1
+    },
+    {
+      "address": 5643,
+      "expression": "V_CNT[7:0]",
+      "bits": 8
+    },
+    {
+      "address": 5644,
+      "expression": "V_CNT[8:8]",
+      "bits": 1
+    },
+    {
+      "address": 5645,
+      "expression": "FIELD",
+      "bits": 1
+    },
+    {
+      "address": 5646,
+      "expression": "CPU_WR",
+      "bits": 1
+    },
+    {
+      "address": 5647,
+      "expression": "CPU_RD",
+      "bits": 1
+    },
+    {
+      "address": 5648,
+      "expression": "DMA_A_WR",
+      "bits": 1
+    },
+    {
+      "address": 5649,
+      "expression": "HDMA_A_WR",
+      "bits": 1
+    },
+    {
+      "address": 5650,
+      "expression": "DMA_A_RD",
+      "bits": 1
+    },
+    {
+      "address": 5651,
+      "expression": "HDMA_A_RD",
+      "bits": 1
+    },
+    {
+      "address": 5652,
+      "expression": "DMA_B_WR",
+      "bits": 1
+    },
+    {
+      "address": 5653,
+      "expression": "DMA_B_RD",
+      "bits": 1
+    },
+    {
+      "address": 5654,
+      "expression": "HDMA_B_WR",
+      "bits": 1
+    },
+    {
+      "address": 5655,
+      "expression": "HDMA_B_RD",
+      "bits": 1
+    },
+    {
+      "address": 5656,
+      "expression": "MDR[7:0]",
+      "bits": 8
+    },
+    {
+      "address": 5657,
+      "expression": "NMI_EN",
+      "bits": 1
+    },
+    {
+      "address": 5658,
+      "expression": "HVIRQ_EN[1:0]",
+      "bits": 2
+    },
+    {
+      "address": 5659,
+      "expression": "AUTO_JOY_EN",
+      "bits": 1
+    },
+    {
+      "address": 5660,
+      "expression": "WRIO[7:0]",
+      "bits": 8
+    },
+    {
+      "address": 5661,
+      "expression": "WRMPYA[7:0]",
+      "bits": 8
+    },
+    {
+      "address": 5662,
+      "expression": "WRDIVA[7:0]",
+      "bits": 8
+    },
+    {
+      "address": 5663,
+      "expression": "WRDIVA[15:8]",
+      "bits": 8
+    },
+    {
+      "address": 5664,
+      "expression": "HTIME[7:0]",
+      "bits": 8
+    },
+    {
+      "address": 5665,
+      "expression": "HTIME[8:8]",
+      "bits": 1
+    },
+    {
+      "address": 5666,
+      "expression": "VTIME[7:0]",
+      "bits": 8
+    },
+    {
+      "address": 5667,
+      "expression": "VTIME[8:8]",
+      "bits": 1
+    },
+    {
+      "address": 5668,
+      "expression": "MDMAEN[7:0]",
+      "bits": 8
+    },
+    {
+      "address": 5669,
+      "expression": "HDMAEN[7:0]",
+      "bits": 8
+    },
+    {
+      "address": 5670,
+      "expression": "MEMSEL",
+      "bits": 1
+    },
+    {
+      "address": 5671,
+      "expression": "RDDIV[7:0]",
+      "bits": 8
+    },
+    {
+      "address": 5672,
+      "expression": "RDDIV[15:8]",
+      "bits": 8
+    },
+    {
+      "address": 5673,
+      "expression": "RDMPY[7:0]",
+      "bits": 8
+    },
+    {
+      "address": 5674,
+      "expression": "RDMPY[15:8]",
+      "bits": 8
+    },
+    {
+      "address": 5675,
+      "expression": "NMI_FLAG",
+      "bits": 1
+    },
+    {
+      "address": 5676,
+      "expression": "IRQ_FLAG",
+      "bits": 1
+    },
+    {
+      "address": 5677,
+      "expression": "MUL_REQ",
+      "bits": 1
+    },
+    {
+      "address": 5678,
+      "expression": "DIV_REQ",
+      "bits": 1
+    },
+    {
+      "address": 5679,
+      "expression": "MATH_CLK_CNT[3:0]",
+      "bits": 4
+    },
+    {
+      "address": 5680,
+      "expression": "MATH_TEMP[7:0]",
+      "bits": 8
+    },
+    {
+      "address": 5681,
+      "expression": "MATH_TEMP[15:8]",
+      "bits": 8
+    },
+    {
+      "address": 5682,
+      "expression": "MATH_TEMP[22:16]",
+      "bits": 7
+    },
+    {
+      "address": 5683,
+      "expression": "HBLANK_OLD",
+      "bits": 1
+    },
+    {
+      "address": 5684,
+      "expression": "VBLANK_OLD",
+      "bits": 1
+    },
+    {
+      "address": 5685,
+      "expression": "VBLANK_OLD2",
+      "bits": 1
+    },
+    {
+      "address": 5686,
+      "expression": "HIRQ_VALID",
+      "bits": 1
+    },
+    {
+      "address": 5687,
+      "expression": "VIRQ_VALID",
+      "bits": 1
+    },
+    {
+      "address": 5688,
+      "expression": "IRQ_VALID",
+      "bits": 1
+    },
+    {
+      "address": 5689,
+      "expression": "IRQ_LOCK",
+      "bits": 1
+    },
+    {
+      "address": 5690,
+      "expression": "IRQ_VALID_OLD",
+      "bits": 1
+    },
+    {
+      "address": 5691,
+      "expression": "NMI_LOCK",
+      "bits": 1
+    },
+    {
+      "address": 5692,
+      "expression": "REFS[1:0]",
+      "bits": 2
+    },
+    {
+      "address": 5693,
+      "expression": "REFRESH_CNT[2:0]",
+      "bits": 3
+    },
+    {
+      "address": 5694,
+      "expression": "REFRESHED",
+      "bits": 1
+    },
+    {
+      "address": 5695,
+      "expression": "HBLANK_REF_OLD",
+      "bits": 1
+    },
+    {
+      "address": 5696,
+      "expression": "DMAP[0][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 5697,
+      "expression": "DMAP[1][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 5698,
+      "expression": "DMAP[2][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 5699,
+      "expression": "DMAP[3][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 5700,
+      "expression": "DMAP[4][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 5701,
+      "expression": "DMAP[5][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 5702,
+      "expression": "DMAP[6][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 5703,
+      "expression": "DMAP[7][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 5704,
+      "expression": "BBAD[0][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 5705,
+      "expression": "BBAD[1][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 5706,
+      "expression": "BBAD[2][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 5707,
+      "expression": "BBAD[3][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 5708,
+      "expression": "BBAD[4][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 5709,
+      "expression": "BBAD[5][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 5710,
+      "expression": "BBAD[6][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 5711,
+      "expression": "BBAD[7][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 5712,
+      "expression": "A1T[0][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 5713,
+      "expression": "A1T[0][15:8]",
+      "bits": 8
+    },
+    {
+      "address": 5714,
+      "expression": "A1T[1][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 5715,
+      "expression": "A1T[1][15:8]",
+      "bits": 8
+    },
+    {
+      "address": 5716,
+      "expression": "A1T[2][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 5717,
+      "expression": "A1T[2][15:8]",
+      "bits": 8
+    },
+    {
+      "address": 5718,
+      "expression": "A1T[3][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 5719,
+      "expression": "A1T[3][15:8]",
+      "bits": 8
+    },
+    {
+      "address": 5720,
+      "expression": "A1T[4][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 5721,
+      "expression": "A1T[4][15:8]",
+      "bits": 8
+    },
+    {
+      "address": 5722,
+      "expression": "A1T[5][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 5723,
+      "expression": "A1T[5][15:8]",
+      "bits": 8
+    },
+    {
+      "address": 5724,
+      "expression": "A1T[6][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 5725,
+      "expression": "A1T[6][15:8]",
+      "bits": 8
+    },
+    {
+      "address": 5726,
+      "expression": "A1T[7][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 5727,
+      "expression": "A1T[7][15:8]",
+      "bits": 8
+    },
+    {
+      "address": 5728,
+      "expression": "A1B[0][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 5729,
+      "expression": "A1B[1][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 5730,
+      "expression": "A1B[2][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 5731,
+      "expression": "A1B[3][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 5732,
+      "expression": "A1B[4][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 5733,
+      "expression": "A1B[5][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 5734,
+      "expression": "A1B[6][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 5735,
+      "expression": "A1B[7][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 5736,
+      "expression": "DAS[0][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 5737,
+      "expression": "DAS[0][15:8]",
+      "bits": 8
+    },
+    {
+      "address": 5738,
+      "expression": "DAS[1][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 5739,
+      "expression": "DAS[1][15:8]",
+      "bits": 8
+    },
+    {
+      "address": 5740,
+      "expression": "DAS[2][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 5741,
+      "expression": "DAS[2][15:8]",
+      "bits": 8
+    },
+    {
+      "address": 5742,
+      "expression": "DAS[3][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 5743,
+      "expression": "DAS[3][15:8]",
+      "bits": 8
+    },
+    {
+      "address": 5744,
+      "expression": "DAS[4][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 5745,
+      "expression": "DAS[4][15:8]",
+      "bits": 8
+    },
+    {
+      "address": 5746,
+      "expression": "DAS[5][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 5747,
+      "expression": "DAS[5][15:8]",
+      "bits": 8
+    },
+    {
+      "address": 5748,
+      "expression": "DAS[6][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 5749,
+      "expression": "DAS[6][15:8]",
+      "bits": 8
+    },
+    {
+      "address": 5750,
+      "expression": "DAS[7][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 5751,
+      "expression": "DAS[7][15:8]",
+      "bits": 8
+    },
+    {
+      "address": 5752,
+      "expression": "DASB[0][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 5753,
+      "expression": "DASB[1][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 5754,
+      "expression": "DASB[2][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 5755,
+      "expression": "DASB[3][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 5756,
+      "expression": "DASB[4][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 5757,
+      "expression": "DASB[5][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 5758,
+      "expression": "DASB[6][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 5759,
+      "expression": "DASB[7][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 5760,
+      "expression": "A2A[0][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 5761,
+      "expression": "A2A[0][15:8]",
+      "bits": 8
+    },
+    {
+      "address": 5762,
+      "expression": "A2A[1][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 5763,
+      "expression": "A2A[1][15:8]",
+      "bits": 8
+    },
+    {
+      "address": 5764,
+      "expression": "A2A[2][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 5765,
+      "expression": "A2A[2][15:8]",
+      "bits": 8
+    },
+    {
+      "address": 5766,
+      "expression": "A2A[3][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 5767,
+      "expression": "A2A[3][15:8]",
+      "bits": 8
+    },
+    {
+      "address": 5768,
+      "expression": "A2A[4][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 5769,
+      "expression": "A2A[4][15:8]",
+      "bits": 8
+    },
+    {
+      "address": 5770,
+      "expression": "A2A[5][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 5771,
+      "expression": "A2A[5][15:8]",
+      "bits": 8
+    },
+    {
+      "address": 5772,
+      "expression": "A2A[6][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 5773,
+      "expression": "A2A[6][15:8]",
+      "bits": 8
+    },
+    {
+      "address": 5774,
+      "expression": "A2A[7][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 5775,
+      "expression": "A2A[7][15:8]",
+      "bits": 8
+    },
+    {
+      "address": 5776,
+      "expression": "NTLR[0][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 5777,
+      "expression": "NTLR[1][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 5778,
+      "expression": "NTLR[2][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 5779,
+      "expression": "NTLR[3][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 5780,
+      "expression": "NTLR[4][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 5781,
+      "expression": "NTLR[5][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 5782,
+      "expression": "NTLR[6][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 5783,
+      "expression": "NTLR[7][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 5784,
+      "expression": "UNUSED[0][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 5785,
+      "expression": "UNUSED[1][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 5786,
+      "expression": "UNUSED[2][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 5787,
+      "expression": "UNUSED[3][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 5788,
+      "expression": "UNUSED[4][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 5789,
+      "expression": "UNUSED[5][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 5790,
+      "expression": "UNUSED[6][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 5791,
+      "expression": "UNUSED[7][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 5792,
+      "expression": "DMA_RUN",
+      "bits": 1
+    },
+    {
+      "address": 5793,
+      "expression": "HDMA_RUN",
+      "bits": 1
+    },
+    {
+      "address": 5794,
+      "expression": "HDMA_CH_WORK[7:0]",
+      "bits": 8
+    },
+    {
+      "address": 5795,
+      "expression": "HDMA_CH_RUN[7:0]",
+      "bits": 8
+    },
+    {
+      "address": 5796,
+      "expression": "HDMA_CH_DO[7:0]",
+      "bits": 8
+    },
+    {
+      "address": 5797,
+      "expression": "HDMA_CH_EN[7:0]",
+      "bits": 8
+    },
+    {
+      "address": 5798,
+      "expression": "HDMA_INIT_EXEC",
+      "bits": 1
+    },
+    {
+      "address": 5799,
+      "expression": "HDMA_RUN_EXEC",
+      "bits": 1
+    },
+    {
+      "address": 5800,
+      "expression": "DS[1:0]",
+      "bits": 2
+    },
+    {
+      "address": 5801,
+      "expression": "HDS[2:0]",
+      "bits": 3
+    },
+    {
+      "address": 5802,
+      "expression": "HDMA_INIT_STEP",
+      "bits": 1
+    },
+    {
+      "address": 5803,
+      "expression": "DMA_TRMODE_STEP[1:0]",
+      "bits": 2
+    },
+    {
+      "address": 5804,
+      "expression": "HDMA_TRMODE_STEP[1:0]",
+      "bits": 2
+    },
+    {
+      "address": 5805,
+      "expression": "HDMA_FIRST_INIT",
+      "bits": 1
+    },
+    {
+      "address": 5806,
+      "expression": "JOY1_DATA[7:0]",
+      "bits": 8
+    },
+    {
+      "address": 5807,
+      "expression": "JOY1_DATA[15:8]",
+      "bits": 8
+    },
+    {
+      "address": 5808,
+      "expression": "JOY2_DATA[7:0]",
+      "bits": 8
+    },
+    {
+      "address": 5809,
+      "expression": "JOY2_DATA[15:8]",
+      "bits": 8
+    },
+    {
+      "address": 5810,
+      "expression": "JOY3_DATA[7:0]",
+      "bits": 8
+    },
+    {
+      "address": 5811,
+      "expression": "JOY3_DATA[15:8]",
+      "bits": 8
+    },
+    {
+      "address": 5812,
+      "expression": "JOY4_DATA[7:0]",
+      "bits": 8
+    },
+    {
+      "address": 5813,
+      "expression": "JOY4_DATA[15:8]",
+      "bits": 8
+    },
+    {
+      "address": 5814,
+      "expression": "AUTO_JOY_CLK",
+      "bits": 1
+    },
+    {
+      "address": 5815,
+      "expression": "OLD_JOY_STRB",
+      "bits": 1
+    },
+    {
+      "address": 5816,
+      "expression": "AUTO_JOY_STRB",
+      "bits": 1
+    },
+    {
+      "address": 5817,
+      "expression": "OLD_JOY1_CLK",
+      "bits": 1
+    },
+    {
+      "address": 5818,
+      "expression": "OLD_JOY2_CLK",
+      "bits": 1
+    },
+    {
+      "address": 5819,
+      "expression": "JOY_POLL_CLK[5:0]",
+      "bits": 6
+    },
+    {
+      "address": 5820,
+      "expression": "JOY_POLL_CNT[4:0]",
+      "bits": 5
+    },
+    {
+      "address": 5821,
+      "expression": "JOY_POLL_STRB",
+      "bits": 1
+    },
+    {
+      "address": 5822,
+      "expression": "JOYRD_BUSY",
+      "bits": 1
+    },
+    {
+      "address": 5823,
+      "expression": "JOY_POLL_RUN",
+      "bits": 1
+    }
+  ],
+  "65C816/P65C816.v": [
+    {
+      "address": 6144,
+      "expression": "A[7:0]",
+      "bits": 8
+    },
+    {
+      "address": 6145,
+      "expression": "A[15:8]",
+      "bits": 8
+    },
+    {
+      "address": 6146,
+      "expression": "X[7:0]",
+      "bits": 8
+    },
+    {
+      "address": 6147,
+      "expression": "X[15:8]",
+      "bits": 8
+    },
+    {
+      "address": 6148,
+      "expression": "Y[7:0]",
+      "bits": 8
+    },
+    {
+      "address": 6149,
+      "expression": "Y[15:8]",
+      "bits": 8
+    },
+    {
+      "address": 6150,
+      "expression": "D[7:0]",
+      "bits": 8
+    },
+    {
+      "address": 6151,
+      "expression": "D[15:8]",
+      "bits": 8
+    },
+    {
+      "address": 6152,
+      "expression": "SP[7:0]",
+      "bits": 8
+    },
+    {
+      "address": 6153,
+      "expression": "SP[15:8]",
+      "bits": 8
+    },
+    {
+      "address": 6154,
+      "expression": "T[7:0]",
+      "bits": 8
+    },
+    {
+      "address": 6155,
+      "expression": "T[15:8]",
+      "bits": 8
+    },
+    {
+      "address": 6156,
+      "expression": "PBR[7:0]",
+      "bits": 8
+    },
+    {
+      "address": 6157,
+      "expression": "DBR[7:0]",
+      "bits": 8
+    },
+    {
+      "address": 6158,
+      "expression": "P[7:0]",
+      "bits": 8
+    },
+    {
+      "address": 6159,
+      "expression": "P[8:8]",
+      "bits": 1
+    },
+    {
+      "address": 6160,
+      "expression": "DR[7:0]",
+      "bits": 8
+    },
+    {
+      "address": 6161,
+      "expression": "oldXF",
+      "bits": 1
+    },
+    {
+      "address": 6162,
+      "expression": "IR[7:0]",
+      "bits": 8
+    },
+    {
+      "address": 6163,
+      "expression": "STATE[3:0]",
+      "bits": 4
+    },
+    {
+      "address": 6164,
+      "expression": "GotInterrupt",
+      "bits": 1
+    },
+    {
+      "address": 6165,
+      "expression": "IsResetInterrupt",
+      "bits": 1
+    },
+    {
+      "address": 6166,
+      "expression": "IsNMIInterrupt",
+      "bits": 1
+    },
+    {
+      "address": 6167,
+      "expression": "IsIRQInterrupt",
+      "bits": 1
+    },
+    {
+      "address": 6168,
+      "expression": "WAIExec",
+      "bits": 1
+    },
+    {
+      "address": 6169,
+      "expression": "STPExec",
+      "bits": 1
+    },
+    {
+      "address": 6170,
+      "expression": "NMI_SYNC",
+      "bits": 1
+    },
+    {
+      "address": 6171,
+      "expression": "IRQ_SYNC",
+      "bits": 1
+    },
+    {
+      "address": 6172,
+      "expression": "NMI_ACTIVE",
+      "bits": 1
+    },
+    {
+      "address": 6173,
+      "expression": "IRQ_ACTIVE",
+      "bits": 1
+    },
+    {
+      "address": 6174,
+      "expression": "OLD_NMI_N",
+      "bits": 1
+    }
+  ],
+  "65C816/AddrGen.v": [
+    {
+      "address": 6272,
+      "expression": "AB[7:0]",
+      "bits": 8
+    },
+    {
+      "address": 6273,
+      "expression": "AAL[7:0]",
+      "bits": 8
+    },
+    {
+      "address": 6274,
+      "expression": "AAH[7:0]",
+      "bits": 8
+    },
+    {
+      "address": 6275,
+      "expression": "DL[7:0]",
+      "bits": 8
+    },
+    {
+      "address": 6276,
+      "expression": "DH[7:0]",
+      "bits": 8
+    },
+    {
+      "address": 6277,
+      "expression": "SavedCarry",
+      "bits": 1
+    },
+    {
+      "address": 6278,
+      "expression": "AAHCarry",
+      "bits": 1
+    },
+    {
+      "address": 6279,
+      "expression": "PCr[7:0]",
+      "bits": 8
+    },
+    {
+      "address": 6280,
+      "expression": "PCr[15:8]",
+      "bits": 8
+    },
+    {
+      "address": 6281,
+      "expression": "PCOffset[7:0]",
+      "bits": 8
+    },
+    {
+      "address": 6282,
+      "expression": "PCOffset[15:8]",
+      "bits": 8
+    }
+  ],
+  "smp.v": [
+    {
+      "address": 6400,
+      "expression": "TIMER_CE",
+      "bits": 1
+    },
+    {
+      "address": 6401,
+      "expression": "CPUI[0][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 6402,
+      "expression": "CPUI[1][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 6403,
+      "expression": "CPUI[2][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 6404,
+      "expression": "CPUI[3][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 6405,
+      "expression": "CPUO[0][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 6406,
+      "expression": "CPUO[1][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 6407,
+      "expression": "CPUO[2][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 6408,
+      "expression": "CPUO[3][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 6409,
+      "expression": "PAWR_N_OLD",
+      "bits": 1
+    },
+    {
+      "address": 6410,
+      "expression": "CLK_SPEED[1:0]",
+      "bits": 2
+    },
+    {
+      "address": 6411,
+      "expression": "TM_SPEED[1:0]",
+      "bits": 2
+    },
+    {
+      "address": 6412,
+      "expression": "TIMERS_ENABLE",
+      "bits": 1
+    },
+    {
+      "address": 6413,
+      "expression": "TIMERS_DISABLE",
+      "bits": 1
+    },
+    {
+      "address": 6414,
+      "expression": "RAM_WRITE_EN",
+      "bits": 1
+    },
+    {
+      "address": 6415,
+      "expression": "TM_EN[2:0]",
+      "bits": 3
+    },
+    {
+      "address": 6416,
+      "expression": "IPL_EN",
+      "bits": 1
+    },
+    {
+      "address": 6417,
+      "expression": "T0DIV[7:0]",
+      "bits": 8
+    },
+    {
+      "address": 6418,
+      "expression": "T1DIV[7:0]",
+      "bits": 8
+    },
+    {
+      "address": 6419,
+      "expression": "T2DIV[7:0]",
+      "bits": 8
+    },
+    {
+      "address": 6420,
+      "expression": "T0OUT[3:0]",
+      "bits": 4
+    },
+    {
+      "address": 6421,
+      "expression": "T1OUT[3:0]",
+      "bits": 4
+    },
+    {
+      "address": 6422,
+      "expression": "T2OUT[3:0]",
+      "bits": 4
+    },
+    {
+      "address": 6423,
+      "expression": "AUX[0][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 6424,
+      "expression": "AUX[1][7:0]",
+      "bits": 8
+    },
+    {
+      "address": 6425,
+      "expression": "RESET_PORT[1:0]",
+      "bits": 2
+    },
+    {
+      "address": 6426,
+      "expression": "TM01_CNT[7:0]",
+      "bits": 8
+    },
+    {
+      "address": 6427,
+      "expression": "TM01_CNT[8:8]",
+      "bits": 1
+    },
+    {
+      "address": 6428,
+      "expression": "TM2_CNT[5:0]",
+      "bits": 6
+    },
+    {
+      "address": 6429,
+      "expression": "T0_CNT[7:0]",
+      "bits": 8
+    },
+    {
+      "address": 6430,
+      "expression": "T1_CNT[7:0]",
+      "bits": 8
+    },
+    {
+      "address": 6431,
+      "expression": "T2_CNT[7:0]",
+      "bits": 8
+    }
+  ],
+  "spc700/spc700.v": [
+    {
+      "address": 6528,
+      "expression": "A[7:0]",
+      "bits": 8
+    },
+    {
+      "address": 6529,
+      "expression": "X[7:0]",
+      "bits": 8
+    },
+    {
+      "address": 6530,
+      "expression": "Y[7:0]",
+      "bits": 8
+    },
+    {
+      "address": 6531,
+      "expression": "SP[7:0]",
+      "bits": 8
+    },
+    {
+      "address": 6532,
+      "expression": "PSW[7:0]",
+      "bits": 8
+    },
+    {
+      "address": 6533,
+      "expression": "T[7:0]",
+      "bits": 8
+    },
+    {
+      "address": 6534,
+      "expression": "IR[7:0]",
+      "bits": 8
+    },
+    {
+      "address": 6535,
+      "expression": "STATE[3:0]",
+      "bits": 4
+    },
+    {
+      "address": 6536,
+      "expression": "GotInterrupt",
+      "bits": 1
+    },
+    {
+      "address": 6537,
+      "expression": "IsResetInterrupt",
+      "bits": 1
+    },
+    {
+      "address": 6538,
+      "expression": "JumpTaken",
+      "bits": 1
+    },
+    {
+      "address": 6539,
+      "expression": "IsIRQInterrupt",
+      "bits": 1
+    },
+    {
+      "address": 6540,
+      "expression": "STPExec",
+      "bits": 1
+    },
+    {
+      "address": 6541,
+      "expression": "BitMask[7:0]",
+      "bits": 8
+    },
+    {
+      "address": 6542,
+      "expression": "nBit[2:0]",
+      "bits": 3
+    }
+  ],
+  "spc700/addrgen.v": [
+    {
+      "address": 6656,
+      "expression": "AL[7:0]",
+      "bits": 8
+    },
+    {
+      "address": 6657,
+      "expression": "AH[7:0]",
+      "bits": 8
+    },
+    {
+      "address": 6658,
+      "expression": "SavedCarry",
+      "bits": 1
+    },
+    {
+      "address": 6659,
+      "expression": "DR[7:0]",
+      "bits": 8
+    },
+    {
+      "address": 6660,
+      "expression": "PCr[7:0]",
+      "bits": 8
+    },
+    {
+      "address": 6661,
+      "expression": "PCr[15:8]",
+      "bits": 8
+    }
+  ],
+  "spc700/alu.v": [
+    {
+      "address": 6720,
+      "expression": "SaveC",
+      "bits": 1
+    }
+  ],
+  "spc700/muldiv.v": [
+    {
+      "address": 6784,
+      "expression": "mulRes[7:0]",
+      "bits": 8
+    },
+    {
+      "address": 6785,
+      "expression": "mulRes[15:8]",
+      "bits": 8
+    },
+    {
+      "address": 6786,
+      "expression": "mulA[7:0]",
+      "bits": 8
+    },
+    {
+      "address": 6787,
+      "expression": "mulA[15:8]",
+      "bits": 8
+    },
+    {
+      "address": 6788,
+      "expression": "mulY[7:0]",
+      "bits": 8
+    },
+    {
+      "address": 6789,
+      "expression": "divt[7:0]",
+      "bits": 8
+    },
+    {
+      "address": 6790,
+      "expression": "divt[15:8]",
+      "bits": 8
+    },
+    {
+      "address": 6791,
+      "expression": "quotient[7:0]",
+      "bits": 8
+    },
+    {
+      "address": 6792,
+      "expression": "quotient[8:8]",
+      "bits": 1
+    },
+    {
+      "address": 6793,
+      "expression": "remainder[7:0]",
+      "bits": 8
+    },
+    {
+      "address": 6794,
+      "expression": "remainder[15:8]",
+      "bits": 8
+    }
+  ],
+  "CEGen.v": [
+    {
+      "address": 6848,
+      "expression": "CE",
+      "bits": 1
+    },
+    {
+      "address": 6849,
+      "expression": "CLK_SUM[7:0]",
+      "bits": 8
+    },
+    {
+      "address": 6850,
+      "expression": "CLK_SUM[15:8]",
+      "bits": 8
+    },
+    {
+      "address": 6851,
+      "expression": "CLK_SUM[23:16]",
+      "bits": 8
+    },
+    {
+      "address": 6852,
+      "expression": "CLK_SUM[31:24]",
+      "bits": 8
+    }
+  ],
+  "swram.v": [
+    {
+      "address": 6912,
+      "expression": "WMADD[7:0]",
+      "bits": 8
+    },
+    {
+      "address": 6913,
+      "expression": "WMADD[15:8]",
+      "bits": 8
+    },
+    {
+      "address": 6914,
+      "expression": "WMADD[23:16]",
+      "bits": 8
+    }
+  ],
+  "SNES.v": [
+    {
+      "address": 6944,
+      "expression": "INT_RAMSEL_N_buf",
+      "bits": 1
+    },
+    {
+      "address": 6945,
+      "expression": "BUSA_SEL_buf",
+      "bits": 1
+    },
+    {
+      "address": 6946,
+      "expression": "BUSB_SEL_buf",
+      "bits": 1
+    },
+    {
+      "address": 6947,
+      "expression": "BUSA_DO_buf[7:0]",
+      "bits": 8
+    },
+    {
+      "address": 6948,
+      "expression": "BUSB_DO_buf[7:0]",
+      "bits": 8
+    }
+  ]
+}

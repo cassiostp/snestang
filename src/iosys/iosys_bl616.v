@@ -26,6 +26,7 @@ module iosys_bl616 #(
     // is why 0x0A/0x0B are the next free states. SAVE_IF=0 elaborates none of this.
     parameter SAVE_IF=0,
     parameter SAVE_AW=11,               // save RAM address width in bytes (17 = 128 KB BSRAM)
+    parameter SS_IF=0,
     parameter SAVE_RDY=0                // 1: byte accesses use the sv_req/sv_ack handshake
                                         // (SDRAM-backed RAM; snestang). 0: the bridge acks
                                         // immediately, dpram style (smstang) -- then sv_ack
@@ -88,6 +89,20 @@ module iosys_bl616 #(
     input                    sv_rack,       // toggle: that read is done
     input      [7:0]         sv_q,          // read data, valid with sv_rack
     input                    sv_core_we,    // the CORE wrote save RAM this cycle
+
+    // Save-state port (SS_IF=1 only; tie inputs to 0 otherwise).
+    output reg [2:0]         ss_op,
+    output reg               ss_op_stb,
+    input      [127:0]       ss_status,
+    output     [19:0]        ss_img_raddr,
+    output reg               ss_img_rd_stb,
+    output reg               ss_img_taken,
+    output reg               ss_img_abort,
+    input                    ss_img_rdy,
+    input      [7:0]         ss_img_q,
+    output     [19:0]        ss_img_waddr,
+    output     [7:0]         ss_img_wdin,
+    output reg               ss_img_wr_stb,
 
     // UART interface
     input  uart_rx,
@@ -214,6 +229,20 @@ wire sv_r_done  = SAVE_RDY ? (sv_rreq == sv_rack) : 1'b1;
 assign sv_addr = sv_we ? sv_waddr : sv_raddr;
 assign sv_we   = sv_w_busy;
 
+// save-state interface state (SS_IF=1)
+reg [19:0]        ss_waddr_r = 0;   // RX side: load write address
+reg [19:0]        ss_raddr_r = 0;   // TX side: save read address
+reg [7:0]         ss_wdin_r = 0;
+reg [15:0]        ss_req_blk = 0;
+reg [7:0]         ss_blk_hi = 0;    // 0x19 blk[15:8], latched ahead of blk[7:0]
+reg               ss_rd_req = 0, ss_rd_ack = 0;
+reg               ss_st_req = 0, ss_st_ack = 0;
+assign ss_img_raddr = ss_raddr_r;
+assign ss_img_waddr = ss_waddr_r;
+assign ss_img_wdin  = ss_wdin_r;
+reg [13:0] sv_wait = 0;
+localparam [13:0] SV_WAIT_MAX = 14'h3fff;
+
 // mgmt_* multiplex
 reg mgmt_rx;
 reg [15:0] mgmt_address_rx;
@@ -263,6 +292,8 @@ reg fdd_read_start, fdd_read_finish, fdd_write_finish;
 // 0x05 lba[15:0]             read a sector from disk (followed by command 0x0a)
 // 0x0a blk[15:0] <512 bytes> the requested save-RAM block (SAVE_IF only)
 // 0x0b 0x00                  save RAM changed by the core since the last dump (SAVE_IF only)
+// 0x0e <16 bytes>            save-state status (SS_IF only, answers 0x18)
+// 0x0f blk[15:0] <512 bytes> the requested save-state block (SS_IF only)
 
 // UART RX: command processing
 always @(posedge clk) begin
@@ -290,6 +321,15 @@ always @(posedge clk) begin
         sv_req_d <= 0;
         sv_rd_req <= 0;
         sv_req_blk <= 0;
+        ss_op <= 0;
+        ss_op_stb <= 0;
+        ss_img_wr_stb <= 0;
+        ss_waddr_r <= 0;
+        ss_wdin_r <= 0;
+        ss_req_blk <= 0;
+        ss_rd_req <= 0;
+        ss_st_req <= 0;
+
     end else begin
         rom_do_valid <= 0;
         we <= 0;
@@ -297,6 +337,8 @@ always @(posedge clk) begin
         fdd_read_finish <= 0;
         mgmt_rx <= 0;
         kbd_data_valid <= 0;
+        ss_op_stb <= 0;
+        ss_img_wr_stb <= 0;
         sv_req_d <= sv_req;         // keeps sv_w_pulse a single clock when SAVE_RDY=0
 
         if (rx_eop && recv_state != RECV_IDLE &&
@@ -457,6 +499,34 @@ always @(posedge clk) begin
                             sv_rd_req <= ~sv_rd_req;
                         end
                     end
+                    'h18: if (SS_IF) begin         // save-state control
+                        if (data_cnt == 0) begin
+                            ss_op <= rx_data[2:0];
+                            ss_op_stb <= 1;
+                            if (ss_st_req == ss_st_ack)
+                                ss_st_req <= ~ss_st_req;   // answer with 0x0E status
+                        end
+                    end
+                    'h19: if (SS_IF) begin         // write one save-state block
+                        if (data_cnt == 0)
+                            ss_blk_hi <= rx_data;
+                        else if (data_cnt == 1)
+                            ss_waddr_r <= {ss_blk_hi[2:0], rx_data, 9'd0};
+                        else if (data_cnt >= 2 && data_cnt < 2 + 512) begin
+                            ss_wdin_r <= rx_data;
+                            ss_img_wr_stb <= 1;
+                            if (data_cnt > 2)
+                                ss_waddr_r <= ss_waddr_r + 1'd1;
+                        end
+                    end
+                    'h1a: if (SS_IF) begin         // request one save-state block back
+                        if (data_cnt == 0)
+                            ss_req_blk[15:8] <= rx_data;
+                        else if (data_cnt == 1) begin
+                            ss_req_blk[7:0] <= rx_data;
+                            ss_rd_req <= ~ss_rd_req;
+                        end
+                    end
                     default: begin
                         // unknown command: consume all data and return
                     end
@@ -487,6 +557,7 @@ always @(posedge clk) begin
     end
 end
 
+localparam SEND_SS_STATUS = 14, SEND_SS_BLK = 15;
 localparam SEND_IDLE = 0;
 
 localparam SEND_CORE_ID = 1;        // doubles as response type in message header
@@ -515,7 +586,17 @@ always @(posedge clk) begin
         joy_timer <= 0;
         send_state <= 0;
         sv_rreq <= 0;
+        ss_rd_ack <= 0;
+        ss_st_ack <= 0;
+        ss_raddr_r <= 0;
+        ss_img_rd_stb <= 0;
+        ss_img_taken <= 0;
+        ss_img_abort <= 0;
+
     end else begin
+        ss_img_rd_stb <= 0;
+        ss_img_taken <= 0;
+        ss_img_abort <= 0;
         tx_valid <= 0;
         mgmt_read <= 0;
         fdd_read_start <= 0;
@@ -569,6 +650,18 @@ always @(posedge clk) begin
                 // dump; ahead of the core-ID reply it starved the firmware's
                 // get_core_id() polls for the whole dump (up to 256 blocks of
                 // ~2.9 ms on SNES) whenever a joypad frame let the next 0x12 land first.
+                end else if (SS_IF && ss_st_req != ss_st_ack) begin
+                    send_state_next <= SEND_SS_STATUS;
+                    send_state <= SEND_HEADER;
+                    resp_frame_len <= 1 + 16;
+                    send_idx <= 0;
+                end else if (SS_IF && ss_rd_req != ss_rd_ack) begin
+                    send_state_next <= SEND_SS_BLK;
+                    send_state <= SEND_HEADER;
+                    resp_frame_len <= 1 + 2 + 512;
+                    ss_raddr_r <= {ss_req_blk[10:0], 9'd0};
+                    sv_idx <= 0;
+                    ss_img_rd_stb <= 1;                     // fetch byte 0
                 end else if (SAVE_IF && sv_rd_req != sv_rd_ack) begin
                     send_state_next <= SEND_SAVE_BLK;
                     send_state <= SEND_HEADER;
@@ -721,6 +814,52 @@ always @(posedge clk) begin
                     tx_valid <= 1;
                     sv_notify <= 0;
                     send_state <= SEND_IDLE;
+                end
+            end
+
+            SEND_SS_STATUS: begin
+                if (SS_IF && tx_ready && ~tx_valid) begin
+                    tx_data <= ss_status[{send_idx[3:0], 3'b000} +: 8];
+                    tx_valid <= 1;
+                    send_idx <= send_idx + 1;
+                    if (send_idx == 15) begin
+                        send_state <= SEND_IDLE;
+                        ss_st_ack <= ss_st_req;
+                    end
+                end
+            end
+
+            // Save-state block, same shape and bounded wait as SEND_SAVE_BLK:
+            // a byte that never lands abandons the frame (firmware resyncs
+            // on the gap and retries) and asks the engine to resync.
+            SEND_SS_BLK: begin
+                if (SS_IF && sv_idx >= 2 && !ss_img_rdy) begin
+                    if (sv_wait == SV_WAIT_MAX) begin
+                        send_state <= SEND_IDLE;
+                        ss_rd_ack <= ss_rd_req;
+                        ss_img_abort <= 1;
+                        sv_wait <= 0;
+                    end else
+                        sv_wait <= sv_wait + 1'd1;
+                end
+                if (SS_IF && tx_ready && ~tx_valid &&
+                        (sv_idx < 2 || ss_img_rdy)) begin
+                    sv_wait <= 0;
+                    if (sv_idx == 0)      tx_data <= ss_req_blk[15:8];
+                    else if (sv_idx == 1) tx_data <= ss_req_blk[7:0];
+                    else begin
+                        tx_data <= ss_img_q;
+                        ss_raddr_r <= ss_raddr_r + 1'd1;
+                        ss_img_taken <= 1;
+                        if (sv_idx != 2 + 511)
+                            ss_img_rd_stb <= 1;
+                    end
+                    tx_valid <= 1;
+                    sv_idx <= sv_idx + 1'd1;
+                    if (sv_idx == 2 + 511) begin
+                        send_state <= SEND_IDLE;
+                        ss_rd_ack <= ss_rd_req;
+                    end
                 end
             end
 

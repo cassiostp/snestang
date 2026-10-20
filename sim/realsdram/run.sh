@@ -85,6 +85,7 @@ do_build() {
       "$R/sim/cosim/sdram_chip.sv" \
       "$here/snes_realsdram_top.sv" \
       "$B/gen/dsp.v" "$B/gen/snestang_top_sim.v" "$B/gen/smp.v" \
+      "$R/src/savestate.v" \
       "$R/src/controller_adapter.sv" \
       "$R/src/spc700/_spc700_package.v" "$R/src/spc700/addrgen.v" \
       "$R/src/spc700/addsub.v" "$R/src/spc700/alu.v" "$R/src/spc700/bcdadj.v" \
@@ -101,8 +102,8 @@ do_build() {
       "$R/src/chip/GSU/GSU_PKG.v" "$R/src/chip/GSU/GSU.v" "$R/src/chip/GSU/GSUMap.v" \
       "$R/src/sa1_rom_cache.v" "$R/src/bwram_256k.v" \
       "$R/src/smc_parser.v" "$R/src/SNES.v" "$R/src/vram.v" "$R/src/swram.v" \
-      "$here/tb_realsdram.cpp"
-    make -C "$B/obj/obj" -f Vsnestang_smoke.mk Vsnestang_smoke -j"$JOBS"
+      "${SS_TEST_SOURCE:-$here/tb_realsdram.cpp}"
+    make CXX="ccache g++" -C "$B/obj/obj" -f Vsnestang_smoke.mk Vsnestang_smoke -j"$JOBS"
     echo BUILD_OK
 }
 
