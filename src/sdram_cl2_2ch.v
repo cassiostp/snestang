@@ -463,14 +463,19 @@ always @(posedge clk) begin
                 PORT_BSRAM: bsram_dout_reg <= ds[0][0] ? dq_in[7:0] : dq_in[15:8];
                 PORT_RV:    rv_dout <= dq_in;
 `ifdef SNES_SAVESTATE
-                PORT_SS: begin
-                    ss_q <= ds[0][0] ? dq_in[7:0] : dq_in[15:8];
-                    ss_ack <= ss_req;
-                end
+                // Base-console states do not use CPU2. Borrow its placed
+                // per-DQ capture flops, then select the byte off the pins.
+                PORT_SS: cpu2_dout <= dq_in;
 `endif
                 default: ;
                 endcase
             end
+`ifdef SNES_SAVESTATE
+            if (cycle[5] && oe_latch[0] && port[0] == PORT_SS) begin
+                ss_q <= ds[0][0] ? cpu2_dout[7:0] : cpu2_dout[15:8];
+                ss_ack <= ss_req;
+            end
+`endif
             if (cycle[1] && oe_latch[1]) aram_dout <= dq_in;
         end
 
