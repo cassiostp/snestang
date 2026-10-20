@@ -621,8 +621,18 @@ wire        bs_free     = bs_req_tog == bs_ack;
 wire        bs_issue_ok = ~bs_busy | bs_free;   // idle, or acked this very clock
 // A GSU cartridge push reserves the mirror's single write port. Queue it
 // first, then issue a pending restore after the cartridge FIFO drains.
+// The save channel shares the controller's one BSRAM port with the S-CPU,
+// which samples BSRAM_Q at its fixed bus-cycle edge with no wait. A
+// save-channel byte issued while the core runs can still be in flight when
+// the S-CPU presents its read; the queued S-CPU byte then misses its sample
+// edge and reads the in-flight byte (issue #65). So the bridge only starts
+// save-channel bytes while the core cannot present one (enable low: the
+// firmware pauses the core for dumps and restores before release). A pending
+// save toggle simply waits for the pause; the S-CPU path is untouched and
+// gains no wait states, and GSU wait / SA-1 BW-RAM behaviour is unchanged.
+wire        bs_save_allow = ~enable;
 wire        bs_sv_w_issue = bs_issue_ok && sv_w_new && !sa1_mode &&
-                            !(gsu_mode && bs_push);
+                            !(gsu_mode && bs_push) && bs_save_allow;
 
 always @(posedge mclk) begin
     bs_ack_sync <= {bs_ack_sync[1:0], bs_req_ack};
@@ -686,7 +696,7 @@ always @(posedge mclk) begin
         bs_busy   <= 1;
         bs_req_tog <= ~bs_req_tog;
         sv_w_seen <= sv_req;
-    end else if (bs_issue_ok && sv_r_new && ~sa1_mode) begin
+    end else if (bs_issue_ok && sv_r_new && ~sa1_mode && bs_save_allow) begin
         if (!snes_bsram_shadow) begin           // keep the SNES's last read data
             snes_bsram_hold <= bsram_dout;
             snes_bsram_shadow <= 1;

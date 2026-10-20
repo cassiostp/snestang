@@ -11,13 +11,14 @@ a=source.index('// ---- Save-RAM <-> BSRAM bridge')
 b=source.index('// ---- SA-1:',a)
 bridge=source[a:b]
 bridge=bridge.replace('wire        bs_req_ack;', '// wire        bs_req_ack;')
+bridge=bridge.replace('wire        bs_save_allow = ~enable;', '// bs_save_allow arrives as a bench port (below); the top ties it to ~enable.')
 if 'assign BSRAM_Q =' not in bridge:
  bridge+='\nassign BSRAM_Q = sa1_mode ? bwram_q_a : (snes_bsram_shadow ? snes_bsram_hold : bsram_dout);\n'
 print(f'''module {name}(input mclk, input gsu_mode, sa1_mode, gsu_ram_req,
  input [7:0] rom_type, input [19:0] BSRAM_ADDR, input [7:0] BSRAM_D,
  input BSRAM_CE_N, BSRAM_RD_N, BSRAM_WE_N,
  input [17:0] sv_addr, input [7:0] sv_din, input sv_req, sv_rreq,
- input bs_req_ack, input [7:0] bsram_dout, output [7:0] BSRAM_Q);
+ input bs_req_ack, input [7:0] bsram_dout, output [7:0] BSRAM_Q, input bs_save_allow);
 localparam SAVE_AW=18;
 wire [7:0] bwram_q_a=8'hc3;
 wire gsu_ram_wait;

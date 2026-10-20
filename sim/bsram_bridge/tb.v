@@ -11,8 +11,9 @@ reg sw=0,sr=0;
 wire [7:0] q, qb;
 reg ack=0, ackb=0;
 reg [7:0] dout=0,doutb=0;
-bridge dut(clk,gsu,sa1,owner,mapper,addr,din,ce,rd,we,sa,sd,sw,sr,ack,dout,q);
-bridge_base base(clk,gsu,sa1,owner,mapper,addr,din,ce,rd,we,sa,sd,sw,sr,ackb,doutb,qb);
+reg bs_save_allow=1;
+bridge dut(clk,gsu,sa1,owner,mapper,addr,din,ce,rd,we,sa,sd,sw,sr,ack,dout,q,bs_save_allow);
+bridge_base base(clk,gsu,sa1,owner,mapper,addr,din,ce,rd,we,sa,sd,sw,sr,ackb,doutb,qb,bs_save_allow);
 reg [7:0] mem[0:131071], memb[0:131071];
 integer delay=0,delayb=0,checks=0,requests=0;
 reg compare=1;
@@ -108,6 +109,42 @@ initial begin
  repeat(3)@(negedge clk);idle;
  read_byte(20'h00020,8'h44);
  if(mem[17'h00020]!==8'h44)$fatal(1,"queued/save ordering mismatch");
+ // Issue #65: a save-channel byte in flight when an S-CPU save-RAM read is
+ // presented. The presenting read must return the requested byte, not the
+ // stale in-flight one. bs_save_allow=0 models the core running (unpaused):
+ // the bridge must not start save-channel bytes then, so none can be in
+ // flight at presentation. The S-CPU sample below lands 7 clocks after
+ // presentation: after the fixed bridge's own service (issue+4) but before
+ // a queued-behind-save service could complete (issue+4 behind ack+sync).
+ mapper=8'h00; gsu=0; owner=0; bs_save_allow=0;
+ write_byte(20'h00030,8'h5a); read_byte(20'h00030,8'h5a);
+ write_byte(20'h00040,8'ha5);
+ @(negedge clk); sa=18'h00050; sd=8'h3c; sw=~sw; prev_req=requests;
+ repeat(2) @(negedge clk);
+ @(negedge clk); addr=20'h00040; ce=0; we=1; rd=0;
+ repeat(7) @(negedge clk);
+ if(q!==8'ha5)$fatal(1,"S-CPU read queued behind save write returned stale %h, want a5",q);
+ idle;
+ if(requests!=prev_req+1)$fatal(1,"save-channel byte issued while the core runs (allow=0)");
+ if(dut.sv_ack_r===sw)$fatal(1,"save write acked while the core runs (allow=0)");
+ // Pausing lets the deferred byte through; ordering and data survive.
+ bs_save_allow=1;
+ repeat(32) @(negedge clk);
+ if(dut.sv_ack_r!==sw)$fatal(1,"deferred save write did not ack after pause");
+ if(mem[17'h00050]!==8'h3c)$fatal(1,"deferred save write lost data");
+ read_byte(20'h00050,8'h3c);
+ // Same collision with a save-channel read in flight.
+ bs_save_allow=0;
+ @(negedge clk); sa=18'h00050; sr=~sr;
+ repeat(2) @(negedge clk);
+ @(negedge clk); addr=20'h00030; ce=0; we=1; rd=0;
+ repeat(7) @(negedge clk);
+ if(q!==8'h5a)$fatal(1,"S-CPU read queued behind save read returned stale %h, want 5a",q);
+ idle;
+ if(dut.sv_rack_r===sr)$fatal(1,"save read acked while the core runs (allow=0)");
+ bs_save_allow=1;
+ repeat(32) @(negedge clk);
+ if(dut.sv_rack_r!==sr || dut.sv_q_r!==8'h3c)$fatal(1,"deferred save read mismatch");
  sa1=1;repeat(3)@(negedge clk);if(q!==8'hc3)$fatal(1,"SA1 mux changed");
  $display("PASS: %0d non-GSU lockstep clocks; GSU mirror, upper bank, save priority and SA1",checks);
  $finish;
