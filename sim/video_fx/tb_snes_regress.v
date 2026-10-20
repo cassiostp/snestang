@@ -76,22 +76,27 @@ module tb_snes_regress;
 
     // the line buffer: every slot holds something before the first row, and the line a row
     // shows is written in full before its pixels are read (the row starts at cx = 0, the
-    // scaler reads from cx = 149 on)
+    // scaler reads from cx = 149 on). dut is 512-wide (duplicates for normal lines),
+    // base is 256-wide.
     integer i, fc;
     reg [7:0] fl;
     initial begin
         #1;
         for (i = 0; i < 32 * 256; i = i + 1) begin
-            dut.mem[i]  = pix(i[12:8], i[7:0]);
             base.mem[i] = pix(i[12:8], i[7:0]);
         end
+        for (i = 0; i < 32 * 512; i = i + 1) begin
+            dut.mem[i] = pix(i[13:9], i[8:1]);
+        end
+        for (i = 0; i < 32; i = i + 1) dut.hires_lines[i] = 1'b0;
     end
     always @(posedge clk_pixel) begin
         if (dut.cx == 11'd100) begin
             fl = base.yy_s;
             for (fc = 0; fc < 256; fc = fc + 1) begin
-                dut.mem[{fl[4:0], fc[7:0]}]  = pix(fl, fc[7:0]);
                 base.mem[{fl[4:0], fc[7:0]}] = pix(fl, fc[7:0]);
+                dut.mem[{fl[4:0], fc[7:0], 1'b1}] = pix(fl, fc[7:0]);
+                dut.mem[{fl[4:0], fc[7:0], 1'b0}] = pix(fl, fc[7:0]);
             end
         end
     end

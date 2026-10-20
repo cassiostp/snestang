@@ -115,13 +115,14 @@ module tb_snes_linebuf #(
     initial dut.pause_snes_for_frame_sync = 1'b0;    // no reset value in the scaler (the FPGA starts it at 0)
 
     // ---- what the buffer holds: {frame, line} of every pixel, all ones for junk
+    // 512-wide (duplicates for normal lines; the bench drives hires=0)
     localparam [19:0] JUNK = 20'hFFFFF;
-    reg  [19:0] tag [0:32 * 256 - 1];
-    real        wt  [0:32 * 256 - 1];       // when the pixel got its tag
-    real        lr  [0:32 * 256 - 1];       // when the pixel was last read (0: not since it got its tag)
+    reg  [19:0] tag [0:32 * 512 - 1];
+    real        wt  [0:32 * 512 - 1];       // when the pixel got its tag
+    real        lr  [0:32 * 512 - 1];       // when the pixel was last read (0: not since it got its tag)
     reg  [19:0] pend;
     integer     ii;
-    initial for (ii = 0; ii < 32 * 256; ii = ii + 1) begin tag[ii] = JUNK; wt[ii] = 0.0; lr[ii] = 0.0; end
+    initial for (ii = 0; ii < 32 * 512; ii = ii + 1) begin tag[ii] = JUNK; wt[ii] = 0.0; lr[ii] = 0.0; end
 
     real ow_min = 1.0e9;                    // read -> overwrite
     always @(posedge clk) begin
@@ -150,7 +151,7 @@ module tb_snes_linebuf #(
     integer checks = 0, bad = 0, lead_max = 0, lead;
     real    age;
     reg [7:0] expl;
-    reg [12:0] raddr;
+    reg [13:0] raddr;
     reg [11:0] eframe;
     always @(posedge clk_pixel) begin
         if (armed && dut.active && dut.sl_show && dut.cy < 10'd720) begin
@@ -162,7 +163,7 @@ module tb_snes_linebuf #(
                 bad = bad + 1;
                 if (bad <= 10)
                     $display("MISSING: row %0d shows line %0d, read column %0d: buffer has frame/line %0d/%0d (frame %0d, SNES at line %0d dot %0d)",
-                             dut.cy, dut.yy_s, raddr[7:0],
+                             dut.cy, dut.yy_s, raddr[8:1],
                              tag[raddr][19:8], tag[raddr][7:0], eframe, v, h);
             end else begin
                 age = $realtime - wt[raddr];

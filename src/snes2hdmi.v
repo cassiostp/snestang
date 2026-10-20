@@ -118,18 +118,24 @@ module snes2hdmi (
     wire [15:0] mem_portB_addr;
     reg [14:0] mem_portB_rdata;
 `else
-    // BRAM line buffer for 16 lines. Each pixel is 5:5:5 RGB
-    // Each BRAM block holds 4 lines. So 16 lines needs 4 blocks.
+    // BRAM line buffer for 32 lines, 512 sub-pixels wide on hi-res lines.
+    // Each pixel is 5:5:5 RGB. A normal line holds 256 pixels twice (sub and
+    // main agree, so the pair is duplicated); a hi-res line (BG mode 5/6 or
+    // pseudo-hi-res, PPU HIGH_RES) holds 512 distinct sub-pixels. The read
+    // side shows normal lines as 256 (sub half, bit-identical to before) and
+    // hi-res lines as 512 at full horizontal resolution. hires_lines holds
+    // the HIGH_RES flag per buffer line, written with the pair.
     //
     localparam BUF_WIDTH = 5;        // 2 ^ BUF_WIDTH lines
     localparam BUF_SIZE = 1 << BUF_WIDTH;
-    reg [14:0] mem [0:BUF_SIZE*256-1];
-    reg [BUF_WIDTH+8-1:0] mem_portA_addr;
+    reg [14:0] mem [0:BUF_SIZE*512-1];
+    reg [BUF_WIDTH+9-1:0] mem_portA_addr;
     reg [14:0] mem_portA_wdata;
     reg mem_portA_we;
-    wire [BUF_WIDTH+8-1:0] mem_portB_addr;
+    wire [BUF_WIDTH+9-1:0] mem_portB_addr;
     reg [14:0] mem_portB_rdata;
-    reg mem_writeto = 1'b0;     // current line we are writing to. we read from the other line
+    reg [BUF_SIZE-1:0] hires_lines = {BUF_SIZE{1'b0}};
+    reg mem_writeto = 1'b0;     // toggled on hblank (legacy, addressing uses ys/yy_s)
 `endif
    
     // We need to do a bit of synchronization as the SNES and HDMI run on separate clocks and they
@@ -298,13 +304,23 @@ module snes2hdmi (
     //
     // Data input. The PPU sends two sub-pixels per OUT_X: the sub-screen colour
     // while dotclk is high, the main-screen colour while it is low (ppu.v
-    // COLOR_OUT, X_OUT = {OUT_X, DOT_CLK}). On a normal line the two agree, so
-    // the latched sub pixel is written as before. On a hi-res line (BG mode
-    // 5/6, or pseudo-hi-res with BLEND off) they differ, and the pair is
-    // averaged per channel, round half up - what a CRT shows for the half-pixel
-    // shifted sub screen, and close enough for true hi-res text. hires sampled
-    // with the sub sub-pixel governs the pair, so a mid-pair change does not
-    // split it.
+    // COLOR_OUT, X_OUT = {OUT_X, DOT_CLK}), xs = {x, dotclk} 9 bits.
+    //
+    // hz120: on a normal line the two agree, so the latched sub pixel is
+    // written as before. On a hi-res line (BG mode 5/6, or pseudo-hi-res with
+    // BLEND off) they differ, and the pair is averaged per channel, round
+    // half up - what a CRT shows for the half-pixel shifted sub screen.
+    // hires sampled with the sub sub-pixel governs the pair, so a mid-pair
+    // change does not split it. 512-wide does not fit in the frame buffer
+    // (256x240x15 already 279/340 BSRAM; doubled ~330/340), so the blend stays.
+    //
+    // standard: 512-wide line buffer. Each sub-pixel is written at its own
+    // xs (sub at {x,1} on the rise, main at {x,0} on the fall). Normal lines
+    // hold each pixel twice (sub == main from the PPU) and read back as 256,
+    // bit-identical to before; hi-res lines hold 512 distinct sub-pixels and
+    // read back at full resolution. hires_lines records HIGH_RES per buffer
+    // line, committed with the pair, so a mid-line toggle takes effect on the
+    // next line.
     //
 `ifdef HZ120
     reg r_dotclk, r_vblank;
@@ -320,19 +336,33 @@ module snes2hdmi (
         r_dotclk <= dotclk;
         r_vblank <= vblank;
         mem_portA_we <= 1'b0;
+`ifdef HZ120
         if (dotclk && ~r_dotclk) begin                             // sub sub-pixel: latch it
             sub_rgb <= rgb5;
             sub_hires <= hires;
-`ifdef HZ120
         end else if (~dotclk && r_dotclk && ~hblank && ~vblank && ys[7:0] < 240) begin  // main: write the pair
             mem_portA_addr <= {ys[7:0], xs[8:1]};
-`else
-        end else if (~dotclk && r_dotclk && ~hblank && ~vblank && ys[7:0] < 224) begin  // main: write the pair
-            mem_portA_addr <= {ys[BUF_WIDTH-1:0], xs[8:1]};
-`endif
             mem_portA_wdata <= (sub_hires == 1'b1) ? {blend_b[5:1], blend_g[5:1], blend_r[5:1]} : sub_rgb;
             mem_portA_we <= 1'b1;
         end
+`else
+        if (dotclk && ~r_dotclk) begin                             // sub sub-pixel: write it at {x,1}
+            sub_rgb <= rgb5;
+            sub_hires <= hires;
+            if (~hblank && ~vblank && ys[7:0] < 224) begin
+                mem_portA_addr <= {ys[BUF_WIDTH-1:0], xs};
+                mem_portA_wdata <= rgb5;
+                mem_portA_we <= 1'b1;
+            end
+        end else if (~dotclk && r_dotclk) begin                    // main sub-pixel: write it at {x,0}
+            if (~hblank && ~vblank && ys[7:0] < 224) begin
+                mem_portA_addr <= {ys[BUF_WIDTH-1:0], xs};
+                mem_portA_wdata <= rgb5;
+                mem_portA_we <= 1'b1;
+                hires_lines[ys[BUF_WIDTH-1:0]] <= sub_hires;
+            end
+        end
+`endif
     end
 
 `ifdef HZ120
@@ -443,7 +473,7 @@ module snes2hdmi (
     reg [23:0] rgb_pre;         // before video_fx
     reg pic_pre;                // rgb_pre is a pixel of the picture, not the border or the overlay
     reg dark_pre;
-    reg [7:0] xx;               // scaled-down pixel position
+    reg [8:0] xx;               // scaled-down pixel position (8 bits normal, 9 bits hi-res standard)
     reg [7:0] yy;
     reg [10:0] xcnt;
     reg [10:0] ycnt;            // fractional scaling counters
@@ -472,11 +502,19 @@ module snes2hdmi (
     always @(posedge clk_pixel) yy_s <= sl_geom ? sl_yy : yy;
 
 `ifdef HZ120
-    assign mem_portB_addr = {yy_s, xx};
+    assign mem_portB_addr = {yy_s, xx[7:0]};
 `else
-    assign mem_portB_addr = {yy_s[BUF_WIDTH-1:0], xx};
+    // Hi-res line shows 512 sub-pixels at full resolution; a normal line
+    // shows 256 (the sub half, bit-identical to the blended build, since
+    // sub == main from the PPU when HIGH_RES is 0).
+    wire hires_cur = hires_lines[yy_s[BUF_WIDTH-1:0]];
+    assign mem_portB_addr = hires_cur ? {yy_s[BUF_WIDTH-1:0], xx} : {yy_s[BUF_WIDTH-1:0], xx[7:0], 1'b1};
 `endif
-    assign overlay_x = xx;
+`ifdef HZ120
+    assign overlay_x = xx[7:0];
+`else
+    assign overlay_x = hires_cur ? xx[8:1] : xx[7:0];
+`endif
     assign overlay_y = yy_s;
 `ifdef HZ120
     wire [11:0] XSIZE  = 12'd640;               // 2.5 x 256, centred in the 720 active pixels
@@ -486,9 +524,13 @@ module snes2hdmi (
     // address calculation
     // Assume the video occupies fully on the Y direction, we are upscaling the video by `480/height`.
 `else
-    wire [11:0] XSIZE  = sl_geom ? 12'd896 : 12'd960;   // 4:3 on 720 rows, 4:3 on 672 rows
-    wire [11:0] XSTART = (12'd1280 - XSIZE) >> 1;
-    wire [11:0] XSTOP  = (12'd1280 + XSIZE) >> 1;
+    // Normal: 256x224 to 960x720 Full (3.75x) or 896x672 Integer-geom (3.5x).
+    // Hi-res: 512 wide to 1280 Full (2.5x, fills the width) or 1024 Integer
+    // (2x, centred). Nearest neighbour. Non-hires lines are pixel-identical
+    // to the blended build.
+    wire [11:0] XSIZE  = hires_cur ? (sl_geom ? 12'd1024 : 12'd1280) : (sl_geom ? 12'd896 : 12'd960);
+    wire [11:0] XSTART = hires_cur ? (sl_geom ? 12'd128  : 12'd0)   : (sl_geom ? 12'd192 : 12'd160);
+    wire [11:0] XSTOP  = XSTART + XSIZE;
 
     // address calculation
     // Assume the video occupies fully on the Y direction, we are upscaling the video by `720/height`.
@@ -503,11 +545,20 @@ module snes2hdmi (
 `ifdef HZ120
     reg [7:0] lines_l = 8'd224; // source lines latched with the frame, for the stretch
 `endif
+    // Full hi-res starts at 0, so XSTART-1-FX_LAT underflows: wrap into the
+    // previous line's blanking (cx counts frameWidth totals, 1650 std/1647 native).
+    wire [11:0] frame_tot = {1'b0, frameWidth};
+    wire [11:0] start_c = (XSTART >= 12'd12) ? (XSTART - 12'd12) : (XSTART + frame_tot - 12'd12);
+    wire [11:0] stop_c = XSTOP - 12'd12;
     always @(posedge clk_pixel) begin
         reg active_t;
         reg [10:0] xcnt_next;
         reg [10:0] ycnt_next;
+`ifdef HZ120
         xcnt_next = xcnt + 256;
+`else
+        xcnt_next = xcnt + (hires_cur ? 11'd512 : 11'd256);
+`endif
 `ifdef HZ120
         ycnt_next = ycnt + {3'b0, lines_l};
 `else
@@ -515,10 +566,10 @@ module snes2hdmi (
 `endif
 
         active_t = 0;
-        if ({1'b0, cx} == XSTART - 12'd1 - FX_LAT) begin
+        if ({1'b0, cx} == start_c) begin
             active_t = 1;
             active <= 1;
-        end else if ({1'b0, cx} == XSTOP - 12'd1 - FX_LAT) begin
+        end else if ({1'b0, cx} == stop_c) begin
             active_t = 0;
             active <= 0;
         end

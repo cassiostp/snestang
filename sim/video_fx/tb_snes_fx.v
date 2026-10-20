@@ -66,12 +66,16 @@ module tb_snes_fx;
         h = 32'h7654321;
 `ifdef HZ120
         for (i = 0; i < 224 * 256; i = i + 1) begin
-`else
-        for (i = 0; i < 32 * 256; i = i + 1) begin
-`endif
             h = h * 1664525 + 1013904223;
             dut.mem[i] = no_border(h[29:15]);
         end
+`else
+        for (i = 0; i < 32 * 512; i = i + 1) begin
+            h = h * 1664525 + 1013904223;
+            dut.mem[i] = no_border(h[29:15]);
+        end
+        for (i = 0; i < 32; i = i + 1) dut.hires_lines[i] = 1'b0;
+`endif
     end
     always @(posedge clk_pixel) begin
         if (dut.cx == 11'd100) begin
@@ -82,7 +86,8 @@ module tb_snes_fx;
 `ifdef HZ120
                 dut.mem[fl * 256 + fc] = no_border(h[29:15]);
 `else
-                dut.mem[{fl[4:0], fc[7:0]}] = no_border(h[29:15]);
+                dut.mem[{fl[4:0], fc[7:0], 1'b1}] = no_border(h[29:15]);
+                dut.mem[{fl[4:0], fc[7:0], 1'b0}] = no_border(h[29:15]);
 `endif
             end
         end
