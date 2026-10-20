@@ -1,6 +1,5 @@
 
 `define CONFIG_V
-`define SNES_SAVESTATE
 
 `define CHIP_DSPn
 // `define CHIP_GSU

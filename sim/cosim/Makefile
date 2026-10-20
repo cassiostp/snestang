@@ -98,7 +98,7 @@ model: $(GEN)/iosys_bl616_cosim.v $(GEN)/sdram_snes_sim.v $(GEN)/uart_fixed_sim.
 	# generated copies must stay line-identical to it apart from the
 	# documented seds, so the waivers live here, not in its sources.
 	$(VERILATOR) --cc --top-module cosim_top --prefix Vsnestang_cosim \
-	    -Mdir obj -DCOSIM -CFLAGS "-O2" \
+	    -Mdir obj -DCOSIM -DSNES_SAVESTATE -CFLAGS "-O2" \
 	    +incdir+/coresim-src/src/variant/standard \
 	    -Wno-PINMISSING -Wno-IMPLICIT -Wno-WIDTHEXPAND -Wno-WIDTHTRUNC -Wno-CASEINCOMPLETE \
 	    $(COSIM_SRCS) > $(COSIM)/build/verilate.log 2>&1 && \
@@ -119,7 +119,7 @@ model: $(GEN)/iosys_bl616_cosim.v $(GEN)/sdram_snes_sim.v $(GEN)/uart_fixed_sim.
 	ls $(OBJ)/Vsnestang_cosim__ALL.a
 
 lint: $(GEN)/iosys_bl616_cosim.v $(GEN)/sdram_snes_sim.v $(GEN)/uart_fixed_sim.v
-	$(IVERILOG) iverilog -g2012 -DCOSIM -o /dev/null -s cosim_top \
+	$(IVERILOG) iverilog -g2012 -DCOSIM -DSNES_SAVESTATE -o /dev/null -s cosim_top \
 	    -I/coresim-src/src/variant/standard \
 	    /coresim-src/src/verilator/config.v /coresim-src/sim/cosim/cosim_top.sv \
 	    /coresim-build/gen/iosys_bl616_cosim.v /coresim-build/gen/uart_fixed_sim.v \

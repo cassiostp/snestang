@@ -131,7 +131,7 @@ wire ss_mem_ack = ss_vram_sel ? ss_vr_ack : ss_sd_ack;
 wire [7:0] ss_mem_q = ss_vram_sel ? ss_vr_q : ss_sd_q;
 reg [5:0] ss_drain = 0;
 always @(posedge mclk) ss_drain <= ss_freeze ? (ss_drain == 63 ? 63 : ss_drain + 1'b1) : 0;
-wire ss_block = ss_drain >= 8;
+wire ss_block = ss_freeze && ss_drain >= 8;
 wire ss_waiting = ss_active && !ss_freeze;
 `else
 wire ss_freeze = 0, ss_reset = 0, ss_loaded = 0, ss_waiting = 0;
@@ -1104,7 +1104,7 @@ vram vram(
 `ifdef SNES_SAVESTATE
 wire [63:0] ss_flags = {ram_mask, rom_mask, ram_size, rom_size, rom_type};
 // Base console only until the matching cartridge state ports are implemented.
-wire ss_supported = rom_type[7:4] == 0 && loaded;
+wire ss_supported = rom_type[7:3] == 0 && loaded;
 wire [7:0] ss_top_q;
 savestate #(
 `ifdef HZ120

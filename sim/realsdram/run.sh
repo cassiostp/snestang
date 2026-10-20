@@ -72,7 +72,7 @@ do_build() {
     sed "s/@SIZE@/$MAXS/" "$here/test_loader.v" > "$B/obj/test_loader.v"
     grep -q "localparam SIZE = $MAXS;" "$B/obj/test_loader.v"
     R=$src
-    verilator --top-module snes_realsdram_top --cc --exe \
+    verilator -DSNES_SAVESTATE --top-module snes_realsdram_top --cc --exe \
       -CFLAGS "-O2" \
       -Wno-PINMISSING -Wno-IMPLICIT -Wno-WIDTHEXPAND -Wno-WIDTHTRUNC \
       -Wno-CASEINCOMPLETE -Wno-CASEOVERLAP -Wno-UNDRIVEN \

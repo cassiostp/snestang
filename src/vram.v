@@ -71,10 +71,14 @@ always @(posedge clk) begin
     if (ss_reg_we) case (ss_reg_a)
     13'h1b48: saved1 <= ss_reg_d;
     13'h1b49: saved2 <= ss_reg_d;
+    13'h1b4a: vram1_ack <= ss_reg_d[0];
+    13'h1b4b: vram2_ack <= ss_reg_d[0];
     default: ;
     endcase
 end
-assign ss_reg_q = ss_reg_a == 13'h1b48 ? saved1 : ss_reg_a == 13'h1b49 ? saved2 : 8'b0;
+assign ss_reg_q = ss_reg_a == 13'h1b48 ? saved1 : ss_reg_a == 13'h1b49 ? saved2 :
+                  ss_reg_a == 13'h1b4a ? {7'b0,vram1_ack} :
+                  ss_reg_a == 13'h1b4b ? {7'b0,vram2_ack} : 8'b0;
 `ifndef VERILATOR
 vram_spb mem1(.clk(clk), .dout(raw1), .oce(), .ce(en1), .reset(1'b0), .wre(we1), .ad(addr1), .din(din1));
 vram_spb mem2(.clk(clk), .dout(raw2), .oce(), .ce(en2), .reset(1'b0), .wre(we2), .ad(addr2), .din(din2));

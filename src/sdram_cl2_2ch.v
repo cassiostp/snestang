@@ -249,7 +249,7 @@ always @(*) begin
 	next_din[0] = 0;
 	// if (refresh) next_port[0] = PORT_NONE; else 
 `ifdef SNES_SAVESTATE
-    if (ss_req != ss_ack && ss_addr[24:16] != 9'h180) begin
+    if (ss_block && ss_req != ss_ack && ss_addr[24:16] != 9'h180) begin
         next_port[0] = PORT_SS;
         next_addr[0] = ss_addr;
         next_din[0] = {ss_din, ss_din};
@@ -469,7 +469,9 @@ always @(posedge clk) begin
         end
 
 `ifdef SNES_SAVESTATE
-        if (ss_addr[24:16] == 9'h180) ss_ack <= ss_req;
+        // Abort/resync requests while running only repair parity; they must
+        // never steal a fixed-latency game memory slot.
+        if (!ss_block || ss_addr[24:16] == 9'h180) ss_ack <= ss_req;
         if (ss_block) begin
             cpu_req_ack <= cpu_req;
             cpu2_req_ack <= cpu2_req;

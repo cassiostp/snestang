@@ -67,7 +67,7 @@ wire [7:0] ss_q_p65;
 
 `ifdef SNES_SAVESTATE
 wire ss_boundary;
-assign ss_point = VBLANK && !DMA_RUN && !HDMA_RUN && ss_boundary && P65_CLK_CNT == 0;
+assign ss_point = VBLANK && !DMA_RUN && !HDMA_RUN && !JOYRD_BUSY && !JOY_STRB && ss_boundary && P65_CLK_CNT == 0;
 `endif
 // clocks
 reg INT_CLK;

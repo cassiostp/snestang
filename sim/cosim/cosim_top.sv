@@ -345,7 +345,7 @@ wire [15:0] aram_dout;                   // audio samples; nobody listens here
 
 sdram_snes sdram (
     .ss_addr(ss_addr), .ss_din(ss_din), .ss_req(ss_req), .ss_we(ss_we), .ss_ack(ss_sd_ack), .ss_q(ss_sd_q),
-    .ss_block(ss_drain >= 8), .ss_reg_a(13'b0), .ss_reg_d(8'b0), .ss_reg_we(1'b0), .ss_reg_q(), .ss_phase(ss_phase),
+    .ss_block(ss_freeze && ss_drain >= 8), .ss_reg_a(13'b0), .ss_reg_d(8'b0), .ss_reg_we(1'b0), .ss_reg_q(), .ss_phase(ss_phase),
     .clk(fclk), .mclk(clk), .clkref(clkref), .resetn(resetn), .busy(sdram_busy),
 
     .SDRAM_DQ(sdram_dq), .SDRAM_A(sdram_a), .SDRAM_BA(sdram_ba),

@@ -124,9 +124,9 @@ reg [26:0] wdog = 0;        // ~6 s at 21.5 MHz without link activity: abort
 reg [25:0] wait_cnt = 0;    // capture-point patience (~3 s), then freeze anyway
 
 assign ss_active = (state != S_IDLE);
-// Held through load settle: re-arms the SDRAM controller's request edge
-// detectors with the final restored bus state frozen, so the pending
-// capture-time fetch completes before resume (see sdram_nes.v).
+// Phase-1 compatibility output. SNES adopts restored request parity in
+// the controller while ss_block holds normal traffic; its edge detectors
+// are part of the register image.
 assign ss_edge_reset = (state == S_SETTLE) && was_load;
 wire ready = ((state == S_SAVE) && settle_cnt == 0) || (state == S_LOAD) || (state == S_HDR);
 wire [15:0] total_blocks = {5'b0, total_bytes_c[19:9]};  // total is 512-aligned by construction
@@ -276,6 +276,10 @@ always @(posedge clk) begin
             err <= 1;
         end
 
+        // End/abort and watchdog decisions must not be overwritten by a
+        // coincident capture point or header completion in the old state.
+        if (!(op_stb && op == OP_ABORT) &&
+            !(state != S_IDLE && &wdog && !op_stb)) begin
         case (state)
         S_WAIT: begin
             wait_cnt <= wait_cnt + 1'd1;
@@ -324,6 +328,7 @@ always @(posedge clk) begin
         end
         default: ;
         endcase
+        end
 
         // ---------- image writes (load direction) ----------
         if (img_wr_stb && (state == S_HDR || state == S_LOAD)) begin

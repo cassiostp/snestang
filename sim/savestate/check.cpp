@@ -3,6 +3,7 @@
 #include <cstdint>
 #include <vector>
 #include <stdexcept>
+#include <cstring>
 #include "Vsnestang_smoke.h"
 #include "Vsnestang_smoke_snes_realsdram_top.h"
 #include "Vsnestang_smoke_snestang_top.h"
@@ -29,7 +30,7 @@ struct Bench {
  int state() { return snes->__PVT__ss_engine__DOT__state; }
  void until(int st,uint64_t max=1000000) {while(max-- && state()!=st)step();if(state()!=st)throw std::runtime_error("state timeout");run(40);}
  std::vector<uint8_t> save() {
-  op(1);until(2);
+  uint64_t began=ticks; op(1);until(2);
   unsigned size=snes->__PVT__ss_engine__DOT__total_bytes;
   printf("captured %u bytes at tick %lu\n",size,ticks);fflush(stdout);
   std::vector<uint8_t> out(size);
@@ -40,6 +41,7 @@ struct Bench {
    out[a]=snes->ss_img_q;
    snes->tb_ss_taken=1;step();snes->tb_ss_taken=0;step();
   }
+  printf("direct byte-bus capture/read clocks=%lu\n",ticks-began);fflush(stdout);
   return out;
  }
  void end() {op(3);until(0);}
@@ -63,8 +65,16 @@ int main(int argc,char**argv) {
   Bench b;
   uint64_t boot=argc>1?strtoull(argv[1],nullptr,10):100000000;
   b.run(boot);
+  if(!b.snes->__PVT__loaded) throw std::runtime_error("ROM loader did not complete");
+  if(argc>2 && !strcmp(argv[2],"--refuse")) {
+   b.op(1); b.run(100);
+   if(b.state()!=0) throw std::runtime_error("unsupported save accepted");
+   b.op(2); b.run(100);
+   if(b.state()!=0) throw std::runtime_error("unsupported load accepted");
+   printf("unsupported cartridge save/load refused; no state transfer started\n");return 0;
+  }
   auto image=b.save(); b.end();
-  const unsigned n=357380*4;
+  const unsigned n=357380*30;
   std::vector<uint64_t> ref(n);std::vector<uint16_t> right(n);
   unsigned visible=0, audible=0;
   for(unsigned i=0;i<n;++i){b.step();ref[i]=b.sample();right[i]=b.snes->audio_r;visible+=b.snes->rgb_out!=0;audible+=(b.snes->audio_l!=0 || b.snes->audio_r!=0);}
@@ -87,6 +97,33 @@ int main(int argc,char**argv) {
   for(unsigned i=0;i<end_a.size();++i) if(end_a[i]!=end_b[i]) { if(image_diff<40)printf("endpoint image difference offset %x\n",i); ++image_diff; }
   printf("endpoint image differences=%u\n",image_diff);
   printf("A/B %u ticks, video/audio differences=%u, RAM differences=%u\n",n,diffs,rd);
-  return diffs||rd?1:0;
+  // A foreign header is rejected before reset. Ignoring the transfer's
+  // frozen clocks, the running game's trajectory must remain identical.
+  b.load(image); b.end();
+  std::vector<uint8_t> foreign(image.begin(),image.begin()+512);
+  foreign[6]=1; // NES core ID in an otherwise valid SNES image
+  b.load(foreign);
+  if(b.state()!=3) throw std::runtime_error("foreign header was accepted");
+  b.op(4); b.until(0);
+  unsigned reject_diff=0;
+  // op(begin-load) executes one normal clock before freeze; abort executes
+  // one normal clock, and until(0) advances another forty normal clocks.
+  const unsigned advanced=42;
+  for(unsigned i=advanced;i<n;++i) { b.step(); if(ref[i]!=b.sample() || right[i]!=b.snes->audio_r) ++reject_diff; }
+  printf("foreign header rejection trajectory differences=%u over %u clocks\n",reject_diff,n-advanced);fflush(stdout);
+  // Loading intentionally rolls cartridge RAM back. Poison the live bytes,
+  // then verify every byte of the restored battery section while frozen.
+  const unsigned cart=unsigned(image[20])|(unsigned(image[21])<<8)|(unsigned(image[22])<<16);
+  const unsigned cart_image=512+8192+131072+65536;
+  for(unsigned i=0;i<(cart+1)/2;++i) b.chip->mem[0x780000+i]=0x5a5a;
+  b.load(image);
+  unsigned battery_diff=0;
+  for(unsigned i=0;i<cart;++i) {
+   uint16_t word=b.chip->mem[0x780000+i/2];
+   battery_diff+=image[cart_image+i] != uint8_t(word>>(8*(i&1)));
+  }
+  b.end();
+  printf("battery rollback differences=%u over %u bytes\n",battery_diff,cart);
+  return diffs||rd||image_diff||reject_diff||battery_diff||!visible||!audible?1:0;
  }catch(const std::exception&e){fprintf(stderr,"FAIL: %s\n",e.what());return 1;}
 }
