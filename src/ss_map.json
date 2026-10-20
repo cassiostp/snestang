@@ -1371,16 +1371,6 @@
       "bits": 1
     },
     {
-      "address": 274,
-      "expression": "SPR_PIX_Q[7:0]",
-      "bits": 8
-    },
-    {
-      "address": 275,
-      "expression": "SPR_PIX_Q[8:8]",
-      "bits": 1
-    },
-    {
       "address": 276,
       "expression": "SPR_PIX_ADDR_A[7:0]",
       "bits": 8

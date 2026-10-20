@@ -2043,30 +2043,18 @@ end
 //   .data_b(0), .address_b(SPR_PIXEL_X), .wren_b(SPR_PIX_WE_B), .q_b(SPR_PIX_Q)
 // );
 
+// Scanline scratch is rebuilt before the next visible line. It is excluded
+// at vblank capture; retain the original BRAM ports and write mode.
 reg [8:0] spr_buf [256];
 always @(posedge CLK) begin     // port A
     if (SPR_PIX_WE_A)
         spr_buf[SPR_PIX_ADDR_A] <= SPR_PIX_D;
 end
-always @(posedge CLK) begin
-`ifdef SNES_SAVESTATE
-    if (ss_we) begin
-      case (ss_a)
-        13'h0112: SPR_PIX_Q[7:0] <= ss_d;
-        13'h0113: SPR_PIX_Q[8:8] <= ss_d[0:0];
-        default: ;
-      endcase
-    end else if (!ss_hold || !RST_N) begin
-`endif
-     // port B
+always @(posedge CLK) begin     // port B
     if (SPR_PIX_WE_B)
         spr_buf[SPR_PIXEL_X] <= 0;
     else
         SPR_PIX_Q <= spr_buf[SPR_PIXEL_X];
-
-`ifdef SNES_SAVESTATE
-    end
-`endif
 end
 
 // SPR_BUF : entity work.dpram generic map(8,9)
@@ -3162,8 +3150,6 @@ always @* begin
     13'h010f: ss_q = {7'b0, OBJ_TIME_SAVE};
     13'h0110: ss_q = SPR_PIX_D[7:0];
     13'h0111: ss_q = {7'b0, SPR_PIX_D[8:8]};
-    13'h0112: ss_q = SPR_PIX_Q[7:0];
-    13'h0113: ss_q = {7'b0, SPR_PIX_Q[8:8]};
     13'h0114: ss_q = SPR_PIX_ADDR_A[7:0];
     13'h0115: ss_q = {7'b0, SPR_PIX_WE_A};
     13'h0116: ss_q = {5'b0, SPR_PIX_CNT[2:0]};
