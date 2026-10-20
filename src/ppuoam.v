@@ -19,6 +19,8 @@ module ppuoam (
     output [15:0] q_a,
     output [31:0] q_b
 );
+`ifdef SNES_SAVESTATE
+
 
 
 `ifdef SNES_SAVESTATE
@@ -62,15 +64,6 @@ end
 assign ss_q = ss_a == 13'h1b34 ? 8'(saved_a >> 0) : ss_a == 13'h1b35 ? 8'(saved_a >> 8) : ss_a == 13'h1b36 ? 8'(saved_b >> 0) : ss_a == 13'h1b37 ? 8'(saved_b >> 8) : ss_a == 13'h1b38 ? 8'(saved_b >> 16) : ss_a == 13'h1b39 ? 8'(saved_b >> 24) : ss_sel ? 8'(raw_b >> (ss_a[1:0] * 8)) : 8'b0;
 `endif
 
-`ifndef SNES_SAVESTATE
-wire [15:0] raw_a;
-wire [31:0] raw_b;
-assign q_a = raw_a;
-assign q_b = raw_b;
-wire [6:0] addr_b = address_b;
-wire [31:0] dat_b = data_b;
-wire we_a = wren_a, we_b = wren_b;
-`endif
 `ifndef VERILATOR
 
 Gowin_DPB_OAM mem(.douta(raw_a), .doutb(raw_b), .clka(clock), .ocea(), .cea(1'b1), .reseta(1'b0),
@@ -122,4 +115,59 @@ end
 
 `endif
 
+`else
+
+
+`ifndef VERILATOR
+
+Gowin_DPB_OAM mem(.douta(q_a), .doutb(q_b), .clka(clock), .ocea(), .cea(1'b1), .reseta(1'b0),
+            .wrea(wren_a), .clkb(clock), .oceb(), .ceb(1'b1), .resetb(1'b0),
+            .wreb(wren_b), .ada(address_a), .dina(data_a), .adb(address_b), .dinb(data_b));
+
+/*
+reg [31:0] mem [0:127];
+reg [31:0] douta;
+reg [31:0] doutb;
+wire [4:0] pos_a = {address_a[0], 4'b1111};
+assign q_a = douta[pos_a -: 16];
+assign q_b = doutb;
+
+always @(posedge clock) begin
+    douta <= mem[address_a[7:1]];
+    if (wren_a)
+        mem[address_a[7:0]][pos_a -: 16] <= data_a;
+end
+
+always @(posedge clock) begin
+    doutb <= mem[address_b];
+    if (wren_b)
+        mem[address_b] <= data_b;
+end
+*/
+
+`else
+
+reg [15:0] mem [0:255];
+reg [15:0] douta;
+reg [31:0] doutb;
+assign q_a = douta;
+assign q_b = doutb;
+
+always @(posedge clock) begin
+    douta <= mem[address_a];
+    doutb <= {mem[{address_b, 1'd1}], mem[{address_b, 1'd0}]};
+    if (wren_a) begin
+        mem[address_a] <= data_a;
+        // $display("OAM[%x] <= %x", address_a, data_a);
+    end
+    if (wren_b) begin
+        mem[{address_b,1'b1}] <= data_b[31:16];
+        mem[{address_b,1'b0}] <= data_b[15:0];
+        // $display("OAM[%x] <= %x, OAM=[%x] <= %x", {address_b,1'b0}, data_b[15:0], {address_b,1'b1}, data_b[31:16]);
+    end
+end
+
+`endif
+
+`endif
 endmodule

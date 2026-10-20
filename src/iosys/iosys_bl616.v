@@ -26,7 +26,9 @@ module iosys_bl616 #(
     // is why 0x0A/0x0B are the next free states. SAVE_IF=0 elaborates none of this.
     parameter SAVE_IF=0,
     parameter SAVE_AW=11,               // save RAM address width in bytes (17 = 128 KB BSRAM)
+`ifdef SNES_SAVESTATE
     parameter SS_IF=0,
+`endif
     parameter SAVE_RDY=0                // 1: byte accesses use the sv_req/sv_ack handshake
                                         // (SDRAM-backed RAM; snestang). 0: the bridge acks
                                         // immediately, dpram style (smstang) -- then sv_ack
@@ -89,6 +91,7 @@ module iosys_bl616 #(
     input                    sv_rack,       // toggle: that read is done
     input      [7:0]         sv_q,          // read data, valid with sv_rack
     input                    sv_core_we,    // the CORE wrote save RAM this cycle
+`ifdef SNES_SAVESTATE
 
     // Save-state port (SS_IF=1 only; tie inputs to 0 otherwise).
     output reg [2:0]         ss_op,
@@ -103,6 +106,7 @@ module iosys_bl616 #(
     output     [19:0]        ss_img_waddr,
     output     [7:0]         ss_img_wdin,
     output reg               ss_img_wr_stb,
+`endif
 
     // UART interface
     input  uart_rx,
@@ -229,6 +233,7 @@ wire sv_r_done  = SAVE_RDY ? (sv_rreq == sv_rack) : 1'b1;
 assign sv_addr = sv_we ? sv_waddr : sv_raddr;
 assign sv_we   = sv_w_busy;
 
+`ifdef SNES_SAVESTATE
 // save-state interface state (SS_IF=1)
 reg [19:0]        ss_waddr_r = 0;   // RX side: load write address
 reg [19:0]        ss_raddr_r = 0;   // TX side: save read address
@@ -243,6 +248,7 @@ assign ss_img_wdin  = ss_wdin_r;
 reg [13:0] sv_wait = 0;
 localparam [13:0] SV_WAIT_MAX = 14'h3fff;
 
+`endif
 // mgmt_* multiplex
 reg mgmt_rx;
 reg [15:0] mgmt_address_rx;
@@ -292,8 +298,10 @@ reg fdd_read_start, fdd_read_finish, fdd_write_finish;
 // 0x05 lba[15:0]             read a sector from disk (followed by command 0x0a)
 // 0x0a blk[15:0] <512 bytes> the requested save-RAM block (SAVE_IF only)
 // 0x0b 0x00                  save RAM changed by the core since the last dump (SAVE_IF only)
+`ifdef SNES_SAVESTATE
 // 0x0e <16 bytes>            save-state status (SS_IF only, answers 0x18)
 // 0x0f blk[15:0] <512 bytes> the requested save-state block (SS_IF only)
+`endif
 
 // UART RX: command processing
 always @(posedge clk) begin
@@ -321,6 +329,7 @@ always @(posedge clk) begin
         sv_req_d <= 0;
         sv_rd_req <= 0;
         sv_req_blk <= 0;
+`ifdef SNES_SAVESTATE
         ss_op <= 0;
         ss_op_stb <= 0;
         ss_img_wr_stb <= 0;
@@ -330,6 +339,7 @@ always @(posedge clk) begin
         ss_rd_req <= 0;
         ss_st_req <= 0;
 
+`endif
     end else begin
         rom_do_valid <= 0;
         we <= 0;
@@ -337,8 +347,10 @@ always @(posedge clk) begin
         fdd_read_finish <= 0;
         mgmt_rx <= 0;
         kbd_data_valid <= 0;
+`ifdef SNES_SAVESTATE
         ss_op_stb <= 0;
         ss_img_wr_stb <= 0;
+`endif
         sv_req_d <= sv_req;         // keeps sv_w_pulse a single clock when SAVE_RDY=0
 
         if (rx_eop && recv_state != RECV_IDLE &&
@@ -499,6 +511,7 @@ always @(posedge clk) begin
                             sv_rd_req <= ~sv_rd_req;
                         end
                     end
+`ifdef SNES_SAVESTATE
                     'h18: if (SS_IF) begin         // save-state control
                         if (data_cnt == 0) begin
                             ss_op <= rx_data[2:0];
@@ -527,6 +540,7 @@ always @(posedge clk) begin
                             ss_rd_req <= ~ss_rd_req;
                         end
                     end
+`endif
                     default: begin
                         // unknown command: consume all data and return
                     end
@@ -557,7 +571,9 @@ always @(posedge clk) begin
     end
 end
 
+`ifdef SNES_SAVESTATE
 localparam SEND_SS_STATUS = 14, SEND_SS_BLK = 15;
+`endif
 localparam SEND_IDLE = 0;
 
 localparam SEND_CORE_ID = 1;        // doubles as response type in message header
@@ -586,6 +602,7 @@ always @(posedge clk) begin
         joy_timer <= 0;
         send_state <= 0;
         sv_rreq <= 0;
+`ifdef SNES_SAVESTATE
         ss_rd_ack <= 0;
         ss_st_ack <= 0;
         ss_raddr_r <= 0;
@@ -593,10 +610,13 @@ always @(posedge clk) begin
         ss_img_taken <= 0;
         ss_img_abort <= 0;
 
+`endif
     end else begin
+`ifdef SNES_SAVESTATE
         ss_img_rd_stb <= 0;
         ss_img_taken <= 0;
         ss_img_abort <= 0;
+`endif
         tx_valid <= 0;
         mgmt_read <= 0;
         fdd_read_start <= 0;
@@ -650,6 +670,7 @@ always @(posedge clk) begin
                 // dump; ahead of the core-ID reply it starved the firmware's
                 // get_core_id() polls for the whole dump (up to 256 blocks of
                 // ~2.9 ms on SNES) whenever a joypad frame let the next 0x12 land first.
+`ifdef SNES_SAVESTATE
                 end else if (SS_IF && ss_st_req != ss_st_ack) begin
                     send_state_next <= SEND_SS_STATUS;
                     send_state <= SEND_HEADER;
@@ -662,6 +683,7 @@ always @(posedge clk) begin
                     ss_raddr_r <= {ss_req_blk[10:0], 9'd0};
                     sv_idx <= 0;
                     ss_img_rd_stb <= 1;                     // fetch byte 0
+`endif
                 end else if (SAVE_IF && sv_rd_req != sv_rd_ack) begin
                     send_state_next <= SEND_SAVE_BLK;
                     send_state <= SEND_HEADER;
@@ -817,6 +839,7 @@ always @(posedge clk) begin
                 end
             end
 
+`ifdef SNES_SAVESTATE
             SEND_SS_STATUS: begin
                 if (SS_IF && tx_ready && ~tx_valid) begin
                     tx_data <= ss_status[{send_idx[3:0], 3'b000} +: 8];
@@ -863,6 +886,7 @@ always @(posedge clk) begin
                 end
             end
 
+`endif
             SEND_DONE: send_state <= SEND_IDLE;     // extra state for fdd_state to transition
         endcase
     end

@@ -38,8 +38,13 @@ module CEGen(
 `endif
 );
 
+`ifdef SNES_SAVESTATE
   reg [31:0] CLK_SUM;
+`endif
   always @(posedge CLK) begin : P1
+`ifndef SNES_SAVESTATE
+    reg [31:0] CLK_SUM;
+`endif
 `ifdef SNES_SAVESTATE
     if (ss_we) begin
       case (ss_a)

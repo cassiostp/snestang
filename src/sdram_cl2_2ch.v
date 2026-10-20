@@ -199,7 +199,9 @@ localparam PORT_CPU   = 3'd1;
 localparam PORT_BSRAM = 3'd2;
 localparam PORT_RV    = 3'd3;
 localparam PORT_CPU2  = 3'd4;
+`ifdef SNES_SAVESTATE
 localparam PORT_SS = 3'd5;
+`endif
 `ifdef SNES_SAVESTATE
 assign ss_phase = cycle[0];
 `endif
@@ -299,11 +301,15 @@ always @* begin
 	next_ds[1] = 0;
 	next_din[1] = 0;
 //	if (refresh) next_port[1] <= PORT_NONE;	else 
+`ifdef SNES_SAVESTATE
     if ((aram_req ^ aram_req_ack)
 `ifdef SNES_SAVESTATE
         && !ss_block
 `endif
     ) begin
+`else
+    if (aram_req ^ aram_req_ack) begin
+`endif
 		next_port[1] = PORT_ARAM;
 		next_addr[1] = { 9'b10_1111000, aram_addr };   // ARAM uses bank 2
 		next_we[1]   = aram_we;

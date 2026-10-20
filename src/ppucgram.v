@@ -19,6 +19,8 @@ module ppucgram (
     output [14:0] q_a,
     output [14:0] q_b
 );
+`ifdef SNES_SAVESTATE
+
 
 
 `ifdef SNES_SAVESTATE
@@ -58,15 +60,6 @@ end
 assign ss_q = ss_a == 13'h1b30 ? 8'(saved_a >> 0) : ss_a == 13'h1b31 ? 8'(saved_a >> 8) : ss_a == 13'h1b32 ? 8'(saved_b >> 0) : ss_a == 13'h1b33 ? 8'(saved_b >> 8) : ss_sel ? 8'(raw_b >> (ss_a[0] * 8)) : 8'b0;
 `endif
 
-`ifndef SNES_SAVESTATE
-wire [14:0] raw_a;
-wire [14:0] raw_b;
-assign q_a = raw_a;
-assign q_b = raw_b;
-wire [7:0] addr_b = address_b;
-wire [14:0] dat_b = data_b;
-wire we_a = wren_a, we_b = wren_b;
-`endif
 `ifndef VERILATOR
 
 gowin_dpb_cgram mem(.douta(raw_a), .doutb(raw_b), .clka(clock), .ocea(), .cea(1'b1), .reseta(1'b0),
@@ -96,4 +89,37 @@ end
 
 `endif
 
+`else
+
+
+`ifndef VERILATOR
+
+gowin_dpb_cgram mem(.douta(q_a), .doutb(q_b), .clka(clock), .ocea(), .cea(1'b1), .reseta(1'b0),
+            .wrea(wren_a), .clkb(clock), .oceb(), .ceb(1'b1), .resetb(1'b0),
+            .wreb(wren_b), .ada(address_a), .dina(data_a), .adb(address_b), .dinb(data_b));
+
+`else
+
+reg [14:0] mem [0:255];
+reg [14:0] douta;
+reg [14:0] doutb;
+assign q_a = douta;
+assign q_b = doutb;
+
+always @(posedge clock) begin
+    douta <= mem[address_a];
+    doutb <= mem[address_b];
+    if (wren_a) begin
+        mem[address_a] <= data_a;
+        // $display("CGRAM[%x] <= %x", address_a, data_a);
+    end
+    if (wren_b) begin
+        mem[address_b] <= data_b;
+        // $display("CGRAM[%x] <= %x", address_b, data_b);
+    end
+end
+
+`endif
+
+`endif
 endmodule

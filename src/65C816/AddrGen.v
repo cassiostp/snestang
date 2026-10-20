@@ -187,9 +187,9 @@ end
 
 
    always @(posedge CLK)
+`ifdef SNES_SAVESTATE
       begin
 
-`ifdef SNES_SAVESTATE
     if (ss_we) begin
       case (ss_a)
         13'h1880: AB[7:0] <= ss_d;
@@ -315,8 +315,8 @@ if (RST_N == 1'b0)
       end
 `ifdef SNES_SAVESTATE
     end
-`endif
 end
+`endif
 
    assign AALCarry = NewAAL[8];
    assign AA = {AAHCarry, AAH, AAL};

@@ -200,9 +200,9 @@ assign ss_boundary = STATE == 0 || WAIExec;
    wire LAST_CYCLE = (NextState == 4'b0000) ? 1'b1 : 1'b0;
 
    always @(posedge CLK)
+`ifdef SNES_SAVESTATE
       begin
 
-`ifdef SNES_SAVESTATE
     if (ss_we) begin
       case (ss_a)
         13'h1812: IR[7:0] <= ss_d;
@@ -226,8 +226,8 @@ if (RST_N == 1'b0)
       end
 `ifdef SNES_SAVESTATE
     end
-`endif
 end
+`endif
 
 
    mcode MCode(
@@ -283,9 +283,9 @@ end
 
 
    always @(posedge CLK)
+`ifdef SNES_SAVESTATE
       begin
 
-`ifdef SNES_SAVESTATE
     if (ss_we) begin
       case (ss_a)
         13'h1800: A[7:0] <= ss_d;
@@ -408,14 +408,14 @@ if (RST_N == 1'b0)
       end
 `ifdef SNES_SAVESTATE
     end
-`endif
 end
+`endif
 
 
    always @(posedge CLK)
+`ifdef SNES_SAVESTATE
       begin
 
-`ifdef SNES_SAVESTATE
     if (ss_we) begin
       case (ss_a)
         13'h180e: P[7:0] <= ss_d;
@@ -501,14 +501,14 @@ if (RST_N == 1'b0)
       end
 `ifdef SNES_SAVESTATE
     end
-`endif
 end
+`endif
 
 
    always @(posedge CLK)
+`ifdef SNES_SAVESTATE
       begin
 
-`ifdef SNES_SAVESTATE
     if (ss_we) begin
       case (ss_a)
         13'h1806: D[7:0] <= ss_d;
@@ -568,8 +568,8 @@ if (RST_N == 1'b0)
       end
 `ifdef SNES_SAVESTATE
     end
-`endif
 end
+`endif
 
    // nand2mario: PHP fix from FpgaSnes
    assign D_OUT = // (MC.OUT_BUS == 3'b001 & MC.BYTE_SEL[1] == 1'b1) ? AluR[15:8] :
@@ -608,9 +608,9 @@ end
 
 
    always @(posedge CLK)
+`ifdef SNES_SAVESTATE
       begin
 
-`ifdef SNES_SAVESTATE
     if (ss_we) begin
       case (ss_a)
         13'h181a: NMI_SYNC <= ss_d[0:0];
@@ -640,14 +640,14 @@ if (RST_N == 1'b0)
       end
 `ifdef SNES_SAVESTATE
     end
-`endif
 end
+`endif
 
 
    always @(posedge CLK)
+`ifdef SNES_SAVESTATE
       begin
 
-`ifdef SNES_SAVESTATE
     if (ss_we) begin
       case (ss_a)
         13'h1814: GotInterrupt <= ss_d[0:0];
@@ -695,8 +695,8 @@ if (RST_N == 1'b0)
       end
 `ifdef SNES_SAVESTATE
     end
-`endif
 end
+`endif
 
    assign IsBRKInterrupt = (IR == 8'h00) ? 1'b1 :
                            1'b0;
@@ -706,9 +706,9 @@ end
 
 
    always @(posedge CLK)
+`ifdef SNES_SAVESTATE
       begin
 
-`ifdef SNES_SAVESTATE
     if (ss_we) begin
       case (ss_a)
         13'h1818: WAIExec <= ss_d[0:0];
@@ -744,8 +744,8 @@ if (RST_N == 1'b0)
       end
 `ifdef SNES_SAVESTATE
     end
-`endif
 end
+`endif
 
 
    always @*

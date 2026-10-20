@@ -133,8 +133,6 @@ reg [5:0] ss_drain = 0;
 always @(posedge mclk) ss_drain <= ss_freeze ? (ss_drain == 63 ? 63 : ss_drain + 1'b1) : 0;
 wire ss_block = ss_freeze && ss_drain >= 8;
 wire ss_waiting = ss_active && !ss_freeze;
-`else
-wire ss_freeze = 0, ss_reset = 0, ss_loaded = 0, ss_waiting = 0;
 `endif
 assign pause = core_config[17];
 
@@ -358,7 +356,11 @@ reg enable; // && ~dbg_break;
 reg loaded;
 
 always @(posedge mclk) begin        // wait until memory initialize to start SNES
+`ifdef SNES_SAVESTATE
     if (~sdram_busy && ~pause_snes_for_frame_sync && (~pause || ss_waiting) && loaded)
+`else
+    if (~sdram_busy && ~pause_snes_for_frame_sync && ~pause && loaded)
+`endif
         enable <= 1;
     else 
         enable <= 0;
@@ -401,7 +403,13 @@ main #(.USE_DSPn(USE_DSPn), .USE_GSU(USE_GSU), .USE_CX4(USE_CX4), .USE_SA1(USE_S
 `ifdef SNES_SAVESTATE
     .ss_hold(ss_freeze), .ss_a(ss_a), .ss_d(ss_d), .ss_we(ss_we), .ss_q(ss_regs_q), .ss_point(ss_point),
 `endif
-    .MCLK(mclk), .RESET_N(resetn & ~loading & ~ss_reset), .ENABLE(enable),
+    .MCLK(mclk), .RESET_N(
+`ifdef SNES_SAVESTATE
+    resetn & ~loading & ~ss_reset
+`else
+    resetn & ~loading
+`endif
+), .ENABLE(enable),
     .SYSCLKF_CE(sysclkf_ce), .SYSCLKR_CE(sysclkr_ce), .REFRESH(refresh),
 
     .ROM_TYPE(rom_type), .ROM_MASK(rom_mask), .RAM_MASK(gsu_mode ? gsu_ram_mask : ram_mask),
@@ -1285,7 +1293,13 @@ iosys_bl616 #(
     .uart_tx(UART_TXD), .uart_rx(UART_RXD),
     .rom_loading(loading), .rom_do(loader_do), .rom_do_valid(loader_do_valid),
     .sv_addr(sv_addr), .sv_din(sv_din), .sv_we(), .sv_req(sv_req), .sv_ack(sv_ack),
-    .sv_rreq(sv_rreq), .sv_rack(sv_rack), .sv_q(sv_q), .sv_core_we(ss_loaded | sv_core_we)
+    .sv_rreq(sv_rreq), .sv_rack(sv_rack), .sv_q(sv_q), .sv_core_we(
+`ifdef SNES_SAVESTATE
+    ss_loaded | sv_core_we
+`else
+    sv_core_we
+`endif
+)
 );
 
 `else       // VERILATOR

@@ -320,9 +320,9 @@ ppucgram cgram (
   .address_b(CGRAM_ADDR_CLR), .data_b({CGRAM_ADDR_CLR[6:0], CGRAM_ADDR_CLR}), .wren_b(~RST_N), .q_b()
 );
 
-always @(posedge CLK) begin
-
+always @(posedge CLK)
 `ifdef SNES_SAVESTATE
+begin
     if (ss_we) begin
       case (ss_a)
         13'h0117: CGRAM_ADDR_CLR[7:0] <= ss_d;
@@ -333,8 +333,8 @@ always @(posedge CLK) begin
 CGRAM_ADDR_CLR <= CGRAM_ADDR_CLR + 1;
 `ifdef SNES_SAVESTATE
     end
-`endif
 end
+`endif
 
 assign CGRAM_ADDR = (BG_MATH && ~FORCE_BLANK) ? CGRAM_FETCH_ADDR :
                    CGADD[8:1];

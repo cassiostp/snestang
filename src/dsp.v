@@ -194,11 +194,15 @@ reg DBG_DAT_WRr;
 reg [7:0] DBG_VMUTE = 8'b0;
 
 wire CE;
+`ifdef SNES_SAVESTATE
 wire CEGEN_RST_N = RST_N & (ENABLE
 `ifdef SNES_SAVESTATE
     | ss_hold
 `endif
 );
+`else
+wire CEGEN_RST_N = RST_N & ENABLE;
+`endif
 
 CEGen cegen (
 `ifdef SNES_SAVESTATE
