@@ -21,14 +21,17 @@ signature. With a signature present it writes only a `$77` marker.
 
 `main.cpp` runs, per game:
 
-- boot 0, a dump while the game keeps running, without the pause. This
-  documents why the firmware pauses the SNES (core_config bit 17) for every
-  dump: with the game running, its own SRAM read comes back wrong within a
-  few hundred clocks of the dump starting, because the save channel and the
-  game share the controller's one BSRAM port (the bridge gives the game the
-  sticky read register back, and a save byte can still be in it). Printed, not
-  a failure. (A one-line change to when `snes_bsram_shadow` clears did not cure
-  it, so the cause is not pinned down; with the pause the dump is clean.)
+- boot 0, a dump while the game keeps running, without the pause. The
+  bridge defers save-channel bytes while the core runs (they only start
+  while `enable` is low: paused or held for loading), so the unpaused dump
+  acks nothing and the game's own SRAM reads stay intact; pausing then lets
+  the pending dump complete, and it equals the SRAM. (Before the deferral,
+  the game's own SRAM read came back wrong within a few hundred clocks of
+  the dump starting, because the save channel and the game share the
+  controller's one BSRAM port.) Save-channel senders must keep the existing
+  discipline the firmware already follows: `0x11` blocks only while the core
+  is held, `0x12` block fetches one at a time waiting for each reply —
+  toggles are consumed one at a time and must not be pipelined.
 - boot 1, blank BSRAM: the writes land at the right BSRAM offsets (signature,
   pattern, marker, mirror), `sv_core_we` pulses once per SRAM write (size + 2),
   and a dump read through the bridge with the game paused equals the SRAM and

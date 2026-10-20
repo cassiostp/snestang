@@ -114,6 +114,20 @@ struct Sim {
         }
         return false;
     }
+    // wait for the ack of an already-toggled read (no new toggle: the
+    // bridge consumes one toggle at a time, so a deferred request must be
+    // completed before the next one starts).
+    bool bridge_wait_rack(uint8_t *b) {
+        bool ack0 = s->sv_rack_r;
+        for (int i = 0; i < 4000; i++) {
+            tick();
+            if (s->sv_rack_r != ack0) {
+                *b = s->sv_q_r;
+                return true;
+            }
+        }
+        return false;
+    }
 };
 
 static int fails = 0;
@@ -125,8 +139,11 @@ static void check(bool ok, const char *what) {
 
 // One boot of the cartridge. `image` is the save to restore through the
 // bridge before the core runs (empty = leave the BSRAM blank, 0xFF).
+// With prove_defer the dump first runs unpaused (it must defer: no byte
+// acked, game undisturbed) and then completes after the pause.
 static Run boot(int argc, char **argv, uint32_t size, const std::vector<uint8_t> &image,
-                uint64_t run_cycles, bool do_dump, bool pause_dump = false) {
+                uint64_t run_cycles, bool do_dump, bool pause_dump = false,
+                bool prove_defer = false) {
     Verilated::commandArgs(argc, argv);
     Sim sim;
     Run run;
@@ -163,6 +180,23 @@ static Run boot(int argc, char **argv, uint32_t size, const std::vector<uint8_t>
         run.dump.resize(size);
         for (uint32_t i = 0; i < size && run.dump_ok; i++)
             run.dump_ok = sim.bridge_read(i, &run.dump[i]);
+        if (prove_defer) {
+            // The bridge defers save-channel bytes while the core runs, so
+            // no byte can be in flight when the game presents its own read.
+            check(!run.dump_ok, "the unpaused dump is deferred (no byte acked while the core runs)");
+            // The pending byte-0 request still completes once paused, and
+            // the rest of the dump then reads clean: deferral loses nothing.
+            sim.s->core_config |= 1u << 17;
+            run.dump_ok = sim.bridge_wait_rack(&run.dump[0]);
+            for (uint32_t i = 1; i < size && run.dump_ok; i++)
+                run.dump_ok = sim.bridge_read(i, &run.dump[i]);
+            sim.s->core_config &= ~(1u << 17);
+            check(run.dump_ok, "the deferred dump completes after the pause");
+            bool same = run.dump_ok;
+            for (uint32_t i = 0; i < size && same; i++)
+                same = sim.bsram(i) == run.dump[i];
+            check(same, "the completed dump equals the SRAM");
+        }
         if (pause_dump)
             sim.s->core_config &= ~(1u << 17);
         sim.ticks(20000);
@@ -196,7 +230,7 @@ int main(int argc, char **argv) {
     printf("%s: %u bytes of SRAM\n", kind.c_str(), size);
 
     printf("boot 0: dump while the game keeps running (the firmware never does this for the SNES)\n");
-    Run u = boot(argc, argv, size, {}, RUN, true, false);
+    Run u = boot(argc, argv, size, {}, RUN, true, false, true);
     printf("  the game's own reads %s during the unpaused dump\n",
            u.sram[0x3F0] == 0xEE ? "were disturbed" : "were not disturbed");
 
