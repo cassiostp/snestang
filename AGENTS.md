@@ -77,3 +77,5 @@ not part of the repositories.
 - `build.tcl` names `src/boards/console60k_snescontroller.v/.cst`; on disk the file is `comsole60k_snescontroller.v` (typo) plus `console_snescontroller.cst`. The usage string omits `console138k`.
 - The 60K fit omits GSU/SA-1/CX4 and `bwram_256k` (board wrapper defines `SDRAM_3CH` + DSP only); 138K has them with the 2-channel SDRAM + BRAM VRAM.
 - `design.md` notes little timing leeway; the `mclk->fclk` multicycle and ARAM windows are load-bearing (`sim/sdram_port` guards them).
+
+Run `sh sim/regress.sh quick both` before handing work back; `quick` is the minimum check. Use `full both` for all benches, `--only bench1,bench2` to select, and `--list` for tiers, variants, images and typical times. At most two benches run together; logs and tables are in `sim/.regress/`. `TANGCORE_ROMS` defaults to `~/tangcore-test-bundle/test roms`; missing ROMs and unsupported variants SKIP. Keep ROM-derived output local.

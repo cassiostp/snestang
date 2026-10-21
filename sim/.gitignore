@@ -1,0 +1,5 @@
+.regress/
+__pycache__/
+/gsu_halt/tb_gsu_halt*.log
+/sa1_cache/tb_sa1_cache*.log
+/sa1_core/sa1test.hex

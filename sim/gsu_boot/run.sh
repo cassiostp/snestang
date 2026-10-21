@@ -12,9 +12,10 @@ cd "$(dirname "$0")"
 R=../..
 B=build
 PL=${PETERLEMON_DIR:-$B/peterlemon}
-DEMO=$PL/CHIP/GSU/2BPP/FillPoly/256x192/GSU2BPP256x192FillPoly.sfc
+DEMO=${GSU_ROM:-$PL/CHIP/GSU/2BPP/FillPoly/256x192/GSU2BPP256x192FillPoly.sfc}
 mkdir -p $B/run/roms $B/obj
 if [ ! -f "$DEMO" ]; then
+    test -z "${GSU_ROM:-}" || { echo "GSU_ROM not found: $GSU_ROM" >&2; exit 1; }
     git clone --depth 1 https://github.com/PeterLemon/SNES.git "$PL"
 fi
 python3 - "$DEMO" $B/run/roms/gsu.hex <<'EOF'
@@ -60,7 +61,7 @@ make -C $B/obj/obj -f Vsnestang_gsu.mk Vsnestang_gsu -j"$(nproc)"
 cp -f $W/src/chip/DSP/*.hex $B/run/ 2>/dev/null || true
 test -s $B/run/random_4m_words.hex || python3 -c \
   "open('$B/run/random_4m_words.hex','w').write('0000\n' * (4 * 1024 * 1024))"
-cd $B/run && ../obj/obj/Vsnestang_gsu -m 20000000 | grep -E 'done:|tb_gsu_boot'
-cd ../..
+(cd $B/run && ../obj/obj/Vsnestang_gsu -m 20000000 > gsu_boot.stdout 2>&1) || { cat $B/run/gsu_boot.stdout; exit 1; }
+grep -E 'done:|tb_gsu_boot' $B/run/gsu_boot.stdout
 python3 check.py "$DEMO" $B/run/bsram.bin
 echo "gsu_boot: PASS"

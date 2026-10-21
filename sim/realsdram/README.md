@@ -20,7 +20,7 @@ per-frame log, PPM dumps, `audio_ready` stereo, BSRAM and ARAM images.
 
 ```sh
 simrun --name ${SIM_PREFIX:-sim$$}_realsdram --user $(id -u):$(id -g) \
-  --entrypoint sh -v <repo>:/w -w /w/sim/realsdram \
+  -e VERILATOR_THREADS=1 --entrypoint sh -v <repo>:/w -w /w/sim/realsdram \
   verilator/verilator:latest ./run.sh build
 ./run.sh run smw game.sfc 600 /tmp/out [script]
 ```
@@ -29,7 +29,14 @@ simrun --name ${SIM_PREFIX:-sim$$}_realsdram --user $(id -u):$(id -g) \
 At most a few games at once; a few hundred frames is the useful first
 length. CX4 and SA-1 are VHDL and are not in this model.
 
-`tools/smoke/snes/build.sh` builds the same model when `SMOKE_REAL_SDRAM=1`.
+Set `VERILATOR_THREADS` at build time to select the model and its runtime
+pool together; pass it explicitly with Docker `-e` when using `simrun`.
+The default is one thread; rebuild with `VERILATOR_THREADS=1` for that path.
+`python3 thread-bench.py <ROM> <new-local-output-dir> --frames 600` measures
+1/2/4/8 threads, captures every console frame and compares all captured PPMs,
+audio, BSRAM, ARAM and per-frame logs byte for byte. Build/run wall times and
+identity results go to `measurements.json`; a byte difference fails the
+command. Keep the output directory and all ROM-derived files local.
 
 Set `DUMP_ALL_FRAMES=1` on the run command to save every console frame
 through the frame budget as `<game>_c1.ppm` ... `<game>_c600.ppm`.
@@ -42,3 +49,5 @@ frame-by-frame coverage. Keep all output local.
 The 256-column capture uses `X_OUT[8:1]` (`X_OUT[0]` is `DOT_CLK`)
 and decodes the PPU output as BGR555: bits 4:0 are red, 9:5 green,
 14:10 blue. These games use one captured sample per horizontal dot.
+
+`REALSDRAM_BUILD` selects the build/run scratch directory (default `build/` beside `run.sh`; relative paths resolve there). The thread benchmark uses a private build directory per thread count so it can run alongside the regular regression without replacing that model.

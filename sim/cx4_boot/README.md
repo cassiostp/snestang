@@ -37,3 +37,5 @@ timing and HDMI output require hardware checks.
 
 ROMs are never committed: `run.sh` takes a local `.sfc` path and all
 ROM-derived outputs stay under `build/` or the specified output directory.
+
+`VERILATOR_THREADS` is a build-time setting (default 1): the compiled model and runtime thread pool use the same count. Rebuild after changing it; `VERILATOR_THREADS=1` retains the single-thread path.

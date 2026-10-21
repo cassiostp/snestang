@@ -28,7 +28,7 @@ sed -e 's/inout  reg \[15:0\] SDRAM_DQ/inout [15:0] SDRAM_DQ/' \
 ! grep -q "output reg  \[7:0\] bsram_dout" "$here/build/sdram_snes_sim.v"
 D=/src/src
 src_cosim=/src/sim/cosim
-$DOCKER_RUN --user "$(id -u):$(id -g)" $CCACHE_OFF \
+$DOCKER_RUN --name "${SIM_PREFIX:-sim$$}_run" --user "$(id -u):$(id -g)" $CCACHE_OFF \
     -v "$src:/src:ro" -v "$here:/gs:ro" -v "$here/build:/out" -w /out \
     verilator/verilator:latest \
     --cc --exe --build -j "${JOBS:-$(nproc)}" --top-module gamesave_top --public-flat-rw \
@@ -47,6 +47,6 @@ for rom in lorom:2 lorom:8 hirom:8; do
     n="${rom%:*}_${rom#*:}"
     size=$(( $(wc -l < "$here/build/$n.hex") ))
     echo "== $n ($size bytes streamed)"
-    $DOCKER_RUN --user "$(id -u):$(id -g)" -v "$here/build:/out" -w /out --entrypoint /out/obj/gamesave \
+    $DOCKER_RUN --name "${SIM_PREFIX:-sim$$}_run" --user "$(id -u):$(id -g)" -v "$here/build:/out" -w /out --entrypoint /out/obj/gamesave \
         verilator/verilator:latest +rom=/out/$n.hex +size=$size +kind=$n
 done

@@ -21,6 +21,6 @@ ghdl -a --std=08 -fsynopsys ../$SA1/P65816_pkg.vhd ../$SA1/BCDAdder.vhd ../$SA1/
     ../tb_sa1.vhd
 ghdl -e --std=08 -fsynopsys tb_sa1
 cp ../sa1test.hex .
-ghdl -r --std=08 -fsynopsys tb_sa1 --stop-time=60ms > tb_sa1.log 2>&1 || true
+ghdl -r --std=08 -fsynopsys tb_sa1 --stop-time=60ms > tb_sa1.log 2>&1 || { tail -40 tb_sa1.log; exit 1; }
 grep -E 'tb_sa1:|FAIL|wait cycles' tb_sa1.log
 grep -q "tb_sa1: PASS" tb_sa1.log

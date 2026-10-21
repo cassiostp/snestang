@@ -27,7 +27,12 @@ sed -e 's/inout  reg \[15:0\] SDRAM_DQ/inout [15:0] SDRAM_DQ/' \
 
 iverilog -g2012 -I $B -o $B/tb_port.vvp tb_port.v $B/sdram_snes_sim.v $SRC/sa1_rom_cache.v ../../cosim/sdram_chip.sv
 
-run() { vvp $B/tb_port.vvp "$@" | grep -v "^VCD\|^WARNING"; }
+run() {
+    vvp $B/tb_port.vvp "$@" > "$B/last.log" 2>&1
+    grep -v "^VCD\|^WARNING" "$B/last.log" || true
+    grep -q '^RESULT: PASS' "$B/last.log"
+    ! grep -q '^RESULT: FAIL\|TIMEOUT' "$B/last.log"
+}
 
 if [ "$1" = quick ]; then
 	run +ws=3 +steps=2000
