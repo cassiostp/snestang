@@ -172,7 +172,7 @@ module snes2hdmi (
     reg at_f0_q = 1'b0;
     reg at_rel_q = 1'b0;
     reg fr_r = 1'b0, fr_rr = 1'b0;
-    wire [1:0] bfi_mode = (video_config[21:20] == 2'd3) ? 2'd1 : video_config[21:20];
+    wire [1:0] bfi_mode = video_config[21:20];   // raw: 2 bright, 3 beam (never black)
 `endif
     always @(posedge clk) begin
         hdmi_first_line_r <= hdmi_first_line;
@@ -614,32 +614,67 @@ module snes2hdmi (
     end
 
 `ifdef HZ120
-    // Inserted BFI frame: black (modes 1 and 3) or half brightness (mode 2).
-    // Mode 0 shows the picture on both refreshes. The menu overlay is exempt,
-    // and a free-running field (interlace, a clock that cannot lock) is too.
-    // The phase swap (bfi_phase) moves which refresh is inserted, so the LCD
-    // does not integrate the picture on only one polarity.
+    // Inserted BFI frame: black (mode 1) or the Lottes HI/LO complement
+    // (modes 2-3, see below). Mode 0 shows the picture on both refreshes.
+    // The menu overlay is exempt, and a free-running field (interlace, a
+    // clock that cannot lock) is too. The phase swap (bfi_phase) moves
+    // which refresh is inserted, so the LCD does not integrate the picture
+    // on only one polarity.
+    // Mode 2-3 (Lottes-style brightness-preserving BFI): in linear light
+    // each pixel's content-frame budget (2x its value, gain 1.0: unchanged
+    // average brightness, cf. the Blur Busters / Lottes CRT beam simulator
+    // at 2 subframes) is carried as HI = min(1, budget) on one refresh and
+    // LO = the remainder on the other, through the precomputed BFI_HI/LO
+    // tables below (exact sRGB piecewise pair, GAMMA=2.4; worst
+    // average-light error 0.37 % of full white, see tools/bfi_lottes.py).
+    // Dark and mid pixels (v <= 0.5) land wholly in one refresh, i.e. full
+    // 50 % clarity; only bright pixels spill over. Mode 2 shows HI on every
+    // lit refresh (global parity); mode 3 flips the parity per screen half
+    // (top rows HI on lit refreshes, bottom rows HI on inserted ones), so
+    // the 60 Hz flicker has no whole-frame flash, at the same per-pixel
+    // brightness and clarity. Refresh pairs stay complementary and every
+    // pixel alternates HI/LO, so the phase swap still averages LCD DC
+    // exactly as in mode 1. Tables are LUT logic (no BSRAM: the hz120 frame
+    // buffer leaves little free).
+    // Credit: Mark Rejhon (Blur Busters) & Timothy Lottes (MIT, Dec 2024).
+    localparam [9:0] BEAM_SPLIT = 10'd240;  // mode-3 half split (top/bottom)
+    reg [7:0] BFI_HI [0:31];
+    reg [7:0] BFI_LO [0:31];
+    localparam [23:0] BORDER_HI = 24'h454545;
+    localparam [23:0] BORDER_LO = 24'h000000;
+    wire bfi_lottes = ((bfi_mode == 2'd2) | (bfi_mode == 2'd3)) & ~fr_rr;
     wire bfi_eff_ins = bfi_ins ^ bfi_phase;
-    wire bfi_dark = bfi_eff_ins & (bfi_mode != 2'd0) & ~overlay & ~fr_rr;
+    wire show_hi = ~bfi_eff_ins ^ ((bfi_mode == 2'd3) & (cy >= BEAM_SPLIT));
+    wire bfi_dark = bfi_eff_ins & (bfi_mode == 2'd1) & ~overlay & ~fr_rr;
     reg [23:0] rgb_norm;
+    reg [23:0] rgb_hi, rgb_lo;
     always @* begin
         if (active & sl_show) begin
             if (overlay)
                 rgb_norm = {overlay_color[4:0],3'b0,overlay_color[9:5],3'b0,overlay_color[14:10],3'b0};
             else
                 rgb_norm = {mem_portB_rdata[4:0], 3'b0, mem_portB_rdata[9:5], 3'b0, mem_portB_rdata[14:10], 3'b0};
-        end else
+            rgb_hi = overlay ? rgb_norm :
+                {BFI_HI[mem_portB_rdata[4:0]], BFI_HI[mem_portB_rdata[9:5]], BFI_HI[mem_portB_rdata[14:10]]};
+            rgb_lo = overlay ? rgb_norm :
+                {BFI_LO[mem_portB_rdata[4:0]], BFI_LO[mem_portB_rdata[9:5]], BFI_LO[mem_portB_rdata[14:10]]};
+        end else begin
             rgb_norm = 24'h303030;
+            rgb_hi = BORDER_HI;
+            rgb_lo = BORDER_LO;
+        end
     end
     always @(posedge clk_pixel) begin
-        if (!bfi_dark)
+        if (bfi_lottes & ~overlay)
+            rgb_pre <= show_hi ? rgb_hi : rgb_lo;
+        else if (!bfi_dark)
             rgb_pre <= rgb_norm;
-        else if (bfi_mode == 2'd2)
-            rgb_pre <= {1'b0, rgb_norm[23:17], 1'b0, rgb_norm[15:9], 1'b0, rgb_norm[7:1]};
         else
-            rgb_pre <= 24'h000000;
-        pic_pre <= active & sl_show & ~overlay & ~bfi_dark;
-        dark_pre <= active & sl_show & ~overlay & sl_dark & ~bfi_dark;
+            rgb_pre <= 24'h000000;      // black inserted refresh (mode 1)
+        // Lottes modes carry real picture data on both refreshes, so both
+        // get the same colour/scanline processing downstream (unlike black BFI).
+        pic_pre <= active & sl_show & ~overlay & (~bfi_dark | bfi_lottes);
+        dark_pre <= active & sl_show & ~overlay & sl_dark & (~bfi_dark | bfi_lottes);
     end
 `else
     // calc rgb value to hdmi
@@ -703,5 +738,109 @@ module snes2hdmi (
         .O({tmds_clk_p, tmds_d_p}),
         .OB({tmds_clk_n, tmds_d_n})
     );
+
+`ifdef HZ120
+// BEGIN Lottes tables (tools/bfi_lottes.py, sRGB GAMMA=2.4).
+// Per channel 5-bit value: HI = lit-refresh value, LO = remainder refresh.
+// [ 0] 00 -> HI 00 LO 00
+// [ 1] 08 -> HI 0f LO 00
+// [ 2] 10 -> HI 1a LO 00
+// [ 3] 18 -> HI 25 LO 00
+// [ 4] 20 -> HI 2f LO 00
+// [ 5] 28 -> HI 3a LO 00
+// [ 6] 30 -> HI 45 LO 00
+// [ 7] 38 -> HI 4f LO 00
+// [ 8] 40 -> HI 5a LO 00
+// [ 9] 48 -> HI 65 LO 00
+// [10] 50 -> HI 6f LO 00
+// [11] 58 -> HI 7a LO 00
+// [12] 60 -> HI 85 LO 00
+// [13] 68 -> HI 90 LO 00
+// [14] 70 -> HI 9a LO 00
+// [15] 78 -> HI a5 LO 00
+// [16] 80 -> HI b0 LO 00
+// [17] 88 -> HI ba LO 00
+// [18] 90 -> HI c5 LO 00
+// [19] 98 -> HI d0 LO 00
+// [20] a0 -> HI da LO 00
+// [21] a8 -> HI e5 LO 00
+// [22] b0 -> HI f0 LO 00
+// [23] b8 -> HI fa LO 00
+// [24] c0 -> HI ff LO 42
+// [25] c8 -> HI ff LO 6e
+// [26] d0 -> HI ff LO 8c
+// [27] d8 -> HI ff LO a4
+// [28] e0 -> HI ff LO ba
+// [29] e8 -> HI ff LO ce
+// [30] f0 -> HI ff LO e0
+// [31] f8 -> HI ff LO f1
+// HI table (lit refresh), indexed by channel 5-bit value:
+assign BFI_HI[0] = 8'h00;
+assign BFI_HI[1] = 8'h0f;
+assign BFI_HI[2] = 8'h1a;
+assign BFI_HI[3] = 8'h25;
+assign BFI_HI[4] = 8'h2f;
+assign BFI_HI[5] = 8'h3a;
+assign BFI_HI[6] = 8'h45;
+assign BFI_HI[7] = 8'h4f;
+assign BFI_HI[8] = 8'h5a;
+assign BFI_HI[9] = 8'h65;
+assign BFI_HI[10] = 8'h6f;
+assign BFI_HI[11] = 8'h7a;
+assign BFI_HI[12] = 8'h85;
+assign BFI_HI[13] = 8'h90;
+assign BFI_HI[14] = 8'h9a;
+assign BFI_HI[15] = 8'ha5;
+assign BFI_HI[16] = 8'hb0;
+assign BFI_HI[17] = 8'hba;
+assign BFI_HI[18] = 8'hc5;
+assign BFI_HI[19] = 8'hd0;
+assign BFI_HI[20] = 8'hda;
+assign BFI_HI[21] = 8'he5;
+assign BFI_HI[22] = 8'hf0;
+assign BFI_HI[23] = 8'hfa;
+assign BFI_HI[24] = 8'hff;
+assign BFI_HI[25] = 8'hff;
+assign BFI_HI[26] = 8'hff;
+assign BFI_HI[27] = 8'hff;
+assign BFI_HI[28] = 8'hff;
+assign BFI_HI[29] = 8'hff;
+assign BFI_HI[30] = 8'hff;
+assign BFI_HI[31] = 8'hff;
+// LO table (remainder refresh), indexed by channel 5-bit value:
+assign BFI_LO[0] = 8'h00;
+assign BFI_LO[1] = 8'h00;
+assign BFI_LO[2] = 8'h00;
+assign BFI_LO[3] = 8'h00;
+assign BFI_LO[4] = 8'h00;
+assign BFI_LO[5] = 8'h00;
+assign BFI_LO[6] = 8'h00;
+assign BFI_LO[7] = 8'h00;
+assign BFI_LO[8] = 8'h00;
+assign BFI_LO[9] = 8'h00;
+assign BFI_LO[10] = 8'h00;
+assign BFI_LO[11] = 8'h00;
+assign BFI_LO[12] = 8'h00;
+assign BFI_LO[13] = 8'h00;
+assign BFI_LO[14] = 8'h00;
+assign BFI_LO[15] = 8'h00;
+assign BFI_LO[16] = 8'h00;
+assign BFI_LO[17] = 8'h00;
+assign BFI_LO[18] = 8'h00;
+assign BFI_LO[19] = 8'h00;
+assign BFI_LO[20] = 8'h00;
+assign BFI_LO[21] = 8'h00;
+assign BFI_LO[22] = 8'h00;
+assign BFI_LO[23] = 8'h00;
+assign BFI_LO[24] = 8'h42;
+assign BFI_LO[25] = 8'h6e;
+assign BFI_LO[26] = 8'h8c;
+assign BFI_LO[27] = 8'ha4;
+assign BFI_LO[28] = 8'hba;
+assign BFI_LO[29] = 8'hce;
+assign BFI_LO[30] = 8'he0;
+assign BFI_LO[31] = 8'hf1;
+// border 303030 -> HI 24'h454545 LO 24'h000000
+`endif
 
 endmodule
