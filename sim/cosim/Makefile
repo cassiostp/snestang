@@ -119,9 +119,12 @@ model: $(GEN)/iosys_bl616_cosim.v $(GEN)/sdram_snes_sim.v $(GEN)/uart_fixed_sim.
 	ls $(OBJ)/Vsnestang_cosim__ALL.a
 
 lint: $(GEN)/iosys_bl616_cosim.v $(GEN)/sdram_snes_sim.v $(GEN)/uart_fixed_sim.v
-	$(IVERILOG) iverilog -g2012 -DCOSIM -DSNES_SAVESTATE -o /dev/null -s cosim_top \
+	# -DVERILATOR selects vram.v's behavioural RAM (the one the Verilator model
+	# runs); its other branch needs the Gowin SP primitives, which have no sim model.
+	$(IVERILOG) iverilog -g2012 -DCOSIM -DSNES_SAVESTATE -DVERILATOR -o /dev/null -s cosim_top \
 	    -I/coresim-src/src/variant/standard \
-	    /coresim-src/src/verilator/config.v /coresim-src/sim/cosim/cosim_top.sv \
+	    /coresim-src/src/verilator/config.v /coresim-src/src/savestate.v /coresim-src/src/vram.v \
+	    /coresim-src/sim/cosim/cosim_top.sv \
 	    /coresim-build/gen/iosys_bl616_cosim.v /coresim-build/gen/uart_fixed_sim.v \
 	    /coresim-src/src/iosys/textdisp.v /coresim-src/sim/cosim/gowin/gowin_dpb_menu.v \
 	    /coresim-build/gen/sdram_snes_sim.v /coresim-src/sim/cosim/sdram_chip.sv
