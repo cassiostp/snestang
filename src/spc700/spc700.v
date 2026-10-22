@@ -15,7 +15,22 @@ module SPC700(
     output reg [7:0] DBG_DAT_OUT,
     input wire DBG_DAT_WR,
     output reg BRK_OUT
+
+`ifdef SNES_SAVESTATE
+    ,input ss_hold,
+    input [12:0] ss_a,
+    input [7:0] ss_d,
+    input ss_we,
+    output reg [7:0] ss_q
+`endif
 );
+`ifdef SNES_SAVESTATE
+wire [7:0] ss_q_ag;
+wire [7:0] ss_q_alu;
+wire [7:0] ss_q_md;
+wire [7:0] ss_q_mc;
+`endif
+
 
 reg [7:0] A; reg [7:0] X; reg [7:0] Y; reg [7:0] SP; reg [7:0] PSW; reg [7:0] T;
 wire [15:0] PC;
@@ -59,6 +74,17 @@ reg [7:0] DBG_CTRL = 8'b0;
 assign EN = RDY &  ~STPExec;
 assign NextIR = (STATE != 4'b0000) ? IR : GotInterrupt == 1'b1 ? 8'h0F : D_IN;
 always @(posedge CLK) begin : spc_jumps
+`ifdef SNES_SAVESTATE
+    if (ss_we) begin
+      case (ss_a)
+        13'h198a: JumpTaken <= ss_d[0:0];
+        13'h198d: BitMask[7:0] <= ss_d;
+        13'h198e: nBit[2:0] <= ss_d[2:0];
+        default: ;
+      endcase
+    end else if (!ss_hold || !RST_N) begin
+`endif
+
     if (~RST_N) begin
       JumpTaken <= 0;
       BitMask <= 0;
@@ -117,6 +143,10 @@ always @(posedge CLK) begin : spc_jumps
         end
       end
     end
+
+`ifdef SNES_SAVESTATE
+    end
+`endif
 end
 
 always @* begin
@@ -144,6 +174,16 @@ always @* begin
 end
 
 always @(posedge CLK) begin
+`ifdef SNES_SAVESTATE
+    if (ss_we) begin
+      case (ss_a)
+        13'h1986: IR[7:0] <= ss_d;
+        13'h1987: STATE[3:0] <= ss_d[3:0];
+        default: ;
+      endcase
+    end else if (!ss_hold || !RST_N) begin
+`endif
+
     if(RST_N == 1'b0) begin
       STATE <= {4{1'b0}};
       IR <= {8{1'b0}};
@@ -153,11 +193,19 @@ always @(posedge CLK) begin
         STATE <= NextState;
       end
     end
+
+`ifdef SNES_SAVESTATE
+    end
+`endif
 end
 
 assign LAST_CYCLE = NextState == 4'b0000 ? 1'b1 : 1'b0;
 
 SPC700_MCode MCode(
+`ifdef SNES_SAVESTATE
+    .ss_hold(ss_hold), .ss_a(ss_a), .ss_d(ss_d), .ss_we(ss_we), .ss_q(ss_q_mc),
+`endif
+
     .CLK(CLK),
     .RST_N(RST_N),
     .EN(EN),
@@ -166,6 +214,10 @@ SPC700_MCode MCode(
     .M(MC));
 
 SPC700_AddrGen AddrGen(
+`ifdef SNES_SAVESTATE
+    .ss_hold(ss_hold), .ss_a(ss_a), .ss_d(ss_d), .ss_we(ss_we), .ss_q(ss_q_ag),
+`endif
+
     .CLK(CLK),
     .RST_N(RST_N),
     .EN(EN),
@@ -206,6 +258,10 @@ assign DB = MC.BUS_CTRL[1:0] == 2'b00 && MC.BUS_CTRL[4] == 1'b0 ? D_IN :
             8'h00;
 assign w16 = (IR == 8'hBA && STATE == 4'b0100) || (IR == 8'h3A && STATE == 4'b0100) || (IR == 8'h1A && STATE == 4'b0100) || (IR == 8'h7A && STATE == 4'b0100) || (IR == 8'h5A && STATE == 4'b0100) || (IR == 8'hDA && STATE == 4'b0100) || (IR == 8'h9A && STATE == 4'b0100) ? 1'b1 : 1'b0;
 SPC700_ALU ALU(
+`ifdef SNES_SAVESTATE
+    .ss_hold(ss_hold), .ss_a(ss_a), .ss_d(ss_d), .ss_we(ss_we), .ss_q(ss_q_alu),
+`endif
+
     .CLK(CLK), .RST_N(RST_N), .EN(EN),
     
     .L(SB), .R(DB), .CTRL(MC.ALU_CTRL), .w16(w16), 
@@ -215,6 +271,10 @@ SPC700_ALU ALU(
     .RES(AluR), .CO(CO), .VO(VO), .SO(SO), .ZO(ZO), .HO(HO));
 
 MulDiv MulDiv(
+`ifdef SNES_SAVESTATE
+    .ss_hold(ss_hold), .ss_a(ss_a), .ss_d(ss_d), .ss_we(ss_we), .ss_q(ss_q_md),
+`endif
+
     .CLK(CLK),
     .EN(EN),
     .RST_N(RST_N),
@@ -231,6 +291,17 @@ MulDiv MulDiv(
 assign AYLoad = IR == 8'hCF || IR == 8'h9E ? 1'b1 : 1'b0;
 
 always @(posedge CLK) begin
+`ifdef SNES_SAVESTATE
+    if (ss_we) begin
+      case (ss_a)
+        13'h1980: A[7:0] <= ss_d;
+        13'h1981: X[7:0] <= ss_d;
+        13'h1982: Y[7:0] <= ss_d;
+        default: ;
+      endcase
+    end else if (!ss_hold || !RST_N) begin
+`endif
+
     if(RST_N == 1'b0) begin
       A <= 8'b0;
       X <= 8'b0;
@@ -272,9 +343,24 @@ always @(posedge CLK) begin
         end
       end
     end
+
+`ifdef SNES_SAVESTATE
+    end
+`endif
 end
 
 always @(posedge CLK) begin
+`ifdef SNES_SAVESTATE
+    if (ss_we) begin
+      case (ss_a)
+        13'h1983: SP[7:0] <= ss_d;
+        13'h1984: PSW[7:0] <= ss_d;
+        13'h1985: T[7:0] <= ss_d;
+        default: ;
+      endcase
+    end else if (!ss_hold || !RST_N) begin
+`endif
+
     if(RST_N == 1'b0) begin
       PSW <= 8'b0;
       SP <= 8'b0;
@@ -342,6 +428,10 @@ always @(posedge CLK) begin
         endcase
       end
     end
+
+`ifdef SNES_SAVESTATE
+    end
+`endif
 end
 
 assign D_OUT =  MC.OUT_BUS == 3'b001 ? SB : 
@@ -388,6 +478,18 @@ end
 
 assign IrqActive =  ~IRQ_N &  ~PSW[2];
 always @(posedge CLK) begin
+`ifdef SNES_SAVESTATE
+    if (ss_we) begin
+      case (ss_a)
+        13'h1988: GotInterrupt <= ss_d[0:0];
+        13'h1989: IsResetInterrupt <= ss_d[0:0];
+        13'h198b: IsIRQInterrupt <= ss_d[0:0];
+        13'h198c: STPExec <= ss_d[0:0];
+        default: ;
+      endcase
+    end else if (!ss_hold || !RST_N) begin
+`endif
+
     if(RST_N == 1'b0) begin
       GotInterrupt <= 1'b1;
       IsResetInterrupt <= 1'b1;
@@ -420,6 +522,10 @@ always @(posedge CLK) begin
         end
       end
     end
+
+`ifdef SNES_SAVESTATE
+    end
+`endif
 end
 
 //debug
@@ -473,4 +579,34 @@ end
 
 `endif
 
+
+`ifdef SNES_SAVESTATE
+
+`ifdef SNES_SAVESTATE
+`endif
+// Register image; RAM and pipeline state are read only while frozen.
+always @* begin
+    ss_q = 8'b0;
+    case (ss_a)
+    13'h1980: ss_q = A[7:0];
+    13'h1981: ss_q = X[7:0];
+    13'h1982: ss_q = Y[7:0];
+    13'h1983: ss_q = SP[7:0];
+    13'h1984: ss_q = PSW[7:0];
+    13'h1985: ss_q = T[7:0];
+    13'h1986: ss_q = IR[7:0];
+    13'h1987: ss_q = {4'b0, STATE[3:0]};
+    13'h1988: ss_q = {7'b0, GotInterrupt};
+    13'h1989: ss_q = {7'b0, IsResetInterrupt};
+    13'h198a: ss_q = {7'b0, JumpTaken};
+    13'h198b: ss_q = {7'b0, IsIRQInterrupt};
+    13'h198c: ss_q = {7'b0, STPExec};
+    13'h198d: ss_q = BitMask[7:0];
+    13'h198e: ss_q = {5'b0, nBit[2:0]};
+    default: ;
+    endcase
+    ss_q = ss_q | ss_q_ag | ss_q_alu | ss_q_md;
+    ss_q = ss_q | ss_q_mc;
+end
+`endif
 endmodule

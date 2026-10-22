@@ -24,6 +24,14 @@ module SPC700_ALU(
     output wire ZO,
     output wire HO,
     output wire [7:0] RES
+
+`ifdef SNES_SAVESTATE
+    ,input ss_hold,
+    input [12:0] ss_a,
+    input [7:0] ss_d,
+    input ss_we,
+    output reg [7:0] ss_q
+`endif
 );
 
 
@@ -72,6 +80,15 @@ always @* begin
   end
 
   always @(posedge CLK) begin
+`ifdef SNES_SAVESTATE
+    if (ss_we) begin
+      case (ss_a)
+        13'h1a40: SaveC <= ss_d[0:0];
+        default: ;
+      endcase
+    end else if (!ss_hold || !RST_N) begin
+`endif
+
     if(RST_N == 1'b0) begin
       SaveC <= 1'b0;
     end else begin
@@ -81,7 +98,11 @@ always @* begin
         end
       end
     end
-  end
+
+`ifdef SNES_SAVESTATE
+    end
+`endif
+end
 
   assign CIIn = CTRL.intC == 1'b1 ? SaveC : CTRL.secOp[0] == 1'b0 ? CI : CTRL.secOp[1];
   assign ADDIn =  ~CTRL.secOp[1];
@@ -185,4 +206,15 @@ always @* begin
   assign SO = SOut;
   assign RES = tResult;
 
+
+`ifdef SNES_SAVESTATE
+// Register image; RAM and pipeline state are read only while frozen.
+always @* begin
+    ss_q = 8'b0;
+    case (ss_a)
+    13'h1a40: ss_q = {7'b0, SaveC};
+    default: ;
+    endcase
+end
+`endif
 endmodule

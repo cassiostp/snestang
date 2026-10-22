@@ -1,5 +1,16 @@
 
-module AddrGen(CLK, RST_N, EN, LOAD_PC, PCDec, GotInterrupt, ADDR_CTRL, IND_CTRL, D_IN, X, Y, D, S, T, DR, DBR, e6502, PC, AA, AB, DX, AALCarry, JumpNoOfl);
+module AddrGen(CLK, RST_N, EN, LOAD_PC, PCDec, GotInterrupt, ADDR_CTRL, IND_CTRL, D_IN, X, Y, D, S, T, DR, DBR, e6502, PC, AA, AB, DX, AALCarry, JumpNoOfl
+`ifdef SNES_SAVESTATE
+    ,ss_hold, ss_a, ss_d, ss_we, ss_q
+`endif
+);
+`ifdef SNES_SAVESTATE
+   input ss_hold;
+   input [12:0] ss_a;
+   input [7:0] ss_d;
+   input ss_we;
+   output reg [7:0] ss_q;
+`endif
    input         CLK;
    input         RST_N;
    input         EN;
@@ -82,6 +93,18 @@ module AddrGen(CLK, RST_N, EN, LOAD_PC, PCDec, GotInterrupt, ADDR_CTRL, IND_CTRL
    end
 
    always @(posedge CLK) begin
+`ifdef SNES_SAVESTATE
+    if (ss_we) begin
+      case (ss_a)
+        13'h1887: PCr[7:0] <= ss_d;
+        13'h1888: PCr[15:8] <= ss_d;
+        13'h1889: PCOffset[7:0] <= ss_d;
+        13'h188a: PCOffset[15:8] <= ss_d;
+        default: ;
+      endcase
+    end else if (!ss_hold || !RST_N) begin
+`endif
+
       if (RST_N == 1'b0)
       begin
          PCr <= 16'b0;
@@ -95,7 +118,11 @@ module AddrGen(CLK, RST_N, EN, LOAD_PC, PCDec, GotInterrupt, ADDR_CTRL, IND_CTRL
             PCr <= NextPC;
          end
       end
-   end
+
+`ifdef SNES_SAVESTATE
+    end
+`endif
+end
 
    assign JumpNoOfl = ((~(PCr[8] ^ NewPCWithOffset[8]))) & ((~LOAD_PC[0])) & ((~LOAD_PC[1])) & LOAD_PC[2];
 
@@ -160,7 +187,23 @@ module AddrGen(CLK, RST_N, EN, LOAD_PC, PCDec, GotInterrupt, ADDR_CTRL, IND_CTRL
 
 
    always @(posedge CLK)
-      if (RST_N == 1'b0)
+`ifdef SNES_SAVESTATE
+      begin
+
+    if (ss_we) begin
+      case (ss_a)
+        13'h1880: AB[7:0] <= ss_d;
+        13'h1881: AAL[7:0] <= ss_d;
+        13'h1882: AAH[7:0] <= ss_d;
+        13'h1883: DL[7:0] <= ss_d;
+        13'h1884: DH[7:0] <= ss_d;
+        13'h1885: SavedCarry <= ss_d[0:0];
+        13'h1886: AAHCarry <= ss_d[0:0];
+        default: ;
+      endcase
+    end else if (!ss_hold || !RST_N) begin
+`endif
+if (RST_N == 1'b0)
       begin
          AAL <= 8'd0;
          AAH <= 8'd0;
@@ -270,10 +313,35 @@ module AddrGen(CLK, RST_N, EN, LOAD_PC, PCDec, GotInterrupt, ADDR_CTRL, IND_CTRL
             endcase
          end
       end
+`ifdef SNES_SAVESTATE
+    end
+end
+`endif
 
    assign AALCarry = NewAAL[8];
    assign AA = {AAHCarry, AAH, AAL};
    assign DX = {DH, DL};
    assign PC = PCr;
 
+
+`ifdef SNES_SAVESTATE
+// Register image; RAM and pipeline state are read only while frozen.
+always @* begin
+    ss_q = 8'b0;
+    case (ss_a)
+    13'h1880: ss_q = AB[7:0];
+    13'h1881: ss_q = AAL[7:0];
+    13'h1882: ss_q = AAH[7:0];
+    13'h1883: ss_q = DL[7:0];
+    13'h1884: ss_q = DH[7:0];
+    13'h1885: ss_q = {7'b0, SavedCarry};
+    13'h1886: ss_q = {7'b0, AAHCarry};
+    13'h1887: ss_q = PCr[7:0];
+    13'h1888: ss_q = PCr[15:8];
+    13'h1889: ss_q = PCOffset[7:0];
+    13'h188a: ss_q = PCOffset[15:8];
+    default: ;
+    endcase
+end
+`endif
 endmodule

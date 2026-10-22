@@ -30,7 +30,19 @@ module SMP (
     input DBG_CPU_DAT_WR,
     input DBG_SMP_DAT_WR,
     output BRK_OUT
+
+`ifdef SNES_SAVESTATE
+    ,input ss_hold,
+    input [12:0] ss_a,
+    input [7:0] ss_d,
+    input ss_we,
+    output reg [7:0] ss_q
+`endif
 );
+`ifdef SNES_SAVESTATE
+wire [7:0] ss_q_spc;
+`endif
+
 
 reg [7:0] SPC700_D_IN, SPC700_D_OUT;
 wire [15:0] SPC700_A;
@@ -75,6 +87,19 @@ localparam [7:0] IPLROM[0:63] = '{
 assign SPC700_CE = ENABLE & CE;
 
 always @(posedge CLK) begin
+`ifdef SNES_SAVESTATE
+    if (ss_we) begin
+      case (ss_a)
+        13'h1901: CPUI[0][7:0] <= ss_d;
+        13'h1902: CPUI[1][7:0] <= ss_d;
+        13'h1903: CPUI[2][7:0] <= ss_d;
+        13'h1904: CPUI[3][7:0] <= ss_d;
+        13'h1909: PAWR_N_OLD <= ss_d[0:0];
+        default: ;
+      endcase
+    end else if (!ss_hold || !RST_N) begin
+`endif
+
     if (RST_N == 1'b0) begin
         CPUI <= '{4{8'b0}};
         PAWR_N_OLD <= 1'b1;
@@ -99,11 +124,19 @@ always @(posedge CLK) begin
             end
         end
     end
+
+`ifdef SNES_SAVESTATE
+    end
+`endif
 end
 
 assign CPU_DO = CPUO[PA[1:0]];
 
 SPC700 SPC700 (
+`ifdef SNES_SAVESTATE
+    .ss_hold(ss_hold), .ss_a(ss_a), .ss_d(ss_d), .ss_we(ss_we), .ss_q(ss_q_spc),
+`endif
+
     .CLK(CLK),
     .RST_N(RST_N),
     .RDY(SPC700_CE),
@@ -124,6 +157,41 @@ always @(posedge CLK) begin : spc_timers
     reg [4:0] TM_STEP;
     reg [8:0] NEW_TM01_CNT;
     reg [5:0] NEW_TM2_CNT;
+`ifdef SNES_SAVESTATE
+    if (ss_we) begin
+      case (ss_a)
+        13'h1900: TIMER_CE <= ss_d[0:0];
+        13'h1905: CPUO[0][7:0] <= ss_d;
+        13'h1906: CPUO[1][7:0] <= ss_d;
+        13'h1907: CPUO[2][7:0] <= ss_d;
+        13'h1908: CPUO[3][7:0] <= ss_d;
+        13'h190a: CLK_SPEED[1:0] <= ss_d[1:0];
+        13'h190b: TM_SPEED[1:0] <= ss_d[1:0];
+        13'h190c: TIMERS_ENABLE <= ss_d[0:0];
+        13'h190d: TIMERS_DISABLE <= ss_d[0:0];
+        13'h190e: RAM_WRITE_EN <= ss_d[0:0];
+        13'h190f: TM_EN[2:0] <= ss_d[2:0];
+        13'h1910: IPL_EN <= ss_d[0:0];
+        13'h1911: T0DIV[7:0] <= ss_d;
+        13'h1912: T1DIV[7:0] <= ss_d;
+        13'h1913: T2DIV[7:0] <= ss_d;
+        13'h1914: T0OUT[3:0] <= ss_d[3:0];
+        13'h1915: T1OUT[3:0] <= ss_d[3:0];
+        13'h1916: T2OUT[3:0] <= ss_d[3:0];
+        13'h1917: AUX[0][7:0] <= ss_d;
+        13'h1918: AUX[1][7:0] <= ss_d;
+        13'h1919: RESET_PORT[1:0] <= ss_d[1:0];
+        13'h191a: TM01_CNT[7:0] <= ss_d;
+        13'h191b: TM01_CNT[8:8] <= ss_d[0:0];
+        13'h191c: TM2_CNT[5:0] <= ss_d[5:0];
+        13'h191d: T0_CNT[7:0] <= ss_d;
+        13'h191e: T1_CNT[7:0] <= ss_d;
+        13'h191f: T2_CNT[7:0] <= ss_d;
+        default: ;
+      endcase
+    end else if (!ss_hold || !RST_N) begin
+`endif
+
 
     if (~RST_N) begin
         CLK_SPEED <= 0;
@@ -264,6 +332,10 @@ always @(posedge CLK) begin : spc_timers
                 TM2_CNT <= NEW_TM2_CNT;
         end
     end
+
+`ifdef SNES_SAVESTATE
+    end
+`endif
 end
 
 always @* begin
@@ -323,4 +395,50 @@ always @* begin
     endcase
 end
 
+
+`ifdef SNES_SAVESTATE
+
+`ifdef SNES_SAVESTATE
+`endif
+// Register image; RAM and pipeline state are read only while frozen.
+always @* begin
+    ss_q = 8'b0;
+    case (ss_a)
+    13'h1900: ss_q = {7'b0, TIMER_CE};
+    13'h1901: ss_q = CPUI[0][7:0];
+    13'h1902: ss_q = CPUI[1][7:0];
+    13'h1903: ss_q = CPUI[2][7:0];
+    13'h1904: ss_q = CPUI[3][7:0];
+    13'h1905: ss_q = CPUO[0][7:0];
+    13'h1906: ss_q = CPUO[1][7:0];
+    13'h1907: ss_q = CPUO[2][7:0];
+    13'h1908: ss_q = CPUO[3][7:0];
+    13'h1909: ss_q = {7'b0, PAWR_N_OLD};
+    13'h190a: ss_q = {6'b0, CLK_SPEED[1:0]};
+    13'h190b: ss_q = {6'b0, TM_SPEED[1:0]};
+    13'h190c: ss_q = {7'b0, TIMERS_ENABLE};
+    13'h190d: ss_q = {7'b0, TIMERS_DISABLE};
+    13'h190e: ss_q = {7'b0, RAM_WRITE_EN};
+    13'h190f: ss_q = {5'b0, TM_EN[2:0]};
+    13'h1910: ss_q = {7'b0, IPL_EN};
+    13'h1911: ss_q = T0DIV[7:0];
+    13'h1912: ss_q = T1DIV[7:0];
+    13'h1913: ss_q = T2DIV[7:0];
+    13'h1914: ss_q = {4'b0, T0OUT[3:0]};
+    13'h1915: ss_q = {4'b0, T1OUT[3:0]};
+    13'h1916: ss_q = {4'b0, T2OUT[3:0]};
+    13'h1917: ss_q = AUX[0][7:0];
+    13'h1918: ss_q = AUX[1][7:0];
+    13'h1919: ss_q = {6'b0, RESET_PORT[1:0]};
+    13'h191a: ss_q = TM01_CNT[7:0];
+    13'h191b: ss_q = {7'b0, TM01_CNT[8:8]};
+    13'h191c: ss_q = {2'b0, TM2_CNT[5:0]};
+    13'h191d: ss_q = T0_CNT[7:0];
+    13'h191e: ss_q = T1_CNT[7:0];
+    13'h191f: ss_q = T2_CNT[7:0];
+    default: ;
+    endcase
+    ss_q = ss_q | ss_q_spc;
+end
+`endif
 endmodule

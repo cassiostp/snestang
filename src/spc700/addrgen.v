@@ -20,6 +20,14 @@ module SPC700_AddrGen(
     input wire [7:0] DBG_DAT_IN,
     input wire DBG_DAT_WR,
     output wire [15:0] DBG_NEXT_PC
+
+`ifdef SNES_SAVESTATE
+    ,input ss_hold,
+    input [12:0] ss_a,
+    input [7:0] ss_d,
+    input ss_we,
+    output reg [7:0] ss_q
+`endif
 );
 
 reg [7:0] AL; reg [7:0] AH;
@@ -71,6 +79,17 @@ always @* begin
 end
 
 always @(posedge CLK) begin
+`ifdef SNES_SAVESTATE
+    if (ss_we) begin
+      case (ss_a)
+        13'h1a03: DR[7:0] <= ss_d;
+        13'h1a04: PCr[7:0] <= ss_d;
+        13'h1a05: PCr[15:8] <= ss_d;
+        default: ;
+      endcase
+    end else if (!ss_hold || !RST_N) begin
+`endif
+
     if(RST_N == 1'b0) begin
       PCr <= {16{1'b0}};
       DR <= {8{1'b0}};
@@ -93,6 +112,10 @@ always @(posedge CLK) begin
         PCr <= NextPC;
       end
     end
+
+`ifdef SNES_SAVESTATE
+    end
+`endif
 end
 
 assign DBG_NEXT_PC = NextPC;
@@ -117,6 +140,17 @@ end
 assign NewAHWithCarry = (AH) + ({7'b0000000,SavedCarry});
 assign NextAX = ({AH,AL}) + 1;
 always @(posedge CLK) begin
+`ifdef SNES_SAVESTATE
+    if (ss_we) begin
+      case (ss_a)
+        13'h1a00: AL[7:0] <= ss_d;
+        13'h1a01: AH[7:0] <= ss_d;
+        13'h1a02: SavedCarry <= ss_d[0:0];
+        default: ;
+      endcase
+    end else if (!ss_hold || !RST_N) begin
+`endif
+
     if(RST_N == 1'b0) begin
       AL <= {8{1'b0}};
       AH <= {8{1'b0}};
@@ -176,10 +210,30 @@ always @(posedge CLK) begin
         endcase
       end
     end
+
+`ifdef SNES_SAVESTATE
+    end
+`endif
 end
 
 assign ALCarry = NewAL[8];
 assign AX = {AH,AL};
 assign PC = PCr;
 
+
+`ifdef SNES_SAVESTATE
+// Register image; RAM and pipeline state are read only while frozen.
+always @* begin
+    ss_q = 8'b0;
+    case (ss_a)
+    13'h1a00: ss_q = AL[7:0];
+    13'h1a01: ss_q = AH[7:0];
+    13'h1a02: ss_q = {7'b0, SavedCarry};
+    13'h1a03: ss_q = DR[7:0];
+    13'h1a04: ss_q = PCr[7:0];
+    13'h1a05: ss_q = PCr[15:8];
+    default: ;
+    endcase
+end
+`endif
 endmodule

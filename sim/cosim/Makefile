@@ -28,7 +28,7 @@ CCACHE_OFF :=
 else
 CCACHE_OFF := -e CCACHE_DISABLE=1
 endif
-DOCKER := $(DOCKER_RUN) --name "$${SIM_PREFIX:-sim$$$$}_cosim" --user "$(shell id -u):$(shell id -g)" $(CCACHE_OFF)
+DOCKER := $(DOCKER_RUN) --name "$${SIM_PREFIX:-sim$$$$}_cosim_$(shell date +%s%N)" --user "$(shell id -u):$(shell id -g)" $(CCACHE_OFF)
 VMOUNT := -v "$(COSIM)/../..:/coresim-src:ro" -v "$(COSIM)/build:/coresim-build" -w /coresim-build
 VERILATOR := $(DOCKER) $(VMOUNT) verilator/verilator:latest
 IVERILOG := $(DOCKER) -v "$(COSIM)/../..:/coresim-src:ro" -v "$(COSIM)/build:/coresim-build" -w /coresim-build tangcore-iv:1
@@ -82,7 +82,7 @@ $(GEN)/uart_fixed_sim.v: $(RTL)/iosys/uart_fixed.v
 	    $(RTL)/iosys/uart_fixed.v > $@
 	! grep -q "ASSERTION_ERROR PARAMETER_OUT_OF_RANGE(" $@
 
-COSIM_SRCS := /coresim-src/src/verilator/config.v \
+COSIM_SRCS := /coresim-src/src/verilator/config.v /coresim-src/src/savestate.v /coresim-src/src/vram.v \
 	/coresim-src/sim/cosim/cosim_top.sv \
 	/coresim-build/gen/iosys_bl616_cosim.v \
 	/coresim-build/gen/uart_fixed_sim.v \
@@ -98,7 +98,7 @@ model: $(GEN)/iosys_bl616_cosim.v $(GEN)/sdram_snes_sim.v $(GEN)/uart_fixed_sim.
 	# generated copies must stay line-identical to it apart from the
 	# documented seds, so the waivers live here, not in its sources.
 	$(VERILATOR) --cc --top-module cosim_top --prefix Vsnestang_cosim \
-	    -Mdir obj -DCOSIM -CFLAGS "-O2" \
+	    -Mdir obj -DCOSIM -DSNES_SAVESTATE -CFLAGS "-O2" \
 	    +incdir+/coresim-src/src/variant/standard \
 	    -Wno-PINMISSING -Wno-IMPLICIT -Wno-WIDTHEXPAND -Wno-WIDTHTRUNC -Wno-CASEINCOMPLETE \
 	    $(COSIM_SRCS) > $(COSIM)/build/verilate.log 2>&1 && \
@@ -119,9 +119,12 @@ model: $(GEN)/iosys_bl616_cosim.v $(GEN)/sdram_snes_sim.v $(GEN)/uart_fixed_sim.
 	ls $(OBJ)/Vsnestang_cosim__ALL.a
 
 lint: $(GEN)/iosys_bl616_cosim.v $(GEN)/sdram_snes_sim.v $(GEN)/uart_fixed_sim.v
-	$(IVERILOG) iverilog -g2012 -DCOSIM -o /dev/null -s cosim_top \
+	# -DVERILATOR selects vram.v's behavioural RAM (the one the Verilator model
+	# runs); its other branch needs the Gowin SP primitives, which have no sim model.
+	$(IVERILOG) iverilog -g2012 -DCOSIM -DSNES_SAVESTATE -DVERILATOR -o /dev/null -s cosim_top \
 	    -I/coresim-src/src/variant/standard \
-	    /coresim-src/src/verilator/config.v /coresim-src/sim/cosim/cosim_top.sv \
+	    /coresim-src/src/verilator/config.v /coresim-src/src/savestate.v /coresim-src/src/vram.v \
+	    /coresim-src/sim/cosim/cosim_top.sv \
 	    /coresim-build/gen/iosys_bl616_cosim.v /coresim-build/gen/uart_fixed_sim.v \
 	    /coresim-src/src/iosys/textdisp.v /coresim-src/sim/cosim/gowin/gowin_dpb_menu.v \
 	    /coresim-build/gen/sdram_snes_sim.v /coresim-src/sim/cosim/sdram_chip.sv

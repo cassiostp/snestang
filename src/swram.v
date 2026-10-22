@@ -27,11 +27,30 @@ module SWRAM (
     output RAM_CE_N,
     output RAM_OE_N,
     output RAM_RD_N
+
+`ifdef SNES_SAVESTATE
+    ,input ss_hold,
+    input [12:0] ss_a,
+    input [7:0] ss_d,
+    input ss_we,
+    output reg [7:0] ss_q
+`endif
 );
 
     reg [23:0] WMADD;
 
     always @(posedge CLK) begin
+`ifdef SNES_SAVESTATE
+    if (ss_we) begin
+      case (ss_a)
+        13'h1b00: WMADD[7:0] <= ss_d;
+        13'h1b01: WMADD[15:8] <= ss_d;
+        13'h1b02: WMADD[23:16] <= ss_d;
+        default: ;
+      endcase
+    end else if (!ss_hold || !RST_N) begin
+`endif
+
         if (~RST_N ) begin
             WMADD <= 0;
         end else begin
@@ -63,7 +82,11 @@ module SWRAM (
                 end
             end
         end
+
+`ifdef SNES_SAVESTATE
     end
+`endif
+end
 
     assign DO = RAM_Q;
 
@@ -91,4 +114,17 @@ module SWRAM (
                         PA == 8'h80 && ~PAWR_N && RAMSEL_N ? 1'b0 : 
                         1'b1;
 
+
+`ifdef SNES_SAVESTATE
+// Register image; RAM and pipeline state are read only while frozen.
+always @* begin
+    ss_q = 8'b0;
+    case (ss_a)
+    13'h1b00: ss_q = WMADD[7:0];
+    13'h1b01: ss_q = WMADD[15:8];
+    13'h1b02: ss_q = WMADD[23:16];
+    default: ;
+    endcase
+end
+`endif
 endmodule

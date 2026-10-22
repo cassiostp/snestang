@@ -225,6 +225,9 @@ add_file -type verilog "src/controller_adapter.sv"
 add_file -type verilog "src/controller_ds2.sv"
 add_file -type verilog "src/controller_snes.v"
 add_file -type verilog "src/snestang_top.v"
+if {$dev eq "console138k"} {
+    add_file -type verilog "src/savestate.v"
+}
 add_file -type verilog "src/spc700/_spc700_package.v"
 add_file -type verilog "src/spc700/addrgen.v"
 add_file -type verilog "src/spc700/addsub.v"

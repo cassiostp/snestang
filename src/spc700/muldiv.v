@@ -14,6 +14,14 @@ module MulDiv(
     output VO,
     output HO,
     output SO
+
+`ifdef SNES_SAVESTATE
+    ,input ss_hold,
+    input [12:0] ss_a,
+    input [7:0] ss_d,
+    input ss_we,
+    output reg [7:0] ss_q
+`endif
 );
 
 reg [15:0] tResult;
@@ -26,6 +34,25 @@ reg [8:0] quotient;
 reg [15:0] remainder;
 
 always @(posedge CLK) begin
+`ifdef SNES_SAVESTATE
+    if (ss_we) begin
+      case (ss_a)
+        13'h1a80: mulRes[7:0] <= ss_d;
+        13'h1a81: mulRes[15:8] <= ss_d;
+        13'h1a82: mulA[7:0] <= ss_d;
+        13'h1a83: mulA[15:8] <= ss_d;
+        13'h1a84: mulY[7:0] <= ss_d;
+        13'h1a85: divt[7:0] <= ss_d;
+        13'h1a86: divt[15:8] <= ss_d;
+        13'h1a87: quotient[7:0] <= ss_d;
+        13'h1a88: quotient[8:8] <= ss_d[0:0];
+        13'h1a89: remainder[7:0] <= ss_d;
+        13'h1a8a: remainder[15:8] <= ss_d;
+        default: ;
+      endcase
+    end else if (!ss_hold || !RST_N) begin
+`endif
+
     if(RST_N == 1'b0) begin
       mulA <= {16{1'b0}};
       mulY <= {8{1'b0}};
@@ -60,6 +87,10 @@ always @(posedge CLK) begin
         end
       end
     end
+
+`ifdef SNES_SAVESTATE
+    end
+`endif
 end
 
 always @* begin
@@ -106,4 +137,25 @@ assign VO = tV;
 assign SO = tS;
 assign HO = Y[3:0] >= X[3:0] ? 1'b1 : 1'b0;
 
+
+`ifdef SNES_SAVESTATE
+// Register image; RAM and pipeline state are read only while frozen.
+always @* begin
+    ss_q = 8'b0;
+    case (ss_a)
+    13'h1a80: ss_q = mulRes[7:0];
+    13'h1a81: ss_q = mulRes[15:8];
+    13'h1a82: ss_q = mulA[7:0];
+    13'h1a83: ss_q = mulA[15:8];
+    13'h1a84: ss_q = mulY[7:0];
+    13'h1a85: ss_q = divt[7:0];
+    13'h1a86: ss_q = divt[15:8];
+    13'h1a87: ss_q = quotient[7:0];
+    13'h1a88: ss_q = {7'b0, quotient[8:8]};
+    13'h1a89: ss_q = remainder[7:0];
+    13'h1a8a: ss_q = remainder[15:8];
+    default: ;
+    endcase
+end
+`endif
 endmodule

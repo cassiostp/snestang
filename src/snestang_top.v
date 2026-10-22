@@ -112,6 +112,28 @@ wire [64:0] ext_rtc;
 srtc_time_pack time_pack(
     .time_bcd(time_bcd), .time_strobe(time_strobe), .ext_rtc(ext_rtc)
 );
+`ifdef SNES_SAVESTATE
+wire ss_freeze, ss_reset, ss_loaded, ss_active, ss_edge_reset;
+wire [12:0] ss_a;
+wire [7:0] ss_d, ss_regs_q, ss_sd_regs_q, ss_vr_regs_q;
+wire ss_we, ss_point;
+wire [2:0] ss_op;
+wire ss_op_stb;
+wire [127:0] ss_status;
+wire [19:0] ss_img_raddr, ss_img_waddr;
+wire [7:0] ss_img_q, ss_img_wdin;
+wire ss_img_rd_stb, ss_img_taken, ss_img_abort, ss_img_rdy, ss_img_wr_stb;
+wire [24:0] ss_mem_addr;
+wire [7:0] ss_mem_din, ss_sd_q, ss_vr_q;
+wire ss_mem_we, ss_mem_req, ss_sd_ack, ss_vr_ack, ss_phase;
+wire ss_vram_sel = ss_mem_addr[24:16] == 9'h180;
+wire ss_mem_ack = ss_vram_sel ? ss_vr_ack : ss_sd_ack;
+wire [7:0] ss_mem_q = ss_vram_sel ? ss_vr_q : ss_sd_q;
+reg [5:0] ss_drain = 0;
+always @(posedge mclk) ss_drain <= ss_freeze ? (ss_drain == 63 ? 63 : ss_drain + 1'b1) : 0;
+wire ss_block = ss_freeze && ss_drain >= 8;
+wire ss_waiting = ss_active && !ss_freeze;
+`endif
 assign pause = core_config[17];
 
 reg [15:0] resetcnt = 16'hffff;
@@ -334,7 +356,11 @@ reg enable; // && ~dbg_break;
 reg loaded;
 
 always @(posedge mclk) begin        // wait until memory initialize to start SNES
+`ifdef SNES_SAVESTATE
+    if (~sdram_busy && ~pause_snes_for_frame_sync && (~pause || ss_waiting) && loaded)
+`else
     if (~sdram_busy && ~pause_snes_for_frame_sync && ~pause && loaded)
+`endif
         enable <= 1;
     else 
         enable <= 0;
@@ -374,7 +400,16 @@ parameter USE_SA1=0;
 
 `ifndef DISABLE_SNES
 main #(.USE_DSPn(USE_DSPn), .USE_GSU(USE_GSU), .USE_CX4(USE_CX4), .USE_SA1(USE_SA1)) main (
-    .MCLK(mclk), .RESET_N(resetn & ~loading), .ENABLE(enable), 
+`ifdef SNES_SAVESTATE
+    .ss_hold(ss_freeze), .ss_a(ss_a), .ss_d(ss_d), .ss_we(ss_we), .ss_q(ss_regs_q), .ss_point(ss_point),
+`endif
+    .MCLK(mclk), .RESET_N(
+`ifdef SNES_SAVESTATE
+    resetn & ~loading & ~ss_reset
+`else
+    resetn & ~loading
+`endif
+), .ENABLE(enable),
     .SYSCLKF_CE(sysclkf_ce), .SYSCLKR_CE(sysclkr_ce), .REFRESH(refresh),
 
     .ROM_TYPE(rom_type), .ROM_MASK(rom_mask), .RAM_MASK(gsu_mode ? gsu_ram_mask : ram_mask),
@@ -475,6 +510,41 @@ assign      O_sdram_clk = fclk_p;
 
 // Generate SDRAM signals
 always @(posedge mclk) begin
+`ifdef SNES_SAVESTATE
+    if (ss_we) begin
+      case (ss_a)
+        13'h1b60: cpu_port <= ss_d[0:0];
+        13'h1b61: cpu_req <= ss_d[0:0];
+        13'h1b62: cpu_ds[1:0] <= ss_d[1:0];
+        13'h1b63: cpu_din[7:0] <= ss_d[7:0];
+        13'h1b64: cpu_din[15:8] <= ss_d[7:0];
+        13'h1b65: cpu_addr[7:0] <= ss_d[7:0];
+        13'h1b66: cpu_addr[15:8] <= ss_d[7:0];
+        13'h1b67: cpu_addr[22:16] <= ss_d[6:0];
+        13'h1b68: cpu_we <= ss_d[0:0];
+        13'h1b69: rom_addr_sd[7:0] <= ss_d[7:0];
+        13'h1b6a: rom_addr_sd[15:8] <= ss_d[7:0];
+        13'h1b6b: rom_addr_sd[22:16] <= ss_d[6:0];
+        13'h1b6c: wram_addr_sd[7:0] <= ss_d[7:0];
+        13'h1b6d: wram_addr_sd[15:8] <= ss_d[7:0];
+        13'h1b6e: wram_addr_sd[16:16] <= ss_d[0:0];
+        13'h1b6f: wram_wr_r <= ss_d[0:0];
+        13'h1b70: wram_rd_r <= ss_d[0:0];
+        13'h1b74: bsram_rd_r <= ss_d[0:0];
+        13'h1b75: bsram_wr_r <= ss_d[0:0];
+        13'h1b76: aram_addr_sd[7:0] <= ss_d[7:0];
+        13'h1b77: aram_addr_sd[15:8] <= ss_d[7:0];
+        13'h1b78: aram_din_sd[7:0] <= ss_d[7:0];
+        13'h1b79: aram_din_sd[15:8] <= ss_d[7:0];
+        13'h1b7a: aram_we_sd <= ss_d[0:0];
+        13'h1b7b: aram_rd_r <= ss_d[0:0];
+        13'h1b7c: aram_wr_r <= ss_d[0:0];
+        13'h1b7d: aram_req <= ss_d[0:0];
+        default: ;
+      endcase
+    end else if (!ss_freeze) begin
+`endif
+
     if (~resetn) begin
     end else begin
         
@@ -524,6 +594,10 @@ always @(posedge mclk) begin
             aram_we_sd <= aram_wr;
         end
     end
+
+`ifdef SNES_SAVESTATE
+    end
+`endif
 end
 
 // save channel <-> bridge (driven by iosys when MCU_BL616; quiet zeros otherwise)
@@ -635,6 +709,28 @@ wire        bs_sv_w_issue = bs_issue_ok && sv_w_new && !sa1_mode &&
                             !(gsu_mode && bs_push) && bs_save_allow;
 
 always @(posedge mclk) begin
+`ifdef SNES_SAVESTATE
+    if (ss_we) begin
+      case (ss_a)
+        13'h1b71: bsram_addr[7:0] <= ss_d[7:0];
+        13'h1b72: bsram_addr[15:8] <= ss_d[7:0];
+        13'h1b73: bsram_addr[19:16] <= ss_d[3:0];
+        13'h1b88: bs_req_tog <= ss_d[0:0];
+        13'h1b89: bs_ack_sync[2:0] <= ss_d[2:0];
+        13'h1b8a: bs_busy <= ss_d[0:0];
+        13'h1b8b: bs_owner <= ss_d[0:0];
+        13'h1b8c: bs_we_r <= ss_d[0:0];
+        13'h1b8d: bs_addr_r[7:0] <= ss_d[7:0];
+        13'h1b8e: bs_addr_r[15:8] <= ss_d[7:0];
+        13'h1b8f: bs_addr_r[16:16] <= ss_d[0:0];
+        13'h1b90: bs_din_r[7:0] <= ss_d[7:0];
+        13'h1b91: snes_bsram_hold[7:0] <= ss_d[7:0];
+        13'h1b92: snes_bsram_shadow <= ss_d[0:0];
+        default: ;
+      endcase
+    end else if (!ss_freeze) begin
+`endif
+
     bs_ack_sync <= {bs_ack_sync[1:0], bs_req_ack};
     if (sa1_mode) begin                 // the BW-RAM block RAM serves both sides
         bs_fifo_rptr <= bs_fifo_wptr;   // drop any queued cartridge access
@@ -709,6 +805,10 @@ always @(posedge mclk) begin
         bs_req_tog <= ~bs_req_tog;
         sv_r_seen <= sv_rreq;
     end
+
+`ifdef SNES_SAVESTATE
+    end
+`endif
 end
 wire sv_core_we = bsram_wr & ~bsram_wr_r;       // the SNES wrote save RAM
 
@@ -907,6 +1007,24 @@ reg vram2_req /* synthesis syn_keep=1 */;
 reg [7:0] vram1_din, vram2_din;
 
 always @(posedge mclk) begin
+`ifdef SNES_SAVESTATE
+    if (ss_we) begin
+      case (ss_a)
+        13'h1b7e: vram1_addr_sd[7:0] <= ss_d[7:0];
+        13'h1b7f: vram1_addr_sd[14:8] <= ss_d[6:0];
+        13'h1b80: vram2_addr_sd[7:0] <= ss_d[7:0];
+        13'h1b81: vram2_addr_sd[14:8] <= ss_d[6:0];
+        13'h1b82: vram1_we_n_old <= ss_d[0:0];
+        13'h1b83: vram2_we_n_old <= ss_d[0:0];
+        13'h1b84: vram1_req <= ss_d[0:0];
+        13'h1b85: vram2_req <= ss_d[0:0];
+        13'h1b86: vram1_din[7:0] <= ss_d[7:0];
+        13'h1b87: vram2_din[7:0] <= ss_d[7:0];
+        default: ;
+      endcase
+    end else if (!ss_freeze) begin
+`endif
+
     vram1_we_n_old <= VRAM1_WE_N;
     if ((~VRAM1_WE_N & vram1_we_n_old) || (VRAM1_ADDR[14:0] != vram1_addr_sd && ~VRAM_OE_N)) begin
         vram1_addr_sd <= VRAM1_ADDR[14:0];
@@ -920,9 +1038,18 @@ always @(posedge mclk) begin
         vram2_din <= VRAM2_D;
         vram2_req <= ~vram2_req;
     end
+
+`ifdef SNES_SAVESTATE
+    end
+`endif
 end
 
 sdram_snes sdram(
+`ifdef SNES_SAVESTATE
+    .ss_addr(ss_mem_addr), .ss_din(ss_mem_din), .ss_req(ss_mem_req), .ss_we(ss_mem_we),
+    .ss_ack(ss_sd_ack), .ss_q(ss_sd_q), .ss_block(ss_block),
+    .ss_reg_a(ss_a), .ss_reg_d(ss_d), .ss_reg_we(ss_we), .ss_reg_q(ss_sd_regs_q), .ss_phase(ss_phase),
+`endif
     .clk(fclk), .mclk(mclk), .clkref(DOT_CLK_CE), .resetn(resetn), .busy(sdram_busy),
 
     // SDRAM pins
@@ -969,11 +1096,43 @@ sdram_snes sdram(
 `ifndef SDRAM_3CH
 // FPGA block RAM for SNES VRAM 
 vram vram(
+`ifdef SNES_SAVESTATE
+    .ss_hold(ss_freeze), .ss_sel(ss_vram_sel), .ss_req(ss_mem_req), .ss_we(ss_mem_we),
+    .ss_addr(ss_mem_addr[15:0]), .ss_din(ss_mem_din), .ss_ack(ss_vr_ack), .ss_q(ss_vr_q),
+    .ss_reg_a(ss_a), .ss_reg_d(ss_d), .ss_reg_we(ss_we), .ss_reg_q(ss_vr_regs_q),
+`endif
     .clk(mclk), 
     .vram1_addr(vram1_addr_sd), .vram1_req(vram1_req), .vram1_ack(), 
     .vram1_we(~vram1_we_n_old), .vram1_din(vram1_din), .vram1_dout(VRAM1_Q), 
     .vram2_addr(vram2_addr_sd), .vram2_req(vram2_req), .vram2_ack(),
     .vram2_we(~vram2_we_n_old),  .vram2_din(vram2_din), .vram2_dout(VRAM2_Q)
+);
+`endif
+
+`ifdef SNES_SAVESTATE
+wire [63:0] ss_flags = {ram_mask, rom_mask, ram_size, rom_size, rom_type};
+// Base console only until the matching cartridge state ports are implemented.
+wire ss_supported = rom_type[7:3] == 0 && loaded;
+wire [7:0] ss_top_q;
+savestate #(
+`ifdef HZ120
+    .VARIANT(1)
+`else
+    .VARIANT(0)
+`endif
+) ss_engine (
+    .clk(mclk), .clkref(ss_phase), .resetn(resetn & ~loading),
+    .mapper_flags(ss_flags), .ss_supported(ss_supported), .ss_point(ss_point && enable && bs_fifo_empty && !bs_busy),
+    .ss_freeze(ss_freeze), .ss_reset(ss_reset), .ss_loaded(ss_loaded),
+    .ss_edge_reset(ss_edge_reset), .ss_active(ss_active),
+    .ss_a(ss_a), .ss_din(ss_d), .ss_we(ss_we), .ss_dout(ss_regs_q | ss_sd_regs_q | ss_vr_regs_q | ss_top_q),
+    .sd_douta(8'b0), .sd_doutb(8'b0), .sd_ld_we(), .sd_ld_douta(), .sd_ld_doutb(),
+    .mem_addr(ss_mem_addr), .mem_din(ss_mem_din), .mem_we(ss_mem_we), .mem_req(ss_mem_req),
+    .mem_ack(ss_mem_ack), .mem_q(ss_mem_q),
+    .op(ss_op), .op_stb(ss_op_stb), .ss_status(ss_status),
+    .img_raddr(ss_img_raddr), .img_rd_stb(ss_img_rd_stb), .img_taken(ss_img_taken),
+    .img_abort(ss_img_abort), .img_rdy(ss_img_rdy), .img_q(ss_img_q),
+    .img_waddr(ss_img_waddr), .img_wdin(ss_img_wdin), .img_wr_stb(ss_img_wr_stb)
 );
 `endif
 
@@ -1112,7 +1271,18 @@ snes2hdmi s2h(
     .tmds_d_n(tmds_d_n), .tmds_d_p(tmds_d_p)
 );
 
-iosys_bl616 #(.CORE_ID(2), .FREQ(21_484_000), .SAVE_IF(1), .SAVE_AW(SAVE_AW), .SAVE_RDY(1)) iosys (
+iosys_bl616 #(
+`ifdef SNES_SAVESTATE
+    .SS_IF(1),
+`endif
+.CORE_ID(2), .FREQ(21_484_000), .SAVE_IF(1), .SAVE_AW(SAVE_AW), .SAVE_RDY(1)) iosys (
+`ifdef SNES_SAVESTATE
+    .ss_op(ss_op), .ss_op_stb(ss_op_stb), .ss_status(ss_status),
+    .ss_img_raddr(ss_img_raddr), .ss_img_rd_stb(ss_img_rd_stb), .ss_img_taken(ss_img_taken),
+    .ss_img_abort(ss_img_abort), .ss_img_rdy(ss_img_rdy), .ss_img_q(ss_img_q),
+    .ss_img_waddr(ss_img_waddr), .ss_img_wdin(ss_img_wdin), .ss_img_wr_stb(ss_img_wr_stb),
+`endif
+
     .clk(mclk), .hclk(hclk), .resetn(resetn),
     .overlay(overlay), .overlay_x(overlay_x), .overlay_y(overlay_y),
     .overlay_color(overlay_color),
@@ -1123,7 +1293,13 @@ iosys_bl616 #(.CORE_ID(2), .FREQ(21_484_000), .SAVE_IF(1), .SAVE_AW(SAVE_AW), .S
     .uart_tx(UART_TXD), .uart_rx(UART_RXD),
     .rom_loading(loading), .rom_do(loader_do), .rom_do_valid(loader_do_valid),
     .sv_addr(sv_addr), .sv_din(sv_din), .sv_we(), .sv_req(sv_req), .sv_ack(sv_ack),
-    .sv_rreq(sv_rreq), .sv_rack(sv_rack), .sv_q(sv_q), .sv_core_we(sv_core_we)
+    .sv_rreq(sv_rreq), .sv_rack(sv_rack), .sv_q(sv_q), .sv_core_we(
+`ifdef SNES_SAVESTATE
+    ss_loaded | sv_core_we
+`else
+    sv_core_we
+`endif
+)
 );
 
 `else       // VERILATOR
@@ -1208,6 +1384,68 @@ always @(posedge mclk) begin
     end
 end
 
+`endif
+
+`ifdef SNES_SAVESTATE
+reg [7:0] ss_top_q_r;
+assign ss_top_q = ss_top_q_r;
+always @* begin
+    ss_top_q_r = 0;
+    case (ss_a)
+    13'h1b60: ss_top_q_r = 8'(cpu_port);
+    13'h1b61: ss_top_q_r = 8'(cpu_req);
+    13'h1b62: ss_top_q_r = 8'(cpu_ds[1:0]);
+    13'h1b63: ss_top_q_r = 8'(cpu_din[7:0]);
+    13'h1b64: ss_top_q_r = 8'(cpu_din[15:8]);
+    13'h1b65: ss_top_q_r = 8'(cpu_addr[7:0]);
+    13'h1b66: ss_top_q_r = 8'(cpu_addr[15:8]);
+    13'h1b67: ss_top_q_r = 8'(cpu_addr[22:16]);
+    13'h1b68: ss_top_q_r = 8'(cpu_we);
+    13'h1b69: ss_top_q_r = 8'(rom_addr_sd[7:0]);
+    13'h1b6a: ss_top_q_r = 8'(rom_addr_sd[15:8]);
+    13'h1b6b: ss_top_q_r = 8'(rom_addr_sd[22:16]);
+    13'h1b6c: ss_top_q_r = 8'(wram_addr_sd[7:0]);
+    13'h1b6d: ss_top_q_r = 8'(wram_addr_sd[15:8]);
+    13'h1b6e: ss_top_q_r = 8'(wram_addr_sd[16:16]);
+    13'h1b6f: ss_top_q_r = 8'(wram_wr_r);
+    13'h1b70: ss_top_q_r = 8'(wram_rd_r);
+    13'h1b71: ss_top_q_r = 8'(bsram_addr[7:0]);
+    13'h1b72: ss_top_q_r = 8'(bsram_addr[15:8]);
+    13'h1b73: ss_top_q_r = 8'(bsram_addr[19:16]);
+    13'h1b74: ss_top_q_r = 8'(bsram_rd_r);
+    13'h1b75: ss_top_q_r = 8'(bsram_wr_r);
+    13'h1b76: ss_top_q_r = 8'(aram_addr_sd[7:0]);
+    13'h1b77: ss_top_q_r = 8'(aram_addr_sd[15:8]);
+    13'h1b78: ss_top_q_r = 8'(aram_din_sd[7:0]);
+    13'h1b79: ss_top_q_r = 8'(aram_din_sd[15:8]);
+    13'h1b7a: ss_top_q_r = 8'(aram_we_sd);
+    13'h1b7b: ss_top_q_r = 8'(aram_rd_r);
+    13'h1b7c: ss_top_q_r = 8'(aram_wr_r);
+    13'h1b7d: ss_top_q_r = 8'(aram_req);
+    13'h1b7e: ss_top_q_r = 8'(vram1_addr_sd[7:0]);
+    13'h1b7f: ss_top_q_r = 8'(vram1_addr_sd[14:8]);
+    13'h1b80: ss_top_q_r = 8'(vram2_addr_sd[7:0]);
+    13'h1b81: ss_top_q_r = 8'(vram2_addr_sd[14:8]);
+    13'h1b82: ss_top_q_r = 8'(vram1_we_n_old);
+    13'h1b83: ss_top_q_r = 8'(vram2_we_n_old);
+    13'h1b84: ss_top_q_r = 8'(vram1_req);
+    13'h1b85: ss_top_q_r = 8'(vram2_req);
+    13'h1b86: ss_top_q_r = 8'(vram1_din[7:0]);
+    13'h1b87: ss_top_q_r = 8'(vram2_din[7:0]);
+    13'h1b88: ss_top_q_r = 8'(bs_req_tog);
+    13'h1b89: ss_top_q_r = 8'(bs_ack_sync[2:0]);
+    13'h1b8a: ss_top_q_r = 8'(bs_busy);
+    13'h1b8b: ss_top_q_r = 8'(bs_owner);
+    13'h1b8c: ss_top_q_r = 8'(bs_we_r);
+    13'h1b8d: ss_top_q_r = 8'(bs_addr_r[7:0]);
+    13'h1b8e: ss_top_q_r = 8'(bs_addr_r[15:8]);
+    13'h1b8f: ss_top_q_r = 8'(bs_addr_r[16:16]);
+    13'h1b90: ss_top_q_r = 8'(bs_din_r[7:0]);
+    13'h1b91: ss_top_q_r = 8'(snes_bsram_hold[7:0]);
+    13'h1b92: ss_top_q_r = 8'(snes_bsram_shadow);
+    default: ;
+    endcase
+end
 `endif
 
 endmodule
