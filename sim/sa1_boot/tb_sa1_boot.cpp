@@ -24,6 +24,10 @@
 #include "Vsnestang_sa1boot_SNES.h"
 #include "verilated.h"
 
+#ifndef TANGCORE_SIM_THREADS
+#define TANGCORE_SIM_THREADS 1
+#endif
+
 #define PX_W 256
 #define PX_H 224
 
@@ -87,6 +91,8 @@ static void dump_state(Vsnestang_sa1boot_snestang_top *snes, unsigned long long 
 
 int main(int argc, char **argv) {
     Verilated::commandArgs(argc, argv);
+    Verilated::threadContextp()->threads(TANGCORE_SIM_THREADS);
+    fprintf(stderr, "model threads: %u\n", Verilated::threadContextp()->threads());
     uint64_t max_mclk = 0, trace_every = 10000000;
     long long statedump_frame = -1;
     long long pxtrace_vcnt = -1;

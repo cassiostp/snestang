@@ -18,12 +18,18 @@
 #include "Vsnestang_cx4boot_SNES.h"
 #include "verilated.h"
 
+#ifndef TANGCORE_SIM_THREADS
+#define TANGCORE_SIM_THREADS 1
+#endif
+
 #define CX4(f) main__->__PVT__genblk3__DOT__CX4Map__DOT__cx4__DOT__##f
 #define PX_W 256
 #define PX_H 224
 
 int main(int argc, char **argv) {
     Verilated::commandArgs(argc, argv);
+    Verilated::threadContextp()->threads(TANGCORE_SIM_THREADS);
+    fprintf(stderr, "model threads: %u\n", Verilated::threadContextp()->threads());
     uint64_t max_mclk = 0, trace_every = 10000000;
     std::vector<unsigned long long> dumps;
     const char *scriptpath = nullptr;

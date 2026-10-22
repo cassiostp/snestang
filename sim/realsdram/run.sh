@@ -11,7 +11,10 @@ src=$(cd "$here/../.." && pwd)
 cmd=${1:-build}
 MAXS=${SMOKE_SNES_MAXSIZE:-4194816}
 JOBS=${JOBS:-$(nproc)}
-B=$here/build
+THREADS=${VERILATOR_THREADS:-1}
+case $THREADS in ''|*[!0-9]*|0) echo "VERILATOR_THREADS must be a positive integer" >&2; exit 2;; esac
+B=${REALSDRAM_BUILD:-$here/build}
+case $B in /*) ;; *) B=$here/$B;; esac
 
 quiet_copy() {
     python3 - "$src" "$B/gen" <<'EOF'
@@ -72,8 +75,9 @@ do_build() {
     sed "s/@SIZE@/$MAXS/" "$here/test_loader.v" > "$B/obj/test_loader.v"
     grep -q "localparam SIZE = $MAXS;" "$B/obj/test_loader.v"
     R=$src
-    verilator -DSNES_SAVESTATE --top-module snes_realsdram_top --cc --exe \
-      -CFLAGS "-O2" \
+    echo "Verilator model threads: $THREADS"
+    verilator -DSNES_SAVESTATE --threads "$THREADS" --top-module snes_realsdram_top --cc --exe \
+      -CFLAGS "-O2 -DTANGCORE_SIM_THREADS=$THREADS" \
       -Wno-PINMISSING -Wno-IMPLICIT -Wno-WIDTHEXPAND -Wno-WIDTHTRUNC \
       -Wno-CASEINCOMPLETE -Wno-CASEOVERLAP -Wno-UNDRIVEN \
       -I"$R/src" -I"$R/src/spc700" -I"$R/src/65C816" \

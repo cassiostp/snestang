@@ -20,6 +20,10 @@
 #include "Vsnestang_smoke_sdram_chip.h"
 #include "verilated.h"
 
+#ifndef TANGCORE_SIM_THREADS
+#define TANGCORE_SIM_THREADS 1
+#endif
+
 #define PX_W 256
 #define PX_H 224
 #define BSRAM_WORD 0x780000
@@ -31,6 +35,8 @@ static uint16_t chip_at(Vsnestang_smoke_sdram_chip *chip, int i) {
 
 int main(int argc, char **argv) {
     Verilated::commandArgs(argc, argv);
+    Verilated::threadContextp()->threads(TANGCORE_SIM_THREADS);
+    fprintf(stderr, "model threads: %u\n", Verilated::threadContextp()->threads());
     uint64_t max_mclk = 0;
     const char *outprefix = "smoke";
     const char *scriptpath = nullptr;

@@ -13,6 +13,8 @@ R=../..
 B=build
 GHDL_IMG=${GHDL_IMG:-cx4_ghdl:1}
 JOBS=${JOBS:-$(nproc)}
+THREADS=${VERILATOR_THREADS:-1}
+case $THREADS in ''|*[!0-9]*|0) echo "VERILATOR_THREADS must be positive" >&2; exit 2;; esac
 MAXSIZE=${MAXSIZE:-4194816}
 CONTAINER_PREFIX=${CONTAINER_PREFIX:-${SIM_PREFIX:-cx4boot_$$}}
 DUMPS=${DUMPS:-300,600,900,1200}
@@ -54,7 +56,7 @@ PYTOP
     W=$(cd "$R" && pwd)
     $DOCK --entrypoint sh --name "${CONTAINER_PREFIX}_verilate" \
         -v "$W:/w:ro" -v "$PWD/$B:/b" -v "$PWD:/h:ro" -w /b \
-        verilator/verilator:latest -c "verilator --top-module snestang_top --cc --exe --Mdir /b/obj/obj --prefix Vsnestang_cx4boot -o Vsnestang_cx4boot -CFLAGS \"-O2\" -Wno-PINMISSING -Wno-IMPLICIT -Wno-WIDTHEXPAND -Wno-WIDTHTRUNC -Wno-CASEINCOMPLETE -Wno-UNDRIVEN -Wno-UNSIGNED -Wno-MULTIDRIVEN -I/w/src -I/w/src/spc700 -I/w/src/65C816 /b/gen/config_cx4.v /b/obj/test_loader.v /w/src/verilator/sdram_sim.v /w/src/dsp.v /b/gen/snestang_top_sim.v /w/src/smp.v /w/src/controller_adapter.sv /w/src/spc700/_spc700_package.v /w/src/spc700/addrgen.v /w/src/spc700/addsub.v /w/src/spc700/alu.v /w/src/spc700/bcdadj.v /w/src/spc700/mcode.v /w/src/spc700/muldiv.v /w/src/spc700/spc700.v /w/src/cpu.v /w/src/ppu.v /w/src/CEGen.v /w/src/main.v /b/cx4map_sim.v /w/src/ppucgram.v /w/src/chip/DSP/srtc_time_pack.v /w/src/ppuhoam.v /w/src/ppuoam.v /w/src/65C816/common.sv /w/src/65C816/ALU.v /w/src/65C816/AddSubBCD.v /w/src/65C816/AddrGen.v /w/src/65C816/BCDAdder.v /w/src/65C816/bit_adder.v /w/src/65C816/mcode.sv /w/src/65C816/P65C816.v /w/src/chip/DSP/DSP_LHRomMap.v /w/src/chip/DSP/OBC1.v /w/src/chip/DSP/SRTC.v /w/src/chip/DSP/DSPn.v /w/src/sa1_rom_cache.v /w/src/bwram_256k.v /w/src/smc_parser.v /w/src/SNES.v /w/src/vram.v /w/src/swram.v /h/tb_cx4_boot.cpp"
+        verilator/verilator:latest -c "verilator --threads $THREADS --top-module snestang_top --cc --exe --Mdir /b/obj/obj --prefix Vsnestang_cx4boot -o Vsnestang_cx4boot -CFLAGS \"-O2 -DTANGCORE_SIM_THREADS=$THREADS\" -Wno-PINMISSING -Wno-IMPLICIT -Wno-WIDTHEXPAND -Wno-WIDTHTRUNC -Wno-CASEINCOMPLETE -Wno-UNDRIVEN -Wno-UNSIGNED -Wno-MULTIDRIVEN -I/w/src -I/w/src/spc700 -I/w/src/65C816 /b/gen/config_cx4.v /b/obj/test_loader.v /w/src/verilator/sdram_sim.v /w/src/dsp.v /b/gen/snestang_top_sim.v /w/src/smp.v /w/src/controller_adapter.sv /w/src/spc700/_spc700_package.v /w/src/spc700/addrgen.v /w/src/spc700/addsub.v /w/src/spc700/alu.v /w/src/spc700/bcdadj.v /w/src/spc700/mcode.v /w/src/spc700/muldiv.v /w/src/spc700/spc700.v /w/src/cpu.v /w/src/ppu.v /w/src/CEGen.v /w/src/main.v /b/cx4map_sim.v /w/src/ppucgram.v /w/src/chip/DSP/srtc_time_pack.v /w/src/ppuhoam.v /w/src/ppuoam.v /w/src/65C816/common.sv /w/src/65C816/ALU.v /w/src/65C816/AddSubBCD.v /w/src/65C816/AddrGen.v /w/src/65C816/BCDAdder.v /w/src/65C816/bit_adder.v /w/src/65C816/mcode.sv /w/src/65C816/P65C816.v /w/src/chip/DSP/DSP_LHRomMap.v /w/src/chip/DSP/OBC1.v /w/src/chip/DSP/SRTC.v /w/src/chip/DSP/DSPn.v /w/src/sa1_rom_cache.v /w/src/bwram_256k.v /w/src/smc_parser.v /w/src/SNES.v /w/src/vram.v /w/src/swram.v /h/tb_cx4_boot.cpp"
     # The CX4 hierarchy number below is Verilator's generate numbering;
     # abort here (not in C++) if a tool change renames it.
     grep -q "__PVT__genblk3__DOT__CX4Map__DOT__cx4__DOT__busy" $B/obj/obj/Vsnestang_cx4boot_main*.h
@@ -98,7 +100,8 @@ EOF
     cp -f "$R/src/chip/DSP/"*.hex "$OUT/" 2>/dev/null || true
     test -s "$OUT/random_4m_words.hex" || python3 -c "open('$OUT/random_4m_words.hex','w').write('0000\n' * (4 * 1024 * 1024))"
     MCLK=$((FRAMES * 357380 + 40000000))
-    (cd "$OUT" && "$HERE/$B/obj/obj/Vsnestang_cx4boot" -m "$MCLK" -t 10000000 -d "$DUMPS" ${INPUT_SCRIPT:+-i "$INPUT_SCRIPT"} | tee cx4boot.stdout)
+    (cd "$OUT" && "$HERE/$B/obj/obj/Vsnestang_cx4boot" -m "$MCLK" -t 10000000 -d "$DUMPS" ${INPUT_SCRIPT:+-i "$INPUT_SCRIPT"} > cx4boot.stdout 2>&1) || { cat "$OUT/cx4boot.stdout"; return 1; }
+    cat "$OUT/cx4boot.stdout"
 }
 
 HERE=$PWD

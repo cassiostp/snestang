@@ -1,14 +1,15 @@
 #!/bin/sh
 # PPU HIGH_RES flag sim (Verilator, like sim/ppu_timing). From the repo:
-#   docker run --rm --name <task>_hiresflag --user $(id -u):$(id -g) \
-#     -v <repo>:/w -w /w/sim/hires_rom verilator/verilator:latest sh run_flag.sh
+#   $DOCKER_RUN --name <task>_hiresflag --user $(id -u):$(id -g) \
+#     -v <repo>:/w -w /w/sim/hires_rom --entrypoint sh verilator/verilator:latest sh run_flag.sh
 set -e
+DOCKER_RUN=${DOCKER_RUN:-$(command -v simrun >/dev/null 2>&1 && echo simrun || echo "docker run --rm")}
 cd "$(dirname "$0")"
 ROOT=$(cd ../.. && pwd)
 mkdir -p build
-docker run --rm --name "${HIRES_FLAG_CONTAINER:-sneshires_hiresflag}" \
+$DOCKER_RUN --name "${HIRES_FLAG_CONTAINER:-${SIM_PREFIX:-sim$$}_hires_flag}" \
     --user "$(id -u):$(id -g)" -e HOME=/tmp \
-    -v "$ROOT:/w" -w /w/sim/hires_rom verilator/verilator:latest -c '
+    -v "$ROOT:/w" -w /w/sim/hires_rom --entrypoint sh verilator/verilator:latest -c '
         verilator --binary --timing --top-module tb_hires_flag \
             -Mdir build/obj -I../../src \
             --public-flat-rw --x-assign 0 --x-initial 0 -Wno-fatal \
