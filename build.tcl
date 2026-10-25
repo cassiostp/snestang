@@ -257,7 +257,13 @@ set_option -verilog_std sysv2017
 set_option -include_path src/variant/$variant
 set_option -rw_check_on_ram 1
 set_option -route_option 2
+# hz120 place 3 leaves the SDRAM DQ capture short of the pin. Place 1 is the
+# measured alternative (tangcore#66); standard stays on place 3.
+if {$variant eq "hz120"} {
+set_option -place_option 1
+} else {
 set_option -place_option 3
+}
 # GW5A-138 leaves I/O registers in the fabric unless asked (SUG100).
 # mdtang, smstang and gbatang set these. Without them the SDRAM command
 # flop sits ~5 ns of route away from its pin and misses tCMS.
