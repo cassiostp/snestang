@@ -31,6 +31,8 @@ struct Bench {
  void until(int st,uint64_t max=1000000) {while(max-- && state()!=st)step();if(state()!=st)throw std::runtime_error("state timeout");run(40);}
  std::vector<uint8_t> save() {
   uint64_t began=ticks; op(1);until(2);
+  unsigned ready_wait=100000;while(ready_wait-- && !snes->__PVT__ss_engine__DOT__scan_done)step();
+  if(!snes->__PVT__ss_engine__DOT__scan_done)throw std::runtime_error("capture ready timeout");
   unsigned size=snes->__PVT__ss_engine__DOT__total_bytes;
   printf("captured %u bytes at tick %lu\n",size,ticks);fflush(stdout);
   std::vector<uint8_t> out(size);
