@@ -321,8 +321,18 @@ end
 
 // Each read lane captures the DQ word on its original edge. Separate
 // enables retain each lane's word without a forwarding mux in the CPU path.
+// The BSRAM restore used to share that capture flop, which is a second LUT
+// on the DQ pin. It now sits beside the capture and is muxed on the output.
+// A real read clears the hold on the same edge; a same-edge restore is
+// later in this block and wins, as the old single flop did.
 reg [7:0] bsram_dout_reg;
+`ifdef SNES_SAVESTATE
+reg [7:0] bsram_hold;
+reg       bsram_held = 0;
+assign bsram_dout = bsram_held ? bsram_hold : bsram_dout_reg;
+`else
 assign bsram_dout = bsram_dout_reg;
+`endif
 
 //
 // SDRAM state machine
@@ -460,7 +470,12 @@ always @(posedge clk) begin
                 case (port[0])
                 PORT_CPU:   if (cpu_port) cpu_port1 <= dq_in; else cpu_port0 <= dq_in;
                 PORT_CPU2:  begin cpu2_dout <= dq_in; cpu2_req_ack <= ~cpu2_req_ack; end
-                PORT_BSRAM: bsram_dout_reg <= ds[0][0] ? dq_in[7:0] : dq_in[15:8];
+                PORT_BSRAM: begin
+                    bsram_dout_reg <= ds[0][0] ? dq_in[7:0] : dq_in[15:8];
+`ifdef SNES_SAVESTATE
+                    bsram_held <= 1'b0;
+`endif
+                end
                 PORT_RV:    rv_dout <= dq_in;
 `ifdef SNES_SAVESTATE
                 // Base-console states do not use CPU2. Borrow its placed
@@ -497,7 +512,10 @@ always @(posedge clk) begin
             13'h1b43: cpu_port1[15:8] <= ss_reg_d;
             13'h1b44: aram_dout[7:0] <= ss_reg_d;
             13'h1b45: aram_dout[15:8] <= ss_reg_d;
-            13'h1b46: bsram_dout_reg <= ss_reg_d;
+            13'h1b46: begin
+                bsram_hold <= ss_reg_d;
+                bsram_held <= 1'b1;
+            end
             default: ;
             endcase
         end
@@ -541,7 +559,7 @@ always @* begin
     13'h1b43: ss_reg_q = cpu_port1[15:8];
     13'h1b44: ss_reg_q = aram_dout[7:0];
     13'h1b45: ss_reg_q = aram_dout[15:8];
-    13'h1b46: ss_reg_q = bsram_dout_reg;
+    13'h1b46: ss_reg_q = bsram_dout;
     default: ;
     endcase
 end
