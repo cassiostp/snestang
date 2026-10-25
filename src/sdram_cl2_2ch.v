@@ -82,6 +82,25 @@ module sdram_snes
     input             clkref,       // main reference clock, half speed of clk
     input             resetn,
 
+
+`ifdef SNES_SAVESTATE
+    input [24:0] ss_addr,
+    input [7:0] ss_din,
+    input ss_req,
+    input ss_we,
+    output reg ss_ack = 0,
+    output reg [7:0] ss_q,
+    input ss_block,
+    input [12:0] ss_reg_a,
+    input [7:0] ss_reg_d,
+    input ss_reg_we,
+    output reg [7:0] ss_reg_q,
+    output ss_phase,
+    output [15:0] ss_cpu_port0,
+    output [15:0] ss_cpu_port1,
+    output [15:0] ss_aram_dout,
+    output [7:0] ss_bsram_dout,
+`endif
     // CPU access (ROM and WRAM) uses bank 0 and 1 (total 16MB)
 	input      [15:0] cpu_din /* synthesis syn_keep=1 */,
 	input             cpu_port,
@@ -184,6 +203,12 @@ localparam PORT_CPU   = 3'd1;
 localparam PORT_BSRAM = 3'd2;
 localparam PORT_RV    = 3'd3;
 localparam PORT_CPU2  = 3'd4;
+`ifdef SNES_SAVESTATE
+localparam PORT_SS = 3'd5;
+`endif
+`ifdef SNES_SAVESTATE
+assign ss_phase = cycle[0];
+`endif
 
 localparam PORT_ARAM  = 3'd1;
 
@@ -229,6 +254,16 @@ always @(*) begin
 	next_ds[0] = 0;
 	next_din[0] = 0;
 	// if (refresh) next_port[0] = PORT_NONE; else 
+`ifdef SNES_SAVESTATE
+    if (ss_block && ss_req != ss_ack && ss_addr[24:16] != 9'h180) begin
+        next_port[0] = PORT_SS;
+        next_addr[0] = ss_addr;
+        next_din[0] = {ss_din, ss_din};
+        next_ds[0] = {ss_addr[0], ~ss_addr[0]};
+        next_we[0] = ss_we;
+        next_oe[0] = ~ss_we;
+    end else if (!ss_block) begin
+`endif
     if (cpu_req ^ cpu_req_ack) begin
 		next_port[0] = PORT_CPU;
 		next_addr[0] = { 2'b00, cpu_addr, 1'b0 };       // CPU uses bank 0, WRAM at the end
@@ -256,6 +291,9 @@ always @(*) begin
 		next_din[0] = rv_din;
 		next_ds[0] = rv_ds;
 	end 
+`ifdef SNES_SAVESTATE
+    end
+`endif
 end
 
 // ARAM: bank 2
@@ -267,7 +305,15 @@ always @* begin
 	next_ds[1] = 0;
 	next_din[1] = 0;
 //	if (refresh) next_port[1] <= PORT_NONE;	else 
+`ifdef SNES_SAVESTATE
+    if ((aram_req ^ aram_req_ack)
+`ifdef SNES_SAVESTATE
+        && !ss_block
+`endif
+    ) begin
+`else
     if (aram_req ^ aram_req_ack) begin
+`endif
 		next_port[1] = PORT_ARAM;
 		next_addr[1] = { 9'b10_1111000, aram_addr };   // ARAM uses bank 2
 		next_we[1]   = aram_we;
@@ -282,11 +328,71 @@ end
 reg [7:0] bsram_dout_reg;
 assign bsram_dout = bsram_dout_reg;
 
+`ifdef SNES_SAVESTATE
+// Keep every raw DQ capture identical to the feature-disabled lane.
+// Restored latches are selected on the mclk side until a real read replaces
+// them. Forecast that read one fclk before the preceding mclk, so its select
+// has a full mclk period and every running consumer sees the same edge.
+reg [3:0] ss_capture_early = 0;
+reg [1:0] ss_override_cpu0 = 0, ss_override_cpu1 = 0, ss_override_aram = 0;
+reg ss_override_bsram = 0;
+reg [15:0] ss_restore_cpu0, ss_restore_cpu1, ss_restore_aram;
+reg [7:0] ss_restore_bsram;
+assign ss_cpu_port0 = {ss_override_cpu0[1] ? ss_restore_cpu0[15:8] : cpu_port0[15:8],
+                       ss_override_cpu0[0] ? ss_restore_cpu0[7:0] : cpu_port0[7:0]};
+assign ss_cpu_port1 = {ss_override_cpu1[1] ? ss_restore_cpu1[15:8] : cpu_port1[15:8],
+                       ss_override_cpu1[0] ? ss_restore_cpu1[7:0] : cpu_port1[7:0]};
+assign ss_aram_dout = {ss_override_aram[1] ? ss_restore_aram[15:8] : aram_dout[15:8],
+                       ss_override_aram[0] ? ss_restore_aram[7:0] : aram_dout[7:0]};
+assign ss_bsram_dout = ss_override_bsram ? ss_restore_bsram : bsram_dout_reg;
+
+always @(posedge clk) begin
+    if (!resetn || !normal)
+        ss_capture_early <= 0;
+    else if (cycle[2])
+        ss_capture_early <= {1'b0,
+            oe_latch[0] && port[0] == PORT_BSRAM,
+            oe_latch[0] && port[0] == PORT_CPU && cpu_port,
+            oe_latch[0] && port[0] == PORT_CPU && !cpu_port};
+    else if (cycle[5])
+        ss_capture_early <= {oe_latch[1], 3'b0};
+end
+
+always @(posedge mclk) begin
+    if (!resetn) begin
+        ss_override_cpu0 <= 0;
+        ss_override_cpu1 <= 0;
+        ss_override_bsram <= 0;
+        ss_override_aram <= 0;
+    end else begin
+        if (ss_capture_early[0]) ss_override_cpu0 <= 0;
+        if (ss_capture_early[1]) ss_override_cpu1 <= 0;
+        if (ss_capture_early[2]) ss_override_bsram <= 0;
+        if (ss_capture_early[3]) ss_override_aram <= 0;
+        if (ss_reg_we) begin
+            case (ss_reg_a)
+            13'h1b40: begin ss_restore_cpu0[7:0] <= ss_reg_d; ss_override_cpu0[0] <= 1; end
+            13'h1b41: begin ss_restore_cpu0[15:8] <= ss_reg_d; ss_override_cpu0[1] <= 1; end
+            13'h1b42: begin ss_restore_cpu1[7:0] <= ss_reg_d; ss_override_cpu1[0] <= 1; end
+            13'h1b43: begin ss_restore_cpu1[15:8] <= ss_reg_d; ss_override_cpu1[1] <= 1; end
+            13'h1b44: begin ss_restore_aram[7:0] <= ss_reg_d; ss_override_aram[0] <= 1; end
+            13'h1b45: begin ss_restore_aram[15:8] <= ss_reg_d; ss_override_aram[1] <= 1; end
+            13'h1b46: begin ss_restore_bsram <= ss_reg_d; ss_override_bsram <= 1; end
+            default: ;
+            endcase
+        end
+    end
+end
+`endif
+
 //
 // SDRAM state machine
 //
 always @(posedge clk) begin
     if (~resetn) begin
+`ifdef SNES_SAVESTATE
+        ss_ack <= 0;
+`endif
         busy <= 1'b1;
         dq_oen <= 16'hffff;
         SDRAM_DQM <= 2'b0;
@@ -391,6 +497,9 @@ always @(posedge clk) begin
                 PORT_CPU:   cpu_req_ack <= cpu_req;
                 PORT_BSRAM: bsram_req_ack <= bsram_req;
                 PORT_RV:    rv_req_ack <= rv_req;
+`ifdef SNES_SAVESTATE
+                PORT_SS: if (we_latch[0]) ss_ack <= ss_req;
+`endif
                 default: ;
                 endcase
             end
@@ -414,11 +523,34 @@ always @(posedge clk) begin
                 PORT_CPU2:  begin cpu2_dout <= dq_in; cpu2_req_ack <= ~cpu2_req_ack; end
                 PORT_BSRAM: bsram_dout_reg <= ds[0][0] ? dq_in[7:0] : dq_in[15:8];
                 PORT_RV:    rv_dout <= dq_in;
+`ifdef SNES_SAVESTATE
+                // Base-console states do not use CPU2. Borrow its placed
+                // per-DQ capture flops, then select the byte off the pins.
+                PORT_SS: cpu2_dout <= dq_in;
+`endif
                 default: ;
                 endcase
             end
+`ifdef SNES_SAVESTATE
+            if (cycle[5] && oe_latch[0] && port[0] == PORT_SS) begin
+                ss_q <= ds[0][0] ? cpu2_dout[7:0] : cpu2_dout[15:8];
+                ss_ack <= ss_req;
+            end
+`endif
             if (cycle[1] && oe_latch[1]) aram_dout <= dq_in;
         end
+
+`ifdef SNES_SAVESTATE
+        // Abort/resync requests while running only repair parity; they must
+        // never steal a fixed-latency game memory slot.
+        if (!ss_block || ss_addr[24:16] == 9'h180) ss_ack <= ss_req;
+        if (ss_block) begin
+            cpu_req_ack <= cpu_req;
+            cpu2_req_ack <= cpu2_req;
+            bsram_req_ack <= bsram_req;
+            aram_req_ack <= aram_req;
+        end
+`endif
     end
 end
 
@@ -447,5 +579,21 @@ always @(posedge clk) begin
         end        
     end
 end
+
+`ifdef SNES_SAVESTATE
+always @* begin
+    ss_reg_q = 0;
+    case (ss_reg_a)
+    13'h1b40: ss_reg_q = ss_cpu_port0[7:0];
+    13'h1b41: ss_reg_q = ss_cpu_port0[15:8];
+    13'h1b42: ss_reg_q = ss_cpu_port1[7:0];
+    13'h1b43: ss_reg_q = ss_cpu_port1[15:8];
+    13'h1b44: ss_reg_q = ss_aram_dout[7:0];
+    13'h1b45: ss_reg_q = ss_aram_dout[15:8];
+    13'h1b46: ss_reg_q = ss_bsram_dout;
+    default: ;
+    endcase
+end
+`endif
 
 endmodule
