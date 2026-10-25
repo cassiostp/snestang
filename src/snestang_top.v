@@ -823,12 +823,21 @@ assign gsu_ram_wait = gsu_mode & gsu_ram_req &
 // GSU read mirror: a one-cycle block-RAM read avoids stale
 // S-CPU framebuffer uploads under SDRAM contention. Only GSU low-bank RAM
 // is mirrored; larger windows fall back to SDRAM without address aliasing.
-reg   [7:0] bs_mirror [0:65535];
-reg   [7:0] bs_mirror_q = 8'hFF;
+// SA-1 (rom_type 6) and GSU (rom_type 7) never share a cartridge. On the
+// 138K, which has both, the mirror is the low 64 KiB of the SA-1 BW-RAM
+// instead of a second 32-BSRAM array. Boards without SA-1 keep the array.
 wire bs_mirror_save = gsu_mode && !snes_bs_new && bs_sv_w_issue && !sv_addr[16];
 wire bs_mirror_write = bs_mirror_save || (bs_push && bsram_wr && bs_mirror_sel);
 wire [15:0] bs_mirror_addr = bs_mirror_save ? sv_addr[15:0] : BSRAM_ADDR[15:0];
 wire [7:0] bs_mirror_din = bs_mirror_save ? sv_din : BSRAM_D;
+`ifdef CHIP_SA1
+wire [17:0] bw_addr_a = sa1_mode ? BSRAM_ADDR[17:0] : {2'b00, bs_mirror_addr};
+wire [7:0]  bw_din_a  = sa1_mode ? BSRAM_D : bs_mirror_din;
+wire        bw_we_a   = sa1_mode ? ~BSRAM_WE_N : bs_mirror_write;
+wire [7:0]  bs_mirror_q = bwram_q_a;
+`else
+reg   [7:0] bs_mirror [0:65535];
+reg   [7:0] bs_mirror_q = 8'hFF;
 always @(posedge mclk) begin
     // A single address/write-enable template makes GW5A infer WRITE_MODE=0.
     if (bs_mirror_write)
@@ -843,6 +852,7 @@ initial begin
     integer i;
     for (i = 0; i < 65536; i = i + 1) bs_mirror[i] = 8'hFF;
 end
+`endif
 `endif
 assign BSRAM_Q = sa1_mode ? bwram_q_a : bs_mirror_sel ? bs_mirror_q :
                 (snes_bsram_shadow ? snes_bsram_hold : bsram_dout);
@@ -908,8 +918,8 @@ end
 
 bwram_256k bwram (
     .clk(mclk),
-    .addr_a(BSRAM_ADDR[17:0]), .din_a(BSRAM_D), .q_a(bwram_q_a),
-    .we_a(sa1_mode & ~BSRAM_WE_N),
+    .addr_a(bw_addr_a), .din_a(bw_din_a), .q_a(bwram_q_a),
+    .we_a(bw_we_a),
     .addr_b(bw_addr_b), .din_b(bw_din_b), .q_b(bwram_q_b), .we_b(bw_we_b)
 );
 assign bw_sv_ack  = bw_ack_r;
