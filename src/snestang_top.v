@@ -244,6 +244,14 @@ wire        BSRAM_RD_N;
 wire  [7:0] bsram_dout;            // the sdram controller's BSRAM read register
 reg   [7:0] snes_bsram_hold = 0;
 reg         snes_bsram_shadow = 0;
+// The save image's BSRAM read byte (0x1b46) is restored into the hold
+// above, not into the SDRAM capture flop. bsram_vis keeps that byte across
+// the later bridge snapshot at 0x1b91, and bsram_vis_arm makes 0x1b92 leave
+// the restored byte visible. The arm clears once the core runs again.
+`ifdef SNES_SAVESTATE
+reg   [7:0] bsram_vis = 0;
+reg         bsram_vis_arm = 0;
+`endif
 // SA-1: its own ROM lane (served from the SDRAM CPU2 port through the word
 // cache below) and BW-RAM in block RAM instead of the SDRAM save RAM.
 wire [22:0] sa1_rom_addr;
@@ -724,11 +732,29 @@ always @(posedge mclk) begin
         13'h1b8e: bs_addr_r[15:8] <= ss_d[7:0];
         13'h1b8f: bs_addr_r[16:16] <= ss_d[0:0];
         13'h1b90: bs_din_r[7:0] <= ss_d[7:0];
-        13'h1b91: snes_bsram_hold[7:0] <= ss_d[7:0];
-        13'h1b92: snes_bsram_shadow <= ss_d[0:0];
+        // 0x1b46 is the SNES-visible byte. It lands in the hold with the
+        // shadow set, which is the path the CPU already uses. 0x1b91 would
+        // otherwise overwrite that byte with the older snapshot, and 0x1b92
+        // would drop the shadow and expose the unrestored capture flop.
+        13'h1b46: begin
+            bsram_vis <= ss_d[7:0];
+            bsram_vis_arm <= 1'b1;
+            snes_bsram_hold <= ss_d[7:0];
+            snes_bsram_shadow <= 1'b1;
+        end
+        13'h1b91: if (!bsram_vis_arm) snes_bsram_hold[7:0] <= ss_d[7:0];
+        13'h1b92: begin
+            if (bsram_vis_arm) begin
+                snes_bsram_hold <= bsram_vis;
+                snes_bsram_shadow <= 1'b1;
+                bsram_vis_arm <= 1'b0;
+            end else
+                snes_bsram_shadow <= ss_d[0];
+        end
         default: ;
       endcase
     end else if (!ss_freeze) begin
+    bsram_vis_arm <= 1'b0;
 `endif
 
     bs_ack_sync <= {bs_ack_sync[1:0], bs_req_ack};
@@ -1450,6 +1476,7 @@ always @* begin
     13'h1b8d: ss_top_q_r = 8'(bs_addr_r[7:0]);
     13'h1b8e: ss_top_q_r = 8'(bs_addr_r[15:8]);
     13'h1b8f: ss_top_q_r = 8'(bs_addr_r[16:16]);
+    13'h1b46: ss_top_q_r = snes_bsram_shadow ? snes_bsram_hold : bsram_dout;
     13'h1b90: ss_top_q_r = 8'(bs_din_r[7:0]);
     13'h1b91: ss_top_q_r = 8'(snes_bsram_hold[7:0]);
     13'h1b92: ss_top_q_r = 8'(snes_bsram_shadow);

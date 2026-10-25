@@ -497,7 +497,9 @@ always @(posedge clk) begin
             13'h1b43: cpu_port1[15:8] <= ss_reg_d;
             13'h1b44: aram_dout[7:0] <= ss_reg_d;
             13'h1b45: aram_dout[15:8] <= ss_reg_d;
-            13'h1b46: bsram_dout_reg <= ss_reg_d;
+            // 0x1b46 is restored by snestang_top into snes_bsram_hold.
+            // Leaving it off this flop makes the capture D input the byte
+            // select alone, as in the build without save states.
             default: ;
             endcase
         end
@@ -541,7 +543,6 @@ always @* begin
     13'h1b43: ss_reg_q = cpu_port1[15:8];
     13'h1b44: ss_reg_q = aram_dout[7:0];
     13'h1b45: ss_reg_q = aram_dout[15:8];
-    13'h1b46: ss_reg_q = bsram_dout_reg;
     default: ;
     endcase
 end
