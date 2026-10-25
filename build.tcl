@@ -258,7 +258,13 @@ set_option -verilog_std sysv2017
 set_option -include_path src/variant/$variant
 set_option -rw_check_on_ram 1
 set_option -route_option 2
+# With save states, the standard build fails timing at place 3 by 0.002 ns,
+# and at place 1 and 2; place 4 meets it (tangcore#66). hz120 stays at place 3.
+if {$variant eq "standard"} {
+set_option -place_option 4
+} else {
 set_option -place_option 3
+}
 # GW5A-138 leaves I/O registers in the fabric unless asked (SUG100).
 # mdtang, smstang and gbatang set these. Without them the SDRAM command
 # flop sits ~5 ns of route away from its pin and misses tCMS.
