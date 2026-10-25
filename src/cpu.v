@@ -50,8 +50,25 @@ module SCPU(
     input [7:0] DBG_DAT_IN,
     output [7:0] DBG_CPU_DAT,
     input DBG_CPU_WR
-);
 
+`ifdef SNES_SAVESTATE
+    ,output ss_point,
+    input ss_hold,
+    input [12:0] ss_a,
+    input [7:0] ss_d,
+    input ss_we,
+    output reg [7:0] ss_q
+`endif
+);
+`ifdef SNES_SAVESTATE
+wire [7:0] ss_q_p65;
+`endif
+
+
+`ifdef SNES_SAVESTATE
+wire ss_boundary;
+assign ss_point = VBLANK && !DMA_RUN && !HDMA_RUN && !JOYRD_BUSY && !JOY_STRB && ss_boundary && P65_CLK_CNT == 0;
+`endif
 // clocks
 reg INT_CLK;
 wire EN;
@@ -252,6 +269,19 @@ always @* begin
 end
 
 always @(posedge CLK) begin : cpu_clk_gen
+`ifdef SNES_SAVESTATE
+    if (ss_we) begin
+      case (ss_a)
+        13'h1600: INT_CLK <= ss_d[0:0];
+        13'h1604: P65_CLK_CNT[3:0] <= ss_d[3:0];
+        13'h1605: DMA_CLK_CNT[2:0] <= ss_d[2:0];
+        13'h1606: CPU_ACTIVEr <= ss_d[0:0];
+        13'h1607: DMA_ACTIVEr <= ss_d[0:0];
+        default: ;
+      endcase
+    end else if (!ss_hold || !RST_N) begin
+`endif
+
     if (~RST_N) begin
         P65_CLK_CNT <= 0;
         DMA_CLK_CNT <= 0;
@@ -289,9 +319,23 @@ always @(posedge CLK) begin : cpu_clk_gen
                 INT_CLK <= 0;
         end
     end
+
+`ifdef SNES_SAVESTATE
+    end
+`endif
 end
 
 always @(posedge CLK) begin
+`ifdef SNES_SAVESTATE
+    if (ss_we) begin
+      case (ss_a)
+        13'h1601: INT_CLKF_CE <= ss_d[0:0];
+        13'h1602: INT_CLKR_CE <= ss_d[0:0];
+        default: ;
+      endcase
+    end else if (!ss_hold || !RST_N) begin
+`endif
+
     if (~RST_N) begin
         INT_CLKF_CE <= 0;
         INT_CLKR_CE <= 0;
@@ -310,6 +354,10 @@ always @(posedge CLK) begin
                 INT_CLKF_CE <= 1; 
         end
     end
+
+`ifdef SNES_SAVESTATE
+    end
+`endif
 end
 
 assign EN = ENABLE & ~REFRESHED;
@@ -323,6 +371,10 @@ assign DOT_CLK_CE_O = DOT_CLK_CE;
 
 // 65C816
 P65C816 P65C816(
+`ifdef SNES_SAVESTATE
+    .ss_hold(ss_hold), .ss_a(ss_a), .ss_d(ss_d), .ss_we(ss_we), .ss_q(ss_q_p65), .ss_boundary(ss_boundary),
+`endif
+
     .CLK(CLK), .RST_N(RST_N), .CE(INT_CLKF_CE),
 
     .WE_N(P65_R_WN), .D_IN(P65_DI), .D_OUT(P65_DO), .A_OUT(P65_A),
@@ -385,6 +437,16 @@ always @* begin
 end
 
 always @(posedge CLK) begin
+`ifdef SNES_SAVESTATE
+    if (ss_we) begin
+      case (ss_a)
+        13'h160e: CPU_WR <= ss_d[0:0];
+        13'h160f: CPU_RD <= ss_d[0:0];
+        default: ;
+      endcase
+    end else if (!ss_hold || !RST_N) begin
+`endif
+
     if (~RST_N) begin
         CPU_WR <= 0;
         CPU_RD <= 0;
@@ -399,6 +461,10 @@ always @(posedge CLK) begin
             end   
         end
     end
+
+`ifdef SNES_SAVESTATE
+    end
+`endif
 end
 
 always @* begin
@@ -462,6 +528,23 @@ assign IO_SEL = P65_EN && ~P65_A[22] && P65_A[15:10] == 6'b010000
 
 // NMI/IRQ
 always @(posedge CLK) begin
+`ifdef SNES_SAVESTATE
+    if (ss_we) begin
+      case (ss_a)
+        13'h1619: NMI_EN <= ss_d[0:0];
+        13'h161a: HVIRQ_EN[1:0] <= ss_d[1:0];
+        13'h161b: AUTO_JOY_EN <= ss_d[0:0];
+        13'h161c: WRIO[7:0] <= ss_d;
+        13'h1620: HTIME[7:0] <= ss_d;
+        13'h1621: HTIME[8:8] <= ss_d[0:0];
+        13'h1622: VTIME[7:0] <= ss_d;
+        13'h1623: VTIME[8:8] <= ss_d[0:0];
+        13'h1626: MEMSEL <= ss_d[0:0];
+        default: ;
+      endcase
+    end else if (!ss_hold || !RST_N) begin
+`endif
+
     if (~RST_N) begin
         AUTO_JOY_EN <= 1'b0;
         HVIRQ_EN <= 2'b0;
@@ -494,10 +577,25 @@ always @(posedge CLK) begin
             endcase
         end
     end
+
+`ifdef SNES_SAVESTATE
+    end
+`endif
 end
 
 always @(posedge CLK) begin
     reg RDNMI_READ;
+`ifdef SNES_SAVESTATE
+    if (ss_we) begin
+      case (ss_a)
+        13'h162b: NMI_FLAG <= ss_d[0:0];
+        13'h1635: VBLANK_OLD2 <= ss_d[0:0];
+        13'h163b: NMI_LOCK <= ss_d[0:0];
+        default: ;
+      endcase
+    end else if (!ss_hold || !RST_N) begin
+`endif
+
     if (~RST_N) begin
         NMI_FLAG <= 1'b0;
         VBLANK_OLD2 <= 0;
@@ -523,12 +621,30 @@ always @(posedge CLK) begin
                 NMI_FLAG <= 0;
         end
     end
+
+`ifdef SNES_SAVESTATE
+    end
+`endif
 end
 
 assign P65_NMI_N =  ~(NMI_EN & NMI_FLAG);
 
 always @(posedge CLK) begin
     reg TIMEUP_READ, HVIRQ_DISABLE;
+`ifdef SNES_SAVESTATE
+    if (ss_we) begin
+      case (ss_a)
+        13'h162c: IRQ_FLAG <= ss_d[0:0];
+        13'h1636: HIRQ_VALID <= ss_d[0:0];
+        13'h1637: VIRQ_VALID <= ss_d[0:0];
+        13'h1638: IRQ_VALID <= ss_d[0:0];
+        13'h1639: IRQ_LOCK <= ss_d[0:0];
+        13'h163a: IRQ_VALID_OLD <= ss_d[0:0];
+        default: ;
+      endcase
+    end else if (!ss_hold || !RST_N) begin
+`endif
+
     if (~RST_N) begin
         IRQ_FLAG <= 0;
         HIRQ_VALID <= 0;
@@ -585,6 +701,10 @@ always @(posedge CLK) begin
                 VIRQ_VALID <= 1'b0;
         end
     end
+
+`ifdef SNES_SAVESTATE
+    end
+`endif
 end
 
 assign P65_IRQ_N =  ~IRQ_FLAG & IRQ_N;
@@ -592,6 +712,27 @@ assign P65_IRQ_N =  ~IRQ_FLAG & IRQ_N;
 
 // MATH
 always @(posedge CLK) begin
+`ifdef SNES_SAVESTATE
+    if (ss_we) begin
+      case (ss_a)
+        13'h161d: WRMPYA[7:0] <= ss_d;
+        13'h161e: WRDIVA[7:0] <= ss_d;
+        13'h161f: WRDIVA[15:8] <= ss_d;
+        13'h1627: RDDIV[7:0] <= ss_d;
+        13'h1628: RDDIV[15:8] <= ss_d;
+        13'h1629: RDMPY[7:0] <= ss_d;
+        13'h162a: RDMPY[15:8] <= ss_d;
+        13'h162d: MUL_REQ <= ss_d[0:0];
+        13'h162e: DIV_REQ <= ss_d[0:0];
+        13'h162f: MATH_CLK_CNT[3:0] <= ss_d[3:0];
+        13'h1630: MATH_TEMP[7:0] <= ss_d;
+        13'h1631: MATH_TEMP[15:8] <= ss_d;
+        13'h1632: MATH_TEMP[22:16] <= ss_d[6:0];
+        default: ;
+      endcase
+    end else if (!ss_hold || !RST_N) begin
+`endif
+
     if (~RST_N) begin
         WRMPYA <= {8{1'b1}};
         //   WRMPYB <= 8'b0;
@@ -658,6 +799,10 @@ always @(posedge CLK) begin
             endcase
         end
     end
+
+`ifdef SNES_SAVESTATE
+    end
+`endif
 end
 
 always @* begin : P4
@@ -751,6 +896,15 @@ assign JPIO67 = WRIO[7:6];
 
 // Memory Data Register
 always @(posedge CLK) begin
+`ifdef SNES_SAVESTATE
+    if (ss_we) begin
+      case (ss_a)
+        13'h1618: MDR[7:0] <= ss_d;
+        default: ;
+      endcase
+    end else if (!ss_hold || !RST_N) begin
+`endif
+
     if (~RST_N)
         MDR <= 8'b1111_1111;
     else begin
@@ -764,12 +918,33 @@ always @(posedge CLK) begin
                 MDR <= DI;
         end
     end
+
+`ifdef SNES_SAVESTATE
+    end
+`endif
 end
 
 assign DO = MDR;
 
 // H/V Counters
 always @(posedge CLK) begin
+`ifdef SNES_SAVESTATE
+    if (ss_we) begin
+      case (ss_a)
+        13'h1603: DOT_CLK_CE <= ss_d[0:0];
+        13'h1608: DOT_CLK_CNT[1:0] <= ss_d[1:0];
+        13'h1609: H_CNT[7:0] <= ss_d;
+        13'h160a: H_CNT[8:8] <= ss_d[0:0];
+        13'h160b: V_CNT[7:0] <= ss_d;
+        13'h160c: V_CNT[8:8] <= ss_d[0:0];
+        13'h160d: FIELD <= ss_d[0:0];
+        13'h1633: HBLANK_OLD <= ss_d[0:0];
+        13'h1634: VBLANK_OLD <= ss_d[0:0];
+        default: ;
+      endcase
+    end else if (!ss_hold || !RST_N) begin
+`endif
+
     if (~RST_N) begin
         DOT_CLK_CE <= 0;
         DOT_CLK_CNT <= 0;
@@ -802,11 +977,27 @@ always @(posedge CLK) begin
             end
         end
     end
+
+`ifdef SNES_SAVESTATE
+    end
+`endif
 end
 
 
 // WRAM refresh once per scanline
 always @(posedge CLK) begin
+`ifdef SNES_SAVESTATE
+    if (ss_we) begin
+      case (ss_a)
+        13'h163c: REFS[1:0] <= ss_d[1:0];
+        13'h163d: REFRESH_CNT[2:0] <= ss_d[2:0];
+        13'h163e: REFRESHED <= ss_d[0:0];
+        13'h163f: HBLANK_REF_OLD <= ss_d[0:0];
+        default: ;
+      endcase
+    end else if (!ss_hold || !RST_N) begin
+`endif
+
     if (~RST_N) begin
         REFRESHED <= 1'b0;
         REFS <= REFS_IDLE;
@@ -837,6 +1028,10 @@ always @(posedge CLK) begin
         default: ;
         endcase
     end
+
+`ifdef SNES_SAVESTATE
+    end
+`endif
 end
 
 assign SNES_REFRESH = REFRESHED;
@@ -846,6 +1041,126 @@ always @(posedge CLK) begin : P2
     integer j;
     reg [2:0] i;
     reg [7:0] NEXT_NTLR;
+`ifdef SNES_SAVESTATE
+    if (ss_we) begin
+      case (ss_a)
+        13'h1624: MDMAEN[7:0] <= ss_d;
+        13'h1625: HDMAEN[7:0] <= ss_d;
+        13'h1640: DMAP[0][7:0] <= ss_d;
+        13'h1641: DMAP[1][7:0] <= ss_d;
+        13'h1642: DMAP[2][7:0] <= ss_d;
+        13'h1643: DMAP[3][7:0] <= ss_d;
+        13'h1644: DMAP[4][7:0] <= ss_d;
+        13'h1645: DMAP[5][7:0] <= ss_d;
+        13'h1646: DMAP[6][7:0] <= ss_d;
+        13'h1647: DMAP[7][7:0] <= ss_d;
+        13'h1648: BBAD[0][7:0] <= ss_d;
+        13'h1649: BBAD[1][7:0] <= ss_d;
+        13'h164a: BBAD[2][7:0] <= ss_d;
+        13'h164b: BBAD[3][7:0] <= ss_d;
+        13'h164c: BBAD[4][7:0] <= ss_d;
+        13'h164d: BBAD[5][7:0] <= ss_d;
+        13'h164e: BBAD[6][7:0] <= ss_d;
+        13'h164f: BBAD[7][7:0] <= ss_d;
+        13'h1650: A1T[0][7:0] <= ss_d;
+        13'h1651: A1T[0][15:8] <= ss_d;
+        13'h1652: A1T[1][7:0] <= ss_d;
+        13'h1653: A1T[1][15:8] <= ss_d;
+        13'h1654: A1T[2][7:0] <= ss_d;
+        13'h1655: A1T[2][15:8] <= ss_d;
+        13'h1656: A1T[3][7:0] <= ss_d;
+        13'h1657: A1T[3][15:8] <= ss_d;
+        13'h1658: A1T[4][7:0] <= ss_d;
+        13'h1659: A1T[4][15:8] <= ss_d;
+        13'h165a: A1T[5][7:0] <= ss_d;
+        13'h165b: A1T[5][15:8] <= ss_d;
+        13'h165c: A1T[6][7:0] <= ss_d;
+        13'h165d: A1T[6][15:8] <= ss_d;
+        13'h165e: A1T[7][7:0] <= ss_d;
+        13'h165f: A1T[7][15:8] <= ss_d;
+        13'h1660: A1B[0][7:0] <= ss_d;
+        13'h1661: A1B[1][7:0] <= ss_d;
+        13'h1662: A1B[2][7:0] <= ss_d;
+        13'h1663: A1B[3][7:0] <= ss_d;
+        13'h1664: A1B[4][7:0] <= ss_d;
+        13'h1665: A1B[5][7:0] <= ss_d;
+        13'h1666: A1B[6][7:0] <= ss_d;
+        13'h1667: A1B[7][7:0] <= ss_d;
+        13'h1668: DAS[0][7:0] <= ss_d;
+        13'h1669: DAS[0][15:8] <= ss_d;
+        13'h166a: DAS[1][7:0] <= ss_d;
+        13'h166b: DAS[1][15:8] <= ss_d;
+        13'h166c: DAS[2][7:0] <= ss_d;
+        13'h166d: DAS[2][15:8] <= ss_d;
+        13'h166e: DAS[3][7:0] <= ss_d;
+        13'h166f: DAS[3][15:8] <= ss_d;
+        13'h1670: DAS[4][7:0] <= ss_d;
+        13'h1671: DAS[4][15:8] <= ss_d;
+        13'h1672: DAS[5][7:0] <= ss_d;
+        13'h1673: DAS[5][15:8] <= ss_d;
+        13'h1674: DAS[6][7:0] <= ss_d;
+        13'h1675: DAS[6][15:8] <= ss_d;
+        13'h1676: DAS[7][7:0] <= ss_d;
+        13'h1677: DAS[7][15:8] <= ss_d;
+        13'h1678: DASB[0][7:0] <= ss_d;
+        13'h1679: DASB[1][7:0] <= ss_d;
+        13'h167a: DASB[2][7:0] <= ss_d;
+        13'h167b: DASB[3][7:0] <= ss_d;
+        13'h167c: DASB[4][7:0] <= ss_d;
+        13'h167d: DASB[5][7:0] <= ss_d;
+        13'h167e: DASB[6][7:0] <= ss_d;
+        13'h167f: DASB[7][7:0] <= ss_d;
+        13'h1680: A2A[0][7:0] <= ss_d;
+        13'h1681: A2A[0][15:8] <= ss_d;
+        13'h1682: A2A[1][7:0] <= ss_d;
+        13'h1683: A2A[1][15:8] <= ss_d;
+        13'h1684: A2A[2][7:0] <= ss_d;
+        13'h1685: A2A[2][15:8] <= ss_d;
+        13'h1686: A2A[3][7:0] <= ss_d;
+        13'h1687: A2A[3][15:8] <= ss_d;
+        13'h1688: A2A[4][7:0] <= ss_d;
+        13'h1689: A2A[4][15:8] <= ss_d;
+        13'h168a: A2A[5][7:0] <= ss_d;
+        13'h168b: A2A[5][15:8] <= ss_d;
+        13'h168c: A2A[6][7:0] <= ss_d;
+        13'h168d: A2A[6][15:8] <= ss_d;
+        13'h168e: A2A[7][7:0] <= ss_d;
+        13'h168f: A2A[7][15:8] <= ss_d;
+        13'h1690: NTLR[0][7:0] <= ss_d;
+        13'h1691: NTLR[1][7:0] <= ss_d;
+        13'h1692: NTLR[2][7:0] <= ss_d;
+        13'h1693: NTLR[3][7:0] <= ss_d;
+        13'h1694: NTLR[4][7:0] <= ss_d;
+        13'h1695: NTLR[5][7:0] <= ss_d;
+        13'h1696: NTLR[6][7:0] <= ss_d;
+        13'h1697: NTLR[7][7:0] <= ss_d;
+        13'h1698: UNUSED[0][7:0] <= ss_d;
+        13'h1699: UNUSED[1][7:0] <= ss_d;
+        13'h169a: UNUSED[2][7:0] <= ss_d;
+        13'h169b: UNUSED[3][7:0] <= ss_d;
+        13'h169c: UNUSED[4][7:0] <= ss_d;
+        13'h169d: UNUSED[5][7:0] <= ss_d;
+        13'h169e: UNUSED[6][7:0] <= ss_d;
+        13'h169f: UNUSED[7][7:0] <= ss_d;
+        13'h16a0: DMA_RUN <= ss_d[0:0];
+        13'h16a1: HDMA_RUN <= ss_d[0:0];
+        13'h16a2: HDMA_CH_WORK[7:0] <= ss_d;
+        13'h16a3: HDMA_CH_RUN[7:0] <= ss_d;
+        13'h16a4: HDMA_CH_DO[7:0] <= ss_d;
+        13'h16a5: HDMA_CH_EN[7:0] <= ss_d;
+        13'h16a6: HDMA_INIT_EXEC <= ss_d[0:0];
+        13'h16a7: HDMA_RUN_EXEC <= ss_d[0:0];
+        13'h16a8: DS[1:0] <= ss_d[1:0];
+        13'h16a9: HDS[2:0] <= ss_d[2:0];
+        13'h16aa: HDMA_INIT_STEP <= ss_d[0:0];
+        13'h16ab: DMA_TRMODE_STEP[1:0] <= ss_d[1:0];
+        13'h16ac: HDMA_TRMODE_STEP[1:0] <= ss_d[1:0];
+        13'h16ad: HDMA_FIRST_INIT <= ss_d[0:0];
+        default: ;
+      endcase
+    end else if (!ss_hold || !RST_N) begin
+`endif
+
 
     if (~RST_N) begin
         MDMAEN <= 8'b0;
@@ -1079,6 +1394,10 @@ always @(posedge CLK) begin : P2
             endcase
         end
     end
+
+`ifdef SNES_SAVESTATE
+    end
+`endif
 end
 
 `ifdef VERILATOR
@@ -1143,6 +1462,22 @@ always @* begin
 end
 
 always @(posedge CLK) begin
+`ifdef SNES_SAVESTATE
+    if (ss_we) begin
+      case (ss_a)
+        13'h1610: DMA_A_WR <= ss_d[0:0];
+        13'h1611: HDMA_A_WR <= ss_d[0:0];
+        13'h1612: DMA_A_RD <= ss_d[0:0];
+        13'h1613: HDMA_A_RD <= ss_d[0:0];
+        13'h1614: DMA_B_WR <= ss_d[0:0];
+        13'h1615: DMA_B_RD <= ss_d[0:0];
+        13'h1616: HDMA_B_WR <= ss_d[0:0];
+        13'h1617: HDMA_B_RD <= ss_d[0:0];
+        default: ;
+      endcase
+    end else if (!ss_hold || !RST_N) begin
+`endif
+
     if (~RST_N) begin
         DMA_A_WR <= 0;
         DMA_A_RD <= 0;
@@ -1177,10 +1512,25 @@ always @(posedge CLK) begin
             HDMA_B_RD <= 0;
         end
     end
+
+`ifdef SNES_SAVESTATE
+    end
+`endif
 end
 
 //Joy old
 always @(posedge CLK) begin
+`ifdef SNES_SAVESTATE
+    if (ss_we) begin
+      case (ss_a)
+        13'h16b7: OLD_JOY_STRB <= ss_d[0:0];
+        13'h16b9: OLD_JOY1_CLK <= ss_d[0:0];
+        13'h16ba: OLD_JOY2_CLK <= ss_d[0:0];
+        default: ;
+      endcase
+    end else if (!ss_hold || !RST_N) begin
+`endif
+
     if (~RST_N) begin
         OLD_JOY_STRB <= 1'b0;
         OLD_JOY1_CLK <= 1'b0;
@@ -1208,10 +1558,37 @@ always @(posedge CLK) begin
             end
         end
     end
+
+`ifdef SNES_SAVESTATE
+    end
+`endif
 end
 
 // Joy auto
 always @(posedge CLK) begin
+`ifdef SNES_SAVESTATE
+    if (ss_we) begin
+      case (ss_a)
+        13'h16ae: JOY1_DATA[7:0] <= ss_d;
+        13'h16af: JOY1_DATA[15:8] <= ss_d;
+        13'h16b0: JOY2_DATA[7:0] <= ss_d;
+        13'h16b1: JOY2_DATA[15:8] <= ss_d;
+        13'h16b2: JOY3_DATA[7:0] <= ss_d;
+        13'h16b3: JOY3_DATA[15:8] <= ss_d;
+        13'h16b4: JOY4_DATA[7:0] <= ss_d;
+        13'h16b5: JOY4_DATA[15:8] <= ss_d;
+        13'h16b6: AUTO_JOY_CLK <= ss_d[0:0];
+        13'h16b8: AUTO_JOY_STRB <= ss_d[0:0];
+        13'h16bb: JOY_POLL_CLK[5:0] <= ss_d[5:0];
+        13'h16bc: JOY_POLL_CNT[4:0] <= ss_d[4:0];
+        13'h16bd: JOY_POLL_STRB <= ss_d[0:0];
+        13'h16be: JOYRD_BUSY <= ss_d[0:0];
+        13'h16bf: JOY_POLL_RUN <= ss_d[0:0];
+        default: ;
+      endcase
+    end else if (!ss_hold || !RST_N) begin
+`endif
+
     if (~RST_N) begin
         JOY1_DATA <= {16{1'b0}};
         JOY2_DATA <= {16{1'b0}};
@@ -1261,10 +1638,328 @@ always @(posedge CLK) begin
             end
         end
     end
+
+`ifdef SNES_SAVESTATE
+    end
+`endif
 end
 
 assign JOY_STRB = OLD_JOY_STRB | AUTO_JOY_STRB;
 assign JOY1_CLK = OLD_JOY1_CLK | AUTO_JOY_CLK;
 assign JOY2_CLK = OLD_JOY2_CLK | AUTO_JOY_CLK;
 
+
+`ifdef SNES_SAVESTATE
+
+`ifdef SNES_SAVESTATE
+`endif
+// Register image; RAM and pipeline state are read only while frozen.
+// Local 16-byte readback banks isolate running-machine registers from
+// the global image mux. The transport waits three clocks after ss_a,
+// so this one-clock read stage preserves the byte protocol and layout.
+reg [7:0] ss_bank_160;
+always @(posedge CLK) begin
+    ss_bank_160 <= 8'b0;
+    if (ss_a[12:4] == 9'h160) begin
+        case (ss_a[3:0])
+        4'h0: ss_bank_160 <= {7'b0, INT_CLK};
+        4'h1: ss_bank_160 <= {7'b0, INT_CLKF_CE};
+        4'h2: ss_bank_160 <= {7'b0, INT_CLKR_CE};
+        4'h3: ss_bank_160 <= {7'b0, DOT_CLK_CE};
+        4'h4: ss_bank_160 <= {4'b0, P65_CLK_CNT[3:0]};
+        4'h5: ss_bank_160 <= {5'b0, DMA_CLK_CNT[2:0]};
+        4'h6: ss_bank_160 <= {7'b0, CPU_ACTIVEr};
+        4'h7: ss_bank_160 <= {7'b0, DMA_ACTIVEr};
+        4'h8: ss_bank_160 <= {6'b0, DOT_CLK_CNT[1:0]};
+        4'h9: ss_bank_160 <= H_CNT[7:0];
+        4'ha: ss_bank_160 <= {7'b0, H_CNT[8:8]};
+        4'hb: ss_bank_160 <= V_CNT[7:0];
+        4'hc: ss_bank_160 <= {7'b0, V_CNT[8:8]};
+        4'hd: ss_bank_160 <= {7'b0, FIELD};
+        4'he: ss_bank_160 <= {7'b0, CPU_WR};
+        4'hf: ss_bank_160 <= {7'b0, CPU_RD};
+        default: ;
+        endcase
+    end
+end
+reg [7:0] ss_bank_161;
+always @(posedge CLK) begin
+    ss_bank_161 <= 8'b0;
+    if (ss_a[12:4] == 9'h161) begin
+        case (ss_a[3:0])
+        4'h0: ss_bank_161 <= {7'b0, DMA_A_WR};
+        4'h1: ss_bank_161 <= {7'b0, HDMA_A_WR};
+        4'h2: ss_bank_161 <= {7'b0, DMA_A_RD};
+        4'h3: ss_bank_161 <= {7'b0, HDMA_A_RD};
+        4'h4: ss_bank_161 <= {7'b0, DMA_B_WR};
+        4'h5: ss_bank_161 <= {7'b0, DMA_B_RD};
+        4'h6: ss_bank_161 <= {7'b0, HDMA_B_WR};
+        4'h7: ss_bank_161 <= {7'b0, HDMA_B_RD};
+        4'h8: ss_bank_161 <= MDR[7:0];
+        4'h9: ss_bank_161 <= {7'b0, NMI_EN};
+        4'ha: ss_bank_161 <= {6'b0, HVIRQ_EN[1:0]};
+        4'hb: ss_bank_161 <= {7'b0, AUTO_JOY_EN};
+        4'hc: ss_bank_161 <= WRIO[7:0];
+        4'hd: ss_bank_161 <= WRMPYA[7:0];
+        4'he: ss_bank_161 <= WRDIVA[7:0];
+        4'hf: ss_bank_161 <= WRDIVA[15:8];
+        default: ;
+        endcase
+    end
+end
+reg [7:0] ss_bank_162;
+always @(posedge CLK) begin
+    ss_bank_162 <= 8'b0;
+    if (ss_a[12:4] == 9'h162) begin
+        case (ss_a[3:0])
+        4'h0: ss_bank_162 <= HTIME[7:0];
+        4'h1: ss_bank_162 <= {7'b0, HTIME[8:8]};
+        4'h2: ss_bank_162 <= VTIME[7:0];
+        4'h3: ss_bank_162 <= {7'b0, VTIME[8:8]};
+        4'h4: ss_bank_162 <= MDMAEN[7:0];
+        4'h5: ss_bank_162 <= HDMAEN[7:0];
+        4'h6: ss_bank_162 <= {7'b0, MEMSEL};
+        4'h7: ss_bank_162 <= RDDIV[7:0];
+        4'h8: ss_bank_162 <= RDDIV[15:8];
+        4'h9: ss_bank_162 <= RDMPY[7:0];
+        4'ha: ss_bank_162 <= RDMPY[15:8];
+        4'hb: ss_bank_162 <= {7'b0, NMI_FLAG};
+        4'hc: ss_bank_162 <= {7'b0, IRQ_FLAG};
+        4'hd: ss_bank_162 <= {7'b0, MUL_REQ};
+        4'he: ss_bank_162 <= {7'b0, DIV_REQ};
+        4'hf: ss_bank_162 <= {4'b0, MATH_CLK_CNT[3:0]};
+        default: ;
+        endcase
+    end
+end
+reg [7:0] ss_bank_163;
+always @(posedge CLK) begin
+    ss_bank_163 <= 8'b0;
+    if (ss_a[12:4] == 9'h163) begin
+        case (ss_a[3:0])
+        4'h0: ss_bank_163 <= MATH_TEMP[7:0];
+        4'h1: ss_bank_163 <= MATH_TEMP[15:8];
+        4'h2: ss_bank_163 <= {1'b0, MATH_TEMP[22:16]};
+        4'h3: ss_bank_163 <= {7'b0, HBLANK_OLD};
+        4'h4: ss_bank_163 <= {7'b0, VBLANK_OLD};
+        4'h5: ss_bank_163 <= {7'b0, VBLANK_OLD2};
+        4'h6: ss_bank_163 <= {7'b0, HIRQ_VALID};
+        4'h7: ss_bank_163 <= {7'b0, VIRQ_VALID};
+        4'h8: ss_bank_163 <= {7'b0, IRQ_VALID};
+        4'h9: ss_bank_163 <= {7'b0, IRQ_LOCK};
+        4'ha: ss_bank_163 <= {7'b0, IRQ_VALID_OLD};
+        4'hb: ss_bank_163 <= {7'b0, NMI_LOCK};
+        4'hc: ss_bank_163 <= {6'b0, REFS[1:0]};
+        4'hd: ss_bank_163 <= {5'b0, REFRESH_CNT[2:0]};
+        4'he: ss_bank_163 <= {7'b0, REFRESHED};
+        4'hf: ss_bank_163 <= {7'b0, HBLANK_REF_OLD};
+        default: ;
+        endcase
+    end
+end
+reg [7:0] ss_bank_164;
+always @(posedge CLK) begin
+    ss_bank_164 <= 8'b0;
+    if (ss_a[12:4] == 9'h164) begin
+        case (ss_a[3:0])
+        4'h0: ss_bank_164 <= DMAP[0][7:0];
+        4'h1: ss_bank_164 <= DMAP[1][7:0];
+        4'h2: ss_bank_164 <= DMAP[2][7:0];
+        4'h3: ss_bank_164 <= DMAP[3][7:0];
+        4'h4: ss_bank_164 <= DMAP[4][7:0];
+        4'h5: ss_bank_164 <= DMAP[5][7:0];
+        4'h6: ss_bank_164 <= DMAP[6][7:0];
+        4'h7: ss_bank_164 <= DMAP[7][7:0];
+        4'h8: ss_bank_164 <= BBAD[0][7:0];
+        4'h9: ss_bank_164 <= BBAD[1][7:0];
+        4'ha: ss_bank_164 <= BBAD[2][7:0];
+        4'hb: ss_bank_164 <= BBAD[3][7:0];
+        4'hc: ss_bank_164 <= BBAD[4][7:0];
+        4'hd: ss_bank_164 <= BBAD[5][7:0];
+        4'he: ss_bank_164 <= BBAD[6][7:0];
+        4'hf: ss_bank_164 <= BBAD[7][7:0];
+        default: ;
+        endcase
+    end
+end
+reg [7:0] ss_bank_165;
+always @(posedge CLK) begin
+    ss_bank_165 <= 8'b0;
+    if (ss_a[12:4] == 9'h165) begin
+        case (ss_a[3:0])
+        4'h0: ss_bank_165 <= A1T[0][7:0];
+        4'h1: ss_bank_165 <= A1T[0][15:8];
+        4'h2: ss_bank_165 <= A1T[1][7:0];
+        4'h3: ss_bank_165 <= A1T[1][15:8];
+        4'h4: ss_bank_165 <= A1T[2][7:0];
+        4'h5: ss_bank_165 <= A1T[2][15:8];
+        4'h6: ss_bank_165 <= A1T[3][7:0];
+        4'h7: ss_bank_165 <= A1T[3][15:8];
+        4'h8: ss_bank_165 <= A1T[4][7:0];
+        4'h9: ss_bank_165 <= A1T[4][15:8];
+        4'ha: ss_bank_165 <= A1T[5][7:0];
+        4'hb: ss_bank_165 <= A1T[5][15:8];
+        4'hc: ss_bank_165 <= A1T[6][7:0];
+        4'hd: ss_bank_165 <= A1T[6][15:8];
+        4'he: ss_bank_165 <= A1T[7][7:0];
+        4'hf: ss_bank_165 <= A1T[7][15:8];
+        default: ;
+        endcase
+    end
+end
+reg [7:0] ss_bank_166;
+always @(posedge CLK) begin
+    ss_bank_166 <= 8'b0;
+    if (ss_a[12:4] == 9'h166) begin
+        case (ss_a[3:0])
+        4'h0: ss_bank_166 <= A1B[0][7:0];
+        4'h1: ss_bank_166 <= A1B[1][7:0];
+        4'h2: ss_bank_166 <= A1B[2][7:0];
+        4'h3: ss_bank_166 <= A1B[3][7:0];
+        4'h4: ss_bank_166 <= A1B[4][7:0];
+        4'h5: ss_bank_166 <= A1B[5][7:0];
+        4'h6: ss_bank_166 <= A1B[6][7:0];
+        4'h7: ss_bank_166 <= A1B[7][7:0];
+        4'h8: ss_bank_166 <= DAS[0][7:0];
+        4'h9: ss_bank_166 <= DAS[0][15:8];
+        4'ha: ss_bank_166 <= DAS[1][7:0];
+        4'hb: ss_bank_166 <= DAS[1][15:8];
+        4'hc: ss_bank_166 <= DAS[2][7:0];
+        4'hd: ss_bank_166 <= DAS[2][15:8];
+        4'he: ss_bank_166 <= DAS[3][7:0];
+        4'hf: ss_bank_166 <= DAS[3][15:8];
+        default: ;
+        endcase
+    end
+end
+reg [7:0] ss_bank_167;
+always @(posedge CLK) begin
+    ss_bank_167 <= 8'b0;
+    if (ss_a[12:4] == 9'h167) begin
+        case (ss_a[3:0])
+        4'h0: ss_bank_167 <= DAS[4][7:0];
+        4'h1: ss_bank_167 <= DAS[4][15:8];
+        4'h2: ss_bank_167 <= DAS[5][7:0];
+        4'h3: ss_bank_167 <= DAS[5][15:8];
+        4'h4: ss_bank_167 <= DAS[6][7:0];
+        4'h5: ss_bank_167 <= DAS[6][15:8];
+        4'h6: ss_bank_167 <= DAS[7][7:0];
+        4'h7: ss_bank_167 <= DAS[7][15:8];
+        4'h8: ss_bank_167 <= DASB[0][7:0];
+        4'h9: ss_bank_167 <= DASB[1][7:0];
+        4'ha: ss_bank_167 <= DASB[2][7:0];
+        4'hb: ss_bank_167 <= DASB[3][7:0];
+        4'hc: ss_bank_167 <= DASB[4][7:0];
+        4'hd: ss_bank_167 <= DASB[5][7:0];
+        4'he: ss_bank_167 <= DASB[6][7:0];
+        4'hf: ss_bank_167 <= DASB[7][7:0];
+        default: ;
+        endcase
+    end
+end
+reg [7:0] ss_bank_168;
+always @(posedge CLK) begin
+    ss_bank_168 <= 8'b0;
+    if (ss_a[12:4] == 9'h168) begin
+        case (ss_a[3:0])
+        4'h0: ss_bank_168 <= A2A[0][7:0];
+        4'h1: ss_bank_168 <= A2A[0][15:8];
+        4'h2: ss_bank_168 <= A2A[1][7:0];
+        4'h3: ss_bank_168 <= A2A[1][15:8];
+        4'h4: ss_bank_168 <= A2A[2][7:0];
+        4'h5: ss_bank_168 <= A2A[2][15:8];
+        4'h6: ss_bank_168 <= A2A[3][7:0];
+        4'h7: ss_bank_168 <= A2A[3][15:8];
+        4'h8: ss_bank_168 <= A2A[4][7:0];
+        4'h9: ss_bank_168 <= A2A[4][15:8];
+        4'ha: ss_bank_168 <= A2A[5][7:0];
+        4'hb: ss_bank_168 <= A2A[5][15:8];
+        4'hc: ss_bank_168 <= A2A[6][7:0];
+        4'hd: ss_bank_168 <= A2A[6][15:8];
+        4'he: ss_bank_168 <= A2A[7][7:0];
+        4'hf: ss_bank_168 <= A2A[7][15:8];
+        default: ;
+        endcase
+    end
+end
+reg [7:0] ss_bank_169;
+always @(posedge CLK) begin
+    ss_bank_169 <= 8'b0;
+    if (ss_a[12:4] == 9'h169) begin
+        case (ss_a[3:0])
+        4'h0: ss_bank_169 <= NTLR[0][7:0];
+        4'h1: ss_bank_169 <= NTLR[1][7:0];
+        4'h2: ss_bank_169 <= NTLR[2][7:0];
+        4'h3: ss_bank_169 <= NTLR[3][7:0];
+        4'h4: ss_bank_169 <= NTLR[4][7:0];
+        4'h5: ss_bank_169 <= NTLR[5][7:0];
+        4'h6: ss_bank_169 <= NTLR[6][7:0];
+        4'h7: ss_bank_169 <= NTLR[7][7:0];
+        4'h8: ss_bank_169 <= UNUSED[0][7:0];
+        4'h9: ss_bank_169 <= UNUSED[1][7:0];
+        4'ha: ss_bank_169 <= UNUSED[2][7:0];
+        4'hb: ss_bank_169 <= UNUSED[3][7:0];
+        4'hc: ss_bank_169 <= UNUSED[4][7:0];
+        4'hd: ss_bank_169 <= UNUSED[5][7:0];
+        4'he: ss_bank_169 <= UNUSED[6][7:0];
+        4'hf: ss_bank_169 <= UNUSED[7][7:0];
+        default: ;
+        endcase
+    end
+end
+reg [7:0] ss_bank_16a;
+always @(posedge CLK) begin
+    ss_bank_16a <= 8'b0;
+    if (ss_a[12:4] == 9'h16a) begin
+        case (ss_a[3:0])
+        4'h0: ss_bank_16a <= {7'b0, DMA_RUN};
+        4'h1: ss_bank_16a <= {7'b0, HDMA_RUN};
+        4'h2: ss_bank_16a <= HDMA_CH_WORK[7:0];
+        4'h3: ss_bank_16a <= HDMA_CH_RUN[7:0];
+        4'h4: ss_bank_16a <= HDMA_CH_DO[7:0];
+        4'h5: ss_bank_16a <= HDMA_CH_EN[7:0];
+        4'h6: ss_bank_16a <= {7'b0, HDMA_INIT_EXEC};
+        4'h7: ss_bank_16a <= {7'b0, HDMA_RUN_EXEC};
+        4'h8: ss_bank_16a <= {6'b0, DS[1:0]};
+        4'h9: ss_bank_16a <= {5'b0, HDS[2:0]};
+        4'ha: ss_bank_16a <= {7'b0, HDMA_INIT_STEP};
+        4'hb: ss_bank_16a <= {6'b0, DMA_TRMODE_STEP[1:0]};
+        4'hc: ss_bank_16a <= {6'b0, HDMA_TRMODE_STEP[1:0]};
+        4'hd: ss_bank_16a <= {7'b0, HDMA_FIRST_INIT};
+        4'he: ss_bank_16a <= JOY1_DATA[7:0];
+        4'hf: ss_bank_16a <= JOY1_DATA[15:8];
+        default: ;
+        endcase
+    end
+end
+reg [7:0] ss_bank_16b;
+always @(posedge CLK) begin
+    ss_bank_16b <= 8'b0;
+    if (ss_a[12:4] == 9'h16b) begin
+        case (ss_a[3:0])
+        4'h0: ss_bank_16b <= JOY2_DATA[7:0];
+        4'h1: ss_bank_16b <= JOY2_DATA[15:8];
+        4'h2: ss_bank_16b <= JOY3_DATA[7:0];
+        4'h3: ss_bank_16b <= JOY3_DATA[15:8];
+        4'h4: ss_bank_16b <= JOY4_DATA[7:0];
+        4'h5: ss_bank_16b <= JOY4_DATA[15:8];
+        4'h6: ss_bank_16b <= {7'b0, AUTO_JOY_CLK};
+        4'h7: ss_bank_16b <= {7'b0, OLD_JOY_STRB};
+        4'h8: ss_bank_16b <= {7'b0, AUTO_JOY_STRB};
+        4'h9: ss_bank_16b <= {7'b0, OLD_JOY1_CLK};
+        4'ha: ss_bank_16b <= {7'b0, OLD_JOY2_CLK};
+        4'hb: ss_bank_16b <= {2'b0, JOY_POLL_CLK[5:0]};
+        4'hc: ss_bank_16b <= {3'b0, JOY_POLL_CNT[4:0]};
+        4'hd: ss_bank_16b <= {7'b0, JOY_POLL_STRB};
+        4'he: ss_bank_16b <= {7'b0, JOYRD_BUSY};
+        4'hf: ss_bank_16b <= {7'b0, JOY_POLL_RUN};
+        default: ;
+        endcase
+    end
+end
+always @* begin
+    ss_q = ss_bank_160 | ss_bank_161 | ss_bank_162 | ss_bank_163 | ss_bank_164 | ss_bank_165 | ss_bank_166 | ss_bank_167 | ss_bank_168 | ss_bank_169 | ss_bank_16a | ss_bank_16b;
+    ss_q = ss_q | ss_q_p65;
+end
+`endif
 endmodule
