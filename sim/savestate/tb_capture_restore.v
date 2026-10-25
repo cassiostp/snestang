@@ -53,7 +53,7 @@ sdram_ss_reference reference(
 
 reg check=0;
 integer samples=0;
-always @(posedge mclk) if(check && !block) begin
+always @(posedge mclk or negedge mclk) if(check && !block) begin
  if ({q0,q1,qa,qb,ca,ba,aa} !== {r0,r1,ar,br,ca_ref,ba_ref,aa_ref})
   $fatal(1,"mclk consumer diverged at sample %0d",samples);
  samples=samples+1;

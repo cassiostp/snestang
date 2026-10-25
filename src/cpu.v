@@ -805,6 +805,100 @@ always @(posedge CLK) begin
 `endif
 end
 
+`ifdef SNES_SAVESTATE
+// Keep external game data out of the I/O readback tree. The final mux
+// preserves the original priority without another clock or bus phase.
+(* syn_keep = 1 *) reg [7:0] p65_io_q;
+always @* begin
+    P65_DI = DI;
+    if (IO_SEL) P65_DI = p65_io_q;
+end
+always @* begin : P4_io
+    reg [2:0] i;
+
+    p65_io_q = MDR;
+    if (IO_SEL) begin
+        p65_io_q = MDR;
+        if (P65_A[15:8] == 8'h42) begin
+            case (P65_A[7:0])
+            8'h10 :
+                p65_io_q = {NMI_FLAG,MDR[6:4],4'b0010};            //RDNMI
+            8'h11 :
+                p65_io_q = {IRQ_FLAG,MDR[6:0]};                    //TIMEUP
+            8'h12 :
+                p65_io_q = {VBLANK,HBLANK,MDR[5:1],JOYRD_BUSY};    //HVBJOY
+            8'h13 :
+                p65_io_q = 8'h00;                                  //RDIO
+            8'h14 :
+                p65_io_q = RDDIV[7:0];                             //RDDIVL
+            8'h15 :
+                p65_io_q = RDDIV[15:8];                            //RDDIVH
+            8'h16 :
+                p65_io_q = RDMPY[7:0];                             //RDMPYL
+            8'h17 :
+                p65_io_q = RDMPY[15:8];                            //RDMPYH
+            8'h18 :
+                p65_io_q = JOY1_DATA[7:0];                         //JOY1L
+            8'h19 :
+                p65_io_q = JOY1_DATA[15:8];                        //JOY1H
+            8'h1A :
+                p65_io_q = JOY2_DATA[7:0];                         //JOY2L
+            8'h1B :
+                p65_io_q = JOY2_DATA[15:8];                        //JOY2H
+            8'h1C :
+                p65_io_q = JOY3_DATA[7:0];                         //JOY3L
+            8'h1D :
+                p65_io_q = JOY3_DATA[15:8];                        //JOY3H
+            8'h1E :
+                p65_io_q = JOY4_DATA[7:0];                         //JOY4L
+            8'h1F :
+                p65_io_q = JOY4_DATA[15:8];                        //JOY4H
+            default :
+                p65_io_q = MDR;
+            endcase
+        end else if (P65_A[15:7] == {8'h43, 1'b0}) begin
+            i = P65_A[6:4];
+            case (P65_A[3:0])
+            4'h0 :
+                p65_io_q = DMAP[i];                                //DMAPx
+            4'h1 :
+                p65_io_q = BBAD[i];                                //BBADx
+            4'h2 :
+                p65_io_q = A1T[i][7:0];                            //A1TxL
+            4'h3 :
+                p65_io_q = A1T[i][15:8];                           //A1TxH
+            4'h4 :
+                p65_io_q = A1B[i];                                 //A1Bx
+            4'h5 :
+                p65_io_q = DAS[i][7:0];                            //DASxL
+            4'h6 :
+                p65_io_q = DAS[i][15:8];                           //DASxH
+            4'h7 :
+                p65_io_q = DASB[i];                                //DASBx
+            4'h8 :
+                p65_io_q = A2A[i][7:0];                            //A2AxL
+            4'h9 :
+                p65_io_q = A2A[i][15:8];                           //A2AxH
+            4'hA :
+                p65_io_q = NTLR[i];                                //NTLRx
+            4'hB, 4'hF :
+                p65_io_q = UNUSED[i];                              //UNUSEDx
+            default :
+                p65_io_q = MDR;
+            endcase
+        end else if (P65_A[15:8] == 8'h40) begin
+            case (P65_A[7:0])
+            8'h16 :
+                p65_io_q = {MDR[7:2], ~JOY1_DI[1], ~JOY1_DI[0]};
+            8'h17 :
+                p65_io_q = {MDR[7:5], 3'b111, ~JOY2_DI[1], ~JOY2_DI[0]};
+            default :
+                p65_io_q = MDR;
+            endcase
+        end
+    end
+end
+`else
 always @* begin : P4
     reg [2:0] i;
 
@@ -890,6 +984,7 @@ always @* begin : P4
         end
     end
 end
+`endif
 
 assign JPIO67 = WRIO[7:6];
 

@@ -16,3 +16,9 @@ sequences. The read forecast is registered one fclk before the mclk preceding
 capture; the override select changes on that mclk and the raw data arrives one
 fclk later, before the next consumer edge. Forecast paths use ordinary one-fclk
 setup/hold checks; the selects use ordinary mclk timing.
+
+`sh sim/savestate/run_io_mux.sh` extracts the actual CPU P4 RTL from 292d641
+and the feature-enabled implementation. It compares both I/O-select values
+across every low-16-bit address with four independent register/data sets
+(524,288 cases), then requires an inverted-select mutant to fail. The capture
+reference bench checks both rising and falling mclk consumer edges.
