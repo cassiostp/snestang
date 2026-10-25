@@ -17,6 +17,15 @@ module bwram_256k (
 );
 
 reg [7:0] mem [0:262143];
+`ifdef VERILATOR
+// The low 64 KiB is the GSU read mirror when the top parks it here.
+// Match the SDRAM model's fill. The upper 192 KiB stays uninitialized,
+// as the standalone SA-1 RAM did.
+initial begin : gsu_window_init
+    integer i;
+    for (i = 0; i < 65536; i = i + 1) mem[i] = 8'hFF;
+end
+`endif
 
 always @(posedge clk) begin
     if (we_a) mem[addr_a] <= din_a;
