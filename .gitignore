@@ -24,3 +24,6 @@ sim/dsp_rain/build/
 # usb_hid_host microcode listing
 src/usb_hid_host_firmware/ukp.lst
 sim/cx4_boot/build/
+
+# Generated complete save-state timing constraints
+impl/console138k_ss.sdc

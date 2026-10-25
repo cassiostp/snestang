@@ -346,6 +346,8 @@ wire [15:0] aram_dout;                   // audio samples; nobody listens here
 sdram_snes sdram (
     .ss_addr(ss_addr), .ss_din(ss_din), .ss_req(ss_req), .ss_we(ss_we), .ss_ack(ss_sd_ack), .ss_q(ss_sd_q),
     .ss_block(ss_freeze && ss_drain >= 8), .ss_reg_a(13'b0), .ss_reg_d(8'b0), .ss_reg_we(1'b0), .ss_reg_q(), .ss_phase(ss_phase),
+    .ss_cpu_port0(cpu_port0), .ss_cpu_port1(cpu_port1),
+    .ss_aram_dout(aram_dout), .ss_bsram_dout(bsram_dout),
     .clk(fclk), .mclk(clk), .clkref(clkref), .resetn(resetn), .busy(sdram_busy),
 
     .SDRAM_DQ(sdram_dq), .SDRAM_A(sdram_a), .SDRAM_BA(sdram_ba),
@@ -353,17 +355,29 @@ sdram_snes sdram (
     .SDRAM_nCAS(sdram_ncas), .SDRAM_CKE(sdram_cke), .SDRAM_DQM(sdram_dqm),
 
     .cpu_addr(cpu_addr), .cpu_din(cpu_din), .cpu_port(cpu_port),
+`ifdef SNES_SAVESTATE
+    .cpu_port0(), .cpu_port1(), .cpu_req(cpu_req),
+`else
     .cpu_port0(cpu_port0), .cpu_port1(cpu_port1), .cpu_req(cpu_req),
+`endif
     .cpu_req_ack(), .cpu_we(cpu_we), .cpu_ds(cpu_ds),
 
     // second ROM reader: no coprocessor here (sim/sdram_port tests it)
     .cpu2_addr(22'h0), .cpu2_dout(), .cpu2_req(1'b0), .cpu2_req_ack(),
 
+`ifdef SNES_SAVESTATE
+    .bsram_addr({3'b0, bs_addr_r}), .bsram_dout(), .bsram_din(bs_din_r),
+`else
     .bsram_addr({3'b0, bs_addr_r}), .bsram_dout(bsram_dout), .bsram_din(bs_din_r),
+`endif
     .bsram_req(bs_req_tog), .bsram_req_ack(bs_req_ack), .bsram_we(bs_we_r),
 
     .aram_16(1'b0), .aram_addr(aram_addr), .aram_din(16'h0),
+`ifdef SNES_SAVESTATE
+    .aram_dout(), .aram_req(aram_req), .aram_req_ack(), .aram_we(1'b0),
+`else
     .aram_dout(aram_dout), .aram_req(aram_req), .aram_req_ack(), .aram_we(1'b0),
+`endif
 
     .rv_addr(22'h0), .rv_din(16'h0),
     .rv_ds(2'b00), .rv_dout(), .rv_req(1'b0), .rv_req_ack(), .rv_we(1'b0)

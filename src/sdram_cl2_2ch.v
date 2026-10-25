@@ -96,6 +96,10 @@ module sdram_snes
     input ss_reg_we,
     output reg [7:0] ss_reg_q,
     output ss_phase,
+    output [15:0] ss_cpu_port0,
+    output [15:0] ss_cpu_port1,
+    output [15:0] ss_aram_dout,
+    output [7:0] ss_bsram_dout,
 `endif
     // CPU access (ROM and WRAM) uses bank 0 and 1 (total 16MB)
 	input      [15:0] cpu_din /* synthesis syn_keep=1 */,
@@ -324,6 +328,63 @@ end
 reg [7:0] bsram_dout_reg;
 assign bsram_dout = bsram_dout_reg;
 
+`ifdef SNES_SAVESTATE
+// Keep every raw DQ capture identical to the feature-disabled lane.
+// Restored latches are selected on the mclk side until a real read replaces
+// them. Forecast that read one fclk before the preceding mclk, so its select
+// has a full mclk period and every running consumer sees the same edge.
+reg [3:0] ss_capture_early = 0;
+reg [1:0] ss_override_cpu0 = 0, ss_override_cpu1 = 0, ss_override_aram = 0;
+reg ss_override_bsram = 0;
+reg [15:0] ss_restore_cpu0, ss_restore_cpu1, ss_restore_aram;
+reg [7:0] ss_restore_bsram;
+assign ss_cpu_port0 = {ss_override_cpu0[1] ? ss_restore_cpu0[15:8] : cpu_port0[15:8],
+                       ss_override_cpu0[0] ? ss_restore_cpu0[7:0] : cpu_port0[7:0]};
+assign ss_cpu_port1 = {ss_override_cpu1[1] ? ss_restore_cpu1[15:8] : cpu_port1[15:8],
+                       ss_override_cpu1[0] ? ss_restore_cpu1[7:0] : cpu_port1[7:0]};
+assign ss_aram_dout = {ss_override_aram[1] ? ss_restore_aram[15:8] : aram_dout[15:8],
+                       ss_override_aram[0] ? ss_restore_aram[7:0] : aram_dout[7:0]};
+assign ss_bsram_dout = ss_override_bsram ? ss_restore_bsram : bsram_dout_reg;
+
+always @(posedge clk) begin
+    if (!resetn || !normal)
+        ss_capture_early <= 0;
+    else if (cycle[2])
+        ss_capture_early <= {1'b0,
+            oe_latch[0] && port[0] == PORT_BSRAM,
+            oe_latch[0] && port[0] == PORT_CPU && cpu_port,
+            oe_latch[0] && port[0] == PORT_CPU && !cpu_port};
+    else if (cycle[5])
+        ss_capture_early <= {oe_latch[1], 3'b0};
+end
+
+always @(posedge mclk) begin
+    if (!resetn) begin
+        ss_override_cpu0 <= 0;
+        ss_override_cpu1 <= 0;
+        ss_override_bsram <= 0;
+        ss_override_aram <= 0;
+    end else begin
+        if (ss_capture_early[0]) ss_override_cpu0 <= 0;
+        if (ss_capture_early[1]) ss_override_cpu1 <= 0;
+        if (ss_capture_early[2]) ss_override_bsram <= 0;
+        if (ss_capture_early[3]) ss_override_aram <= 0;
+        if (ss_reg_we) begin
+            case (ss_reg_a)
+            13'h1b40: begin ss_restore_cpu0[7:0] <= ss_reg_d; ss_override_cpu0[0] <= 1; end
+            13'h1b41: begin ss_restore_cpu0[15:8] <= ss_reg_d; ss_override_cpu0[1] <= 1; end
+            13'h1b42: begin ss_restore_cpu1[7:0] <= ss_reg_d; ss_override_cpu1[0] <= 1; end
+            13'h1b43: begin ss_restore_cpu1[15:8] <= ss_reg_d; ss_override_cpu1[1] <= 1; end
+            13'h1b44: begin ss_restore_aram[7:0] <= ss_reg_d; ss_override_aram[0] <= 1; end
+            13'h1b45: begin ss_restore_aram[15:8] <= ss_reg_d; ss_override_aram[1] <= 1; end
+            13'h1b46: begin ss_restore_bsram <= ss_reg_d; ss_override_bsram <= 1; end
+            default: ;
+            endcase
+        end
+    end
+end
+`endif
+
 //
 // SDRAM state machine
 //
@@ -489,18 +550,6 @@ always @(posedge clk) begin
             bsram_req_ack <= bsram_req;
             aram_req_ack <= aram_req;
         end
-        if (ss_reg_we) begin
-            case (ss_reg_a)
-            13'h1b40: cpu_port0[7:0] <= ss_reg_d;
-            13'h1b41: cpu_port0[15:8] <= ss_reg_d;
-            13'h1b42: cpu_port1[7:0] <= ss_reg_d;
-            13'h1b43: cpu_port1[15:8] <= ss_reg_d;
-            13'h1b44: aram_dout[7:0] <= ss_reg_d;
-            13'h1b45: aram_dout[15:8] <= ss_reg_d;
-            13'h1b46: bsram_dout_reg <= ss_reg_d;
-            default: ;
-            endcase
-        end
 `endif
     end
 end
@@ -535,13 +584,13 @@ end
 always @* begin
     ss_reg_q = 0;
     case (ss_reg_a)
-    13'h1b40: ss_reg_q = cpu_port0[7:0];
-    13'h1b41: ss_reg_q = cpu_port0[15:8];
-    13'h1b42: ss_reg_q = cpu_port1[7:0];
-    13'h1b43: ss_reg_q = cpu_port1[15:8];
-    13'h1b44: ss_reg_q = aram_dout[7:0];
-    13'h1b45: ss_reg_q = aram_dout[15:8];
-    13'h1b46: ss_reg_q = bsram_dout_reg;
+    13'h1b40: ss_reg_q = ss_cpu_port0[7:0];
+    13'h1b41: ss_reg_q = ss_cpu_port0[15:8];
+    13'h1b42: ss_reg_q = ss_cpu_port1[7:0];
+    13'h1b43: ss_reg_q = ss_cpu_port1[15:8];
+    13'h1b44: ss_reg_q = ss_aram_dout[7:0];
+    13'h1b45: ss_reg_q = ss_aram_dout[15:8];
+    13'h1b46: ss_reg_q = ss_bsram_dout;
     default: ;
     endcase
 end

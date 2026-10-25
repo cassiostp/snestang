@@ -1049,6 +1049,8 @@ sdram_snes sdram(
     .ss_addr(ss_mem_addr), .ss_din(ss_mem_din), .ss_req(ss_mem_req), .ss_we(ss_mem_we),
     .ss_ack(ss_sd_ack), .ss_q(ss_sd_q), .ss_block(ss_block),
     .ss_reg_a(ss_a), .ss_reg_d(ss_d), .ss_reg_we(ss_we), .ss_reg_q(ss_sd_regs_q), .ss_phase(ss_phase),
+    .ss_cpu_port0(cpu_port0), .ss_cpu_port1(cpu_port1),
+    .ss_aram_dout(aram_dout), .ss_bsram_dout(bsram_dout),
 `endif
     .clk(fclk), .mclk(mclk), .clkref(DOT_CLK_CE), .resetn(resetn), .busy(sdram_busy),
 
@@ -1059,7 +1061,11 @@ sdram_snes sdram(
 
     // CPU accesses
     .cpu_addr(cpu_addr[22:1]), .cpu_din(cpu_din), .cpu_port(cpu_port), 
+`ifdef SNES_SAVESTATE
+    .cpu_port0(), .cpu_port1(), .cpu_req(cpu_req), .cpu_req_ack(),
+`else
     .cpu_port0(cpu_port0), .cpu_port1(cpu_port1), .cpu_req(cpu_req), .cpu_req_ack(),
+`endif
     .cpu_we(cpu_we), .cpu_ds(cpu_ds),
 
 `ifndef SDRAM_3CH
@@ -1068,12 +1074,20 @@ sdram_snes sdram(
 `endif
 
     // BSRAM accesses: SNES cartridge bus and save channel, via the bridge above
+`ifdef SNES_SAVESTATE
+    .bsram_addr({3'b0, bs_addr_r}), .bsram_dout(), .bsram_din(bs_din_r),
+`else
     .bsram_addr({3'b0, bs_addr_r}), .bsram_dout(bsram_dout), .bsram_din(bs_din_r),
+`endif
     .bsram_req(bs_req_tog), .bsram_req_ack(bs_req_ack), .bsram_we(bs_we_r),
 
     // ARAM accesses
     .aram_16(aram_16), .aram_addr(aram_addr_sd), .aram_din(aram_din_sd), 
+`ifdef SNES_SAVESTATE
+    .aram_dout(), .aram_req(aram_req), .aram_req_ack(), .aram_we(aram_we_sd),
+`else
     .aram_dout(aram_dout), .aram_req(aram_req), .aram_req_ack(), .aram_we(aram_we_sd),
+`endif
 
 `ifdef SDRAM_3CH
     // VRAM accesses
