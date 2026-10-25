@@ -110,3 +110,7 @@ set_output_delay -clock sdram_clk -min -0.3 [get_ports {IO_sdram_dq*}]
 
 // false paths
 //set_false_path -from [get_regs {main/SNES/smp/CPUO*}] -to [get_regs {sdram/dq_out*}]
+
+// Audit reports only; sampling windows and physical constraints are unchanged.
+report_timing -setup -from [get_ports {IO_sdram_dq*}] -max_paths 100 -max_common_paths 20
+report_timing -setup -from [get_regs {sdram/bsram_dout_reg*}] -max_paths 100 -max_common_paths 50
