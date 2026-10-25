@@ -1,0 +1,2172 @@
+[
+  {
+    "module": "ppu.v",
+    "address": 9,
+    "target": "MDR1[7:0]"
+  },
+  {
+    "module": "ppu.v",
+    "address": 10,
+    "target": "MDR2[7:0]"
+  },
+  {
+    "module": "ppu.v",
+    "address": 18,
+    "target": "OAMADD[7:0]"
+  },
+  {
+    "module": "ppu.v",
+    "address": 21,
+    "target": "TM[7:0]"
+  },
+  {
+    "module": "ppu.v",
+    "address": 22,
+    "target": "TS[7:0]"
+  },
+  {
+    "module": "ppu.v",
+    "address": 45,
+    "target": "CGADD[7:0]"
+  },
+  {
+    "module": "ppu.v",
+    "address": 49,
+    "target": "VMADD[7:0]"
+  },
+  {
+    "module": "ppu.v",
+    "address": 50,
+    "target": "VMADD[15:8]"
+  },
+  {
+    "module": "ppu.v",
+    "address": 51,
+    "target": "BG_HOFS[0][7:0]"
+  },
+  {
+    "module": "ppu.v",
+    "address": 53,
+    "target": "BG_HOFS[1][7:0]"
+  },
+  {
+    "module": "ppu.v",
+    "address": 55,
+    "target": "BG_HOFS[2][7:0]"
+  },
+  {
+    "module": "ppu.v",
+    "address": 57,
+    "target": "BG_HOFS[3][7:0]"
+  },
+  {
+    "module": "ppu.v",
+    "address": 59,
+    "target": "BG_VOFS[0][7:0]"
+  },
+  {
+    "module": "ppu.v",
+    "address": 61,
+    "target": "BG_VOFS[1][7:0]"
+  },
+  {
+    "module": "ppu.v",
+    "address": 63,
+    "target": "BG_VOFS[2][7:0]"
+  },
+  {
+    "module": "ppu.v",
+    "address": 65,
+    "target": "BG_VOFS[3][7:0]"
+  },
+  {
+    "module": "ppu.v",
+    "address": 67,
+    "target": "M7SEL[7:0]"
+  },
+  {
+    "module": "ppu.v",
+    "address": 68,
+    "target": "M7A[7:0]"
+  },
+  {
+    "module": "ppu.v",
+    "address": 69,
+    "target": "M7A[15:8]"
+  },
+  {
+    "module": "ppu.v",
+    "address": 70,
+    "target": "M7B[7:0]"
+  },
+  {
+    "module": "ppu.v",
+    "address": 71,
+    "target": "M7B[15:8]"
+  },
+  {
+    "module": "ppu.v",
+    "address": 72,
+    "target": "M7C[7:0]"
+  },
+  {
+    "module": "ppu.v",
+    "address": 73,
+    "target": "M7C[15:8]"
+  },
+  {
+    "module": "ppu.v",
+    "address": 74,
+    "target": "M7D[7:0]"
+  },
+  {
+    "module": "ppu.v",
+    "address": 75,
+    "target": "M7D[15:8]"
+  },
+  {
+    "module": "ppu.v",
+    "address": 76,
+    "target": "M7HOFS[7:0]"
+  },
+  {
+    "module": "ppu.v",
+    "address": 78,
+    "target": "M7VOFS[7:0]"
+  },
+  {
+    "module": "ppu.v",
+    "address": 80,
+    "target": "M7X[7:0]"
+  },
+  {
+    "module": "ppu.v",
+    "address": 82,
+    "target": "M7Y[7:0]"
+  },
+  {
+    "module": "ppu.v",
+    "address": 84,
+    "target": "WH0[7:0]"
+  },
+  {
+    "module": "ppu.v",
+    "address": 85,
+    "target": "WH1[7:0]"
+  },
+  {
+    "module": "ppu.v",
+    "address": 86,
+    "target": "WH2[7:0]"
+  },
+  {
+    "module": "ppu.v",
+    "address": 87,
+    "target": "WH3[7:0]"
+  },
+  {
+    "module": "ppu.v",
+    "address": 88,
+    "target": "W12SEL[7:0]"
+  },
+  {
+    "module": "ppu.v",
+    "address": 89,
+    "target": "W34SEL[7:0]"
+  },
+  {
+    "module": "ppu.v",
+    "address": 90,
+    "target": "WOBJSEL[7:0]"
+  },
+  {
+    "module": "ppu.v",
+    "address": 91,
+    "target": "WBGLOG[7:0]"
+  },
+  {
+    "module": "ppu.v",
+    "address": 92,
+    "target": "WOBJLOG[7:0]"
+  },
+  {
+    "module": "ppu.v",
+    "address": 93,
+    "target": "TMW[7:0]"
+  },
+  {
+    "module": "ppu.v",
+    "address": 94,
+    "target": "TSW[7:0]"
+  },
+  {
+    "module": "ppu.v",
+    "address": 95,
+    "target": "CGWSEL[7:0]"
+  },
+  {
+    "module": "ppu.v",
+    "address": 96,
+    "target": "CGADSUB[7:0]"
+  },
+  {
+    "module": "ppu.v",
+    "address": 97,
+    "target": "SUBCOLBD[7:0]"
+  },
+  {
+    "module": "ppu.v",
+    "address": 99,
+    "target": "OPHCT[7:0]"
+  },
+  {
+    "module": "ppu.v",
+    "address": 101,
+    "target": "OPVCT[7:0]"
+  },
+  {
+    "module": "ppu.v",
+    "address": 107,
+    "target": "CGRAM_Lsb[7:0]"
+  },
+  {
+    "module": "ppu.v",
+    "address": 108,
+    "target": "BGOFS_latch[7:0]"
+  },
+  {
+    "module": "ppu.v",
+    "address": 109,
+    "target": "M7_latch[7:0]"
+  },
+  {
+    "module": "ppu.v",
+    "address": 111,
+    "target": "OAM_latch[7:0]"
+  },
+  {
+    "module": "ppu.v",
+    "address": 112,
+    "target": "VRAMDATA_Prefetch[7:0]"
+  },
+  {
+    "module": "ppu.v",
+    "address": 113,
+    "target": "VRAMDATA_Prefetch[15:8]"
+  },
+  {
+    "module": "ppu.v",
+    "address": 114,
+    "target": "VMADD_INC[7:0]"
+  },
+  {
+    "module": "ppu.v",
+    "address": 129,
+    "target": "GET_PIXEL_X[7:0]"
+  },
+  {
+    "module": "ppu.v",
+    "address": 130,
+    "target": "WINDOW_X[7:0]"
+  },
+  {
+    "module": "ppu.v",
+    "address": 135,
+    "target": "BG3_OPT_DATA0[7:0]"
+  },
+  {
+    "module": "ppu.v",
+    "address": 136,
+    "target": "BG3_OPT_DATA0[15:8]"
+  },
+  {
+    "module": "ppu.v",
+    "address": 137,
+    "target": "BG3_OPT_DATA1[7:0]"
+  },
+  {
+    "module": "ppu.v",
+    "address": 138,
+    "target": "BG3_OPT_DATA1[15:8]"
+  },
+  {
+    "module": "ppu.v",
+    "address": 139,
+    "target": "BG_DATA[0][7:0]"
+  },
+  {
+    "module": "ppu.v",
+    "address": 140,
+    "target": "BG_DATA[0][15:8]"
+  },
+  {
+    "module": "ppu.v",
+    "address": 141,
+    "target": "BG_DATA[1][7:0]"
+  },
+  {
+    "module": "ppu.v",
+    "address": 142,
+    "target": "BG_DATA[1][15:8]"
+  },
+  {
+    "module": "ppu.v",
+    "address": 143,
+    "target": "BG_DATA[2][7:0]"
+  },
+  {
+    "module": "ppu.v",
+    "address": 144,
+    "target": "BG_DATA[2][15:8]"
+  },
+  {
+    "module": "ppu.v",
+    "address": 145,
+    "target": "BG_DATA[3][7:0]"
+  },
+  {
+    "module": "ppu.v",
+    "address": 146,
+    "target": "BG_DATA[3][15:8]"
+  },
+  {
+    "module": "ppu.v",
+    "address": 147,
+    "target": "BG_DATA[4][7:0]"
+  },
+  {
+    "module": "ppu.v",
+    "address": 148,
+    "target": "BG_DATA[4][15:8]"
+  },
+  {
+    "module": "ppu.v",
+    "address": 149,
+    "target": "BG_DATA[5][7:0]"
+  },
+  {
+    "module": "ppu.v",
+    "address": 150,
+    "target": "BG_DATA[5][15:8]"
+  },
+  {
+    "module": "ppu.v",
+    "address": 151,
+    "target": "BG_DATA[6][7:0]"
+  },
+  {
+    "module": "ppu.v",
+    "address": 152,
+    "target": "BG_DATA[6][15:8]"
+  },
+  {
+    "module": "ppu.v",
+    "address": 153,
+    "target": "BG_DATA[7][7:0]"
+  },
+  {
+    "module": "ppu.v",
+    "address": 154,
+    "target": "BG_DATA[7][15:8]"
+  },
+  {
+    "module": "ppu.v",
+    "address": 155,
+    "target": "BG_TILES_PLANES[0][0][7:0]"
+  },
+  {
+    "module": "ppu.v",
+    "address": 156,
+    "target": "BG_TILES_PLANES[0][1][7:0]"
+  },
+  {
+    "module": "ppu.v",
+    "address": 157,
+    "target": "BG_TILES_PLANES[0][2][7:0]"
+  },
+  {
+    "module": "ppu.v",
+    "address": 158,
+    "target": "BG_TILES_PLANES[0][3][7:0]"
+  },
+  {
+    "module": "ppu.v",
+    "address": 159,
+    "target": "BG_TILES_PLANES[0][4][7:0]"
+  },
+  {
+    "module": "ppu.v",
+    "address": 160,
+    "target": "BG_TILES_PLANES[0][5][7:0]"
+  },
+  {
+    "module": "ppu.v",
+    "address": 161,
+    "target": "BG_TILES_PLANES[0][6][7:0]"
+  },
+  {
+    "module": "ppu.v",
+    "address": 162,
+    "target": "BG_TILES_PLANES[0][7][7:0]"
+  },
+  {
+    "module": "ppu.v",
+    "address": 163,
+    "target": "BG_TILES_PLANES[0][8][7:0]"
+  },
+  {
+    "module": "ppu.v",
+    "address": 164,
+    "target": "BG_TILES_PLANES[0][9][7:0]"
+  },
+  {
+    "module": "ppu.v",
+    "address": 165,
+    "target": "BG_TILES_PLANES[0][10][7:0]"
+  },
+  {
+    "module": "ppu.v",
+    "address": 166,
+    "target": "BG_TILES_PLANES[0][11][7:0]"
+  },
+  {
+    "module": "ppu.v",
+    "address": 167,
+    "target": "BG_TILES_PLANES[1][0][7:0]"
+  },
+  {
+    "module": "ppu.v",
+    "address": 168,
+    "target": "BG_TILES_PLANES[1][1][7:0]"
+  },
+  {
+    "module": "ppu.v",
+    "address": 169,
+    "target": "BG_TILES_PLANES[1][2][7:0]"
+  },
+  {
+    "module": "ppu.v",
+    "address": 170,
+    "target": "BG_TILES_PLANES[1][3][7:0]"
+  },
+  {
+    "module": "ppu.v",
+    "address": 171,
+    "target": "BG_TILES_PLANES[1][4][7:0]"
+  },
+  {
+    "module": "ppu.v",
+    "address": 172,
+    "target": "BG_TILES_PLANES[1][5][7:0]"
+  },
+  {
+    "module": "ppu.v",
+    "address": 173,
+    "target": "BG_TILES_PLANES[1][6][7:0]"
+  },
+  {
+    "module": "ppu.v",
+    "address": 174,
+    "target": "BG_TILES_PLANES[1][7][7:0]"
+  },
+  {
+    "module": "ppu.v",
+    "address": 175,
+    "target": "BG_TILES_PLANES[1][8][7:0]"
+  },
+  {
+    "module": "ppu.v",
+    "address": 176,
+    "target": "BG_TILES_PLANES[1][9][7:0]"
+  },
+  {
+    "module": "ppu.v",
+    "address": 177,
+    "target": "BG_TILES_PLANES[1][10][7:0]"
+  },
+  {
+    "module": "ppu.v",
+    "address": 178,
+    "target": "BG_TILES_PLANES[1][11][7:0]"
+  },
+  {
+    "module": "ppu.v",
+    "address": 187,
+    "target": "BG1_PIX_DATA[7:0]"
+  },
+  {
+    "module": "ppu.v",
+    "address": 189,
+    "target": "BG2_PIX_DATA[7:0]"
+  },
+  {
+    "module": "ppu.v",
+    "address": 192,
+    "target": "M7_PIX_DATA[7:0]"
+  },
+  {
+    "module": "ppu.v",
+    "address": 193,
+    "target": "M7_SCREEN_X[7:0]"
+  },
+  {
+    "module": "ppu.v",
+    "address": 194,
+    "target": "M7_TEMP_X[7:0]"
+  },
+  {
+    "module": "ppu.v",
+    "address": 195,
+    "target": "M7_TEMP_X[15:8]"
+  },
+  {
+    "module": "ppu.v",
+    "address": 196,
+    "target": "M7_TEMP_X[23:16]"
+  },
+  {
+    "module": "ppu.v",
+    "address": 197,
+    "target": "M7_TEMP_Y[7:0]"
+  },
+  {
+    "module": "ppu.v",
+    "address": 198,
+    "target": "M7_TEMP_Y[15:8]"
+  },
+  {
+    "module": "ppu.v",
+    "address": 199,
+    "target": "M7_TEMP_Y[23:16]"
+  },
+  {
+    "module": "ppu.v",
+    "address": 200,
+    "target": "M7_TILE_N[7:0]"
+  },
+  {
+    "module": "ppu.v",
+    "address": 204,
+    "target": "HOAM_Q[7:0]"
+  },
+  {
+    "module": "ppu.v",
+    "address": 205,
+    "target": "OAM_ADDR[7:0]"
+  },
+  {
+    "module": "ppu.v",
+    "address": 249,
+    "target": "OBJ_TILE_GAP[7:0]"
+  },
+  {
+    "module": "ppu.v",
+    "address": 254,
+    "target": "OBJ_TILE_X[7:0]"
+  },
+  {
+    "module": "ppu.v",
+    "address": 256,
+    "target": "SPR_PIX_DATA[7:0]"
+  },
+  {
+    "module": "ppu.v",
+    "address": 258,
+    "target": "SPR_PIX_DATA_BUF[7:0]"
+  },
+  {
+    "module": "ppu.v",
+    "address": 260,
+    "target": "SPR_PIXEL_X[7:0]"
+  },
+  {
+    "module": "ppu.v",
+    "address": 261,
+    "target": "SPR_TILE_DATA[7:0]"
+  },
+  {
+    "module": "ppu.v",
+    "address": 262,
+    "target": "SPR_TILE_DATA[15:8]"
+  },
+  {
+    "module": "ppu.v",
+    "address": 263,
+    "target": "SPR_TILE_DATA[23:16]"
+  },
+  {
+    "module": "ppu.v",
+    "address": 264,
+    "target": "SPR_TILE_DATA[31:24]"
+  },
+  {
+    "module": "ppu.v",
+    "address": 265,
+    "target": "SPR_TILE_DATA_TEMP[7:0]"
+  },
+  {
+    "module": "ppu.v",
+    "address": 266,
+    "target": "SPR_TILE_DATA_TEMP[15:8]"
+  },
+  {
+    "module": "ppu.v",
+    "address": 267,
+    "target": "SPR_TILE_X[7:0]"
+  },
+  {
+    "module": "ppu.v",
+    "address": 272,
+    "target": "SPR_PIX_D[7:0]"
+  },
+  {
+    "module": "ppu.v",
+    "address": 276,
+    "target": "SPR_PIX_ADDR_A[7:0]"
+  },
+  {
+    "module": "ppu.v",
+    "address": 279,
+    "target": "CGRAM_ADDR_CLR[7:0]"
+  },
+  {
+    "module": "ppu.v",
+    "address": 280,
+    "target": "PREV_COLOR[7:0]"
+  },
+  {
+    "module": "ppu.v",
+    "address": 292,
+    "target": "HOAM[0][7:0]"
+  },
+  {
+    "module": "ppu.v",
+    "address": 293,
+    "target": "HOAM[1][7:0]"
+  },
+  {
+    "module": "ppu.v",
+    "address": 294,
+    "target": "HOAM[2][7:0]"
+  },
+  {
+    "module": "ppu.v",
+    "address": 295,
+    "target": "HOAM[3][7:0]"
+  },
+  {
+    "module": "ppu.v",
+    "address": 296,
+    "target": "HOAM[4][7:0]"
+  },
+  {
+    "module": "ppu.v",
+    "address": 297,
+    "target": "HOAM[5][7:0]"
+  },
+  {
+    "module": "ppu.v",
+    "address": 298,
+    "target": "HOAM[6][7:0]"
+  },
+  {
+    "module": "ppu.v",
+    "address": 299,
+    "target": "HOAM[7][7:0]"
+  },
+  {
+    "module": "ppu.v",
+    "address": 300,
+    "target": "HOAM[8][7:0]"
+  },
+  {
+    "module": "ppu.v",
+    "address": 301,
+    "target": "HOAM[9][7:0]"
+  },
+  {
+    "module": "ppu.v",
+    "address": 302,
+    "target": "HOAM[10][7:0]"
+  },
+  {
+    "module": "ppu.v",
+    "address": 303,
+    "target": "HOAM[11][7:0]"
+  },
+  {
+    "module": "ppu.v",
+    "address": 304,
+    "target": "HOAM[12][7:0]"
+  },
+  {
+    "module": "ppu.v",
+    "address": 305,
+    "target": "HOAM[13][7:0]"
+  },
+  {
+    "module": "ppu.v",
+    "address": 306,
+    "target": "HOAM[14][7:0]"
+  },
+  {
+    "module": "ppu.v",
+    "address": 307,
+    "target": "HOAM[15][7:0]"
+  },
+  {
+    "module": "ppu.v",
+    "address": 308,
+    "target": "HOAM[16][7:0]"
+  },
+  {
+    "module": "ppu.v",
+    "address": 309,
+    "target": "HOAM[17][7:0]"
+  },
+  {
+    "module": "ppu.v",
+    "address": 310,
+    "target": "HOAM[18][7:0]"
+  },
+  {
+    "module": "ppu.v",
+    "address": 311,
+    "target": "HOAM[19][7:0]"
+  },
+  {
+    "module": "ppu.v",
+    "address": 312,
+    "target": "HOAM[20][7:0]"
+  },
+  {
+    "module": "ppu.v",
+    "address": 313,
+    "target": "HOAM[21][7:0]"
+  },
+  {
+    "module": "ppu.v",
+    "address": 314,
+    "target": "HOAM[22][7:0]"
+  },
+  {
+    "module": "ppu.v",
+    "address": 315,
+    "target": "HOAM[23][7:0]"
+  },
+  {
+    "module": "ppu.v",
+    "address": 316,
+    "target": "HOAM[24][7:0]"
+  },
+  {
+    "module": "ppu.v",
+    "address": 317,
+    "target": "HOAM[25][7:0]"
+  },
+  {
+    "module": "ppu.v",
+    "address": 318,
+    "target": "HOAM[26][7:0]"
+  },
+  {
+    "module": "ppu.v",
+    "address": 319,
+    "target": "HOAM[27][7:0]"
+  },
+  {
+    "module": "ppu.v",
+    "address": 320,
+    "target": "HOAM[28][7:0]"
+  },
+  {
+    "module": "ppu.v",
+    "address": 321,
+    "target": "HOAM[29][7:0]"
+  },
+  {
+    "module": "ppu.v",
+    "address": 322,
+    "target": "HOAM[30][7:0]"
+  },
+  {
+    "module": "ppu.v",
+    "address": 323,
+    "target": "HOAM[31][7:0]"
+  },
+  {
+    "module": "dsp.v",
+    "address": 4101,
+    "target": "RI[7:0]"
+  },
+  {
+    "module": "dsp.v",
+    "address": 4102,
+    "target": "regram_saved"
+  },
+  {
+    "module": "dsp.v",
+    "address": 4108,
+    "target": "WKON[7:0]"
+  },
+  {
+    "module": "dsp.v",
+    "address": 4109,
+    "target": "TKON[7:0]"
+  },
+  {
+    "module": "dsp.v",
+    "address": 4110,
+    "target": "TKOFF[7:0]"
+  },
+  {
+    "module": "dsp.v",
+    "address": 4119,
+    "target": "TSRCN[7:0]"
+  },
+  {
+    "module": "dsp.v",
+    "address": 4120,
+    "target": "TDIR[7:0]"
+  },
+  {
+    "module": "dsp.v",
+    "address": 4121,
+    "target": "TPITCH[7:0]"
+  },
+  {
+    "module": "dsp.v",
+    "address": 4123,
+    "target": "TADSR1[7:0]"
+  },
+  {
+    "module": "dsp.v",
+    "address": 4124,
+    "target": "TADSR2[7:0]"
+  },
+  {
+    "module": "dsp.v",
+    "address": 4125,
+    "target": "TNON[7:0]"
+  },
+  {
+    "module": "dsp.v",
+    "address": 4126,
+    "target": "TESA[7:0]"
+  },
+  {
+    "module": "dsp.v",
+    "address": 4127,
+    "target": "TEON[7:0]"
+  },
+  {
+    "module": "dsp.v",
+    "address": 4128,
+    "target": "TPMON[7:0]"
+  },
+  {
+    "module": "dsp.v",
+    "address": 4129,
+    "target": "ENDX[7:0]"
+  },
+  {
+    "module": "dsp.v",
+    "address": 4130,
+    "target": "ENDX_BUF[7:0]"
+  },
+  {
+    "module": "dsp.v",
+    "address": 4131,
+    "target": "OUTX_OUT[7:0]"
+  },
+  {
+    "module": "dsp.v",
+    "address": 4132,
+    "target": "ENVX_OUT[7:0]"
+  },
+  {
+    "module": "dsp.v",
+    "address": 4133,
+    "target": "TENVX[0][7:0]"
+  },
+  {
+    "module": "dsp.v",
+    "address": 4134,
+    "target": "TENVX[1][7:0]"
+  },
+  {
+    "module": "dsp.v",
+    "address": 4135,
+    "target": "TENVX[2][7:0]"
+  },
+  {
+    "module": "dsp.v",
+    "address": 4136,
+    "target": "TENVX[3][7:0]"
+  },
+  {
+    "module": "dsp.v",
+    "address": 4137,
+    "target": "TENVX[4][7:0]"
+  },
+  {
+    "module": "dsp.v",
+    "address": 4138,
+    "target": "TENVX[5][7:0]"
+  },
+  {
+    "module": "dsp.v",
+    "address": 4139,
+    "target": "TENVX[6][7:0]"
+  },
+  {
+    "module": "dsp.v",
+    "address": 4140,
+    "target": "TENVX[7][7:0]"
+  },
+  {
+    "module": "dsp.v",
+    "address": 4143,
+    "target": "TOUT[7:0]"
+  },
+  {
+    "module": "dsp.v",
+    "address": 4144,
+    "target": "TOUT[15:8]"
+  },
+  {
+    "module": "dsp.v",
+    "address": 4145,
+    "target": "NOISE[7:0]"
+  },
+  {
+    "module": "dsp.v",
+    "address": 4147,
+    "target": "OUTL[7:0]"
+  },
+  {
+    "module": "dsp.v",
+    "address": 4148,
+    "target": "OUTL[15:8]"
+  },
+  {
+    "module": "dsp.v",
+    "address": 4149,
+    "target": "OUTR[7:0]"
+  },
+  {
+    "module": "dsp.v",
+    "address": 4150,
+    "target": "OUTR[15:8]"
+  },
+  {
+    "module": "dsp.v",
+    "address": 4151,
+    "target": "OUTPUT[7:0]"
+  },
+  {
+    "module": "dsp.v",
+    "address": 4152,
+    "target": "OUTPUT[15:8]"
+  },
+  {
+    "module": "dsp.v",
+    "address": 4153,
+    "target": "OUTPUT[23:16]"
+  },
+  {
+    "module": "dsp.v",
+    "address": 4154,
+    "target": "OUTPUT[31:24]"
+  },
+  {
+    "module": "dsp.v",
+    "address": 4155,
+    "target": "MOUT[0][7:0]"
+  },
+  {
+    "module": "dsp.v",
+    "address": 4156,
+    "target": "MOUT[0][15:8]"
+  },
+  {
+    "module": "dsp.v",
+    "address": 4157,
+    "target": "MOUT[1][7:0]"
+  },
+  {
+    "module": "dsp.v",
+    "address": 4158,
+    "target": "MOUT[1][15:8]"
+  },
+  {
+    "module": "dsp.v",
+    "address": 4159,
+    "target": "EOUT[0][7:0]"
+  },
+  {
+    "module": "dsp.v",
+    "address": 4160,
+    "target": "EOUT[0][15:8]"
+  },
+  {
+    "module": "dsp.v",
+    "address": 4161,
+    "target": "EOUT[1][7:0]"
+  },
+  {
+    "module": "dsp.v",
+    "address": 4162,
+    "target": "EOUT[1][15:8]"
+  },
+  {
+    "module": "dsp.v",
+    "address": 4163,
+    "target": "TDIR_ADDR[7:0]"
+  },
+  {
+    "module": "dsp.v",
+    "address": 4164,
+    "target": "TDIR_ADDR[15:8]"
+  },
+  {
+    "module": "dsp.v",
+    "address": 4165,
+    "target": "BRR_NEXT_ADDR[7:0]"
+  },
+  {
+    "module": "dsp.v",
+    "address": 4166,
+    "target": "BRR_NEXT_ADDR[15:8]"
+  },
+  {
+    "module": "dsp.v",
+    "address": 4167,
+    "target": "BRR_ADDR[0][7:0]"
+  },
+  {
+    "module": "dsp.v",
+    "address": 4168,
+    "target": "BRR_ADDR[0][15:8]"
+  },
+  {
+    "module": "dsp.v",
+    "address": 4169,
+    "target": "BRR_ADDR[1][7:0]"
+  },
+  {
+    "module": "dsp.v",
+    "address": 4170,
+    "target": "BRR_ADDR[1][15:8]"
+  },
+  {
+    "module": "dsp.v",
+    "address": 4171,
+    "target": "BRR_ADDR[2][7:0]"
+  },
+  {
+    "module": "dsp.v",
+    "address": 4172,
+    "target": "BRR_ADDR[2][15:8]"
+  },
+  {
+    "module": "dsp.v",
+    "address": 4173,
+    "target": "BRR_ADDR[3][7:0]"
+  },
+  {
+    "module": "dsp.v",
+    "address": 4174,
+    "target": "BRR_ADDR[3][15:8]"
+  },
+  {
+    "module": "dsp.v",
+    "address": 4175,
+    "target": "BRR_ADDR[4][7:0]"
+  },
+  {
+    "module": "dsp.v",
+    "address": 4176,
+    "target": "BRR_ADDR[4][15:8]"
+  },
+  {
+    "module": "dsp.v",
+    "address": 4177,
+    "target": "BRR_ADDR[5][7:0]"
+  },
+  {
+    "module": "dsp.v",
+    "address": 4178,
+    "target": "BRR_ADDR[5][15:8]"
+  },
+  {
+    "module": "dsp.v",
+    "address": 4179,
+    "target": "BRR_ADDR[6][7:0]"
+  },
+  {
+    "module": "dsp.v",
+    "address": 4180,
+    "target": "BRR_ADDR[6][15:8]"
+  },
+  {
+    "module": "dsp.v",
+    "address": 4181,
+    "target": "BRR_ADDR[7][7:0]"
+  },
+  {
+    "module": "dsp.v",
+    "address": 4182,
+    "target": "BRR_ADDR[7][15:8]"
+  },
+  {
+    "module": "dsp.v",
+    "address": 4191,
+    "target": "TBRRDAT[7:0]"
+  },
+  {
+    "module": "dsp.v",
+    "address": 4192,
+    "target": "TBRRDAT[15:8]"
+  },
+  {
+    "module": "dsp.v",
+    "address": 4193,
+    "target": "TBRRHDR[7:0]"
+  },
+  {
+    "module": "dsp.v",
+    "address": 4194,
+    "target": "BRR_END[7:0]"
+  },
+  {
+    "module": "dsp.v",
+    "address": 4205,
+    "target": "BRR_BUF_DI[7:0]"
+  },
+  {
+    "module": "dsp.v",
+    "address": 4206,
+    "target": "BRR_BUF_DI[15:8]"
+  },
+  {
+    "module": "dsp.v",
+    "address": 4207,
+    "target": "brr_saved_a[7:0]"
+  },
+  {
+    "module": "dsp.v",
+    "address": 4208,
+    "target": "brr_saved_a[15:8]"
+  },
+  {
+    "module": "dsp.v",
+    "address": 4210,
+    "target": "brr_saved_b[7:0]"
+  },
+  {
+    "module": "dsp.v",
+    "address": 4211,
+    "target": "brr_saved_b[15:8]"
+  },
+  {
+    "module": "dsp.v",
+    "address": 4213,
+    "target": "GTBL_ADDR[7:0]"
+  },
+  {
+    "module": "dsp.v",
+    "address": 4215,
+    "target": "GTBL_DO[7:0]"
+  },
+  {
+    "module": "dsp.v",
+    "address": 4218,
+    "target": "SUM012[7:0]"
+  },
+  {
+    "module": "dsp.v",
+    "address": 4219,
+    "target": "SUM012[15:8]"
+  },
+  {
+    "module": "dsp.v",
+    "address": 4222,
+    "target": "SR[7:0]"
+  },
+  {
+    "module": "dsp.v",
+    "address": 4223,
+    "target": "SR[15:8]"
+  },
+  {
+    "module": "dsp.v",
+    "address": 4225,
+    "target": "P0[7:0]"
+  },
+  {
+    "module": "dsp.v",
+    "address": 4226,
+    "target": "P0[15:8]"
+  },
+  {
+    "module": "dsp.v",
+    "address": 4228,
+    "target": "ECHO_POS[7:0]"
+  },
+  {
+    "module": "dsp.v",
+    "address": 4230,
+    "target": "ECHO_ADDR[7:0]"
+  },
+  {
+    "module": "dsp.v",
+    "address": 4231,
+    "target": "ECHO_ADDR[15:8]"
+  },
+  {
+    "module": "dsp.v",
+    "address": 4232,
+    "target": "ECHO_BUF[0][0][7:0]"
+  },
+  {
+    "module": "dsp.v",
+    "address": 4234,
+    "target": "ECHO_BUF[0][1][7:0]"
+  },
+  {
+    "module": "dsp.v",
+    "address": 4236,
+    "target": "ECHO_BUF[0][2][7:0]"
+  },
+  {
+    "module": "dsp.v",
+    "address": 4238,
+    "target": "ECHO_BUF[0][3][7:0]"
+  },
+  {
+    "module": "dsp.v",
+    "address": 4240,
+    "target": "ECHO_BUF[0][4][7:0]"
+  },
+  {
+    "module": "dsp.v",
+    "address": 4242,
+    "target": "ECHO_BUF[0][5][7:0]"
+  },
+  {
+    "module": "dsp.v",
+    "address": 4244,
+    "target": "ECHO_BUF[0][6][7:0]"
+  },
+  {
+    "module": "dsp.v",
+    "address": 4246,
+    "target": "ECHO_BUF[0][7][7:0]"
+  },
+  {
+    "module": "dsp.v",
+    "address": 4248,
+    "target": "ECHO_BUF[1][0][7:0]"
+  },
+  {
+    "module": "dsp.v",
+    "address": 4250,
+    "target": "ECHO_BUF[1][1][7:0]"
+  },
+  {
+    "module": "dsp.v",
+    "address": 4252,
+    "target": "ECHO_BUF[1][2][7:0]"
+  },
+  {
+    "module": "dsp.v",
+    "address": 4254,
+    "target": "ECHO_BUF[1][3][7:0]"
+  },
+  {
+    "module": "dsp.v",
+    "address": 4256,
+    "target": "ECHO_BUF[1][4][7:0]"
+  },
+  {
+    "module": "dsp.v",
+    "address": 4258,
+    "target": "ECHO_BUF[1][5][7:0]"
+  },
+  {
+    "module": "dsp.v",
+    "address": 4260,
+    "target": "ECHO_BUF[1][6][7:0]"
+  },
+  {
+    "module": "dsp.v",
+    "address": 4262,
+    "target": "ECHO_BUF[1][7][7:0]"
+  },
+  {
+    "module": "dsp.v",
+    "address": 4264,
+    "target": "ECHO_LEN[7:0]"
+  },
+  {
+    "module": "dsp.v",
+    "address": 4268,
+    "target": "ECHO_FIR[0][7:0]"
+  },
+  {
+    "module": "dsp.v",
+    "address": 4269,
+    "target": "ECHO_FIR[0][15:8]"
+  },
+  {
+    "module": "dsp.v",
+    "address": 4270,
+    "target": "ECHO_FIR[1][7:0]"
+  },
+  {
+    "module": "dsp.v",
+    "address": 4271,
+    "target": "ECHO_FIR[1][15:8]"
+  },
+  {
+    "module": "dsp.v",
+    "address": 4272,
+    "target": "ECHO_FFC[0][7:0]"
+  },
+  {
+    "module": "dsp.v",
+    "address": 4273,
+    "target": "ECHO_FFC[1][7:0]"
+  },
+  {
+    "module": "dsp.v",
+    "address": 4274,
+    "target": "ECHO_FFC[2][7:0]"
+  },
+  {
+    "module": "dsp.v",
+    "address": 4275,
+    "target": "ECHO_FFC[3][7:0]"
+  },
+  {
+    "module": "dsp.v",
+    "address": 4276,
+    "target": "ECHO_FFC[4][7:0]"
+  },
+  {
+    "module": "dsp.v",
+    "address": 4277,
+    "target": "ECHO_FFC[5][7:0]"
+  },
+  {
+    "module": "dsp.v",
+    "address": 4278,
+    "target": "ECHO_FFC[6][7:0]"
+  },
+  {
+    "module": "dsp.v",
+    "address": 4279,
+    "target": "ECHO_FFC[7][7:0]"
+  },
+  {
+    "module": "dsp.v",
+    "address": 4281,
+    "target": "ECHO_FIR_TEMP[0][7:0]"
+  },
+  {
+    "module": "dsp.v",
+    "address": 4282,
+    "target": "ECHO_FIR_TEMP[0][15:8]"
+  },
+  {
+    "module": "dsp.v",
+    "address": 4283,
+    "target": "ECHO_FIR_TEMP[1][7:0]"
+  },
+  {
+    "module": "dsp.v",
+    "address": 4284,
+    "target": "ECHO_FIR_TEMP[1][15:8]"
+  },
+  {
+    "module": "dsp.v",
+    "address": 4293,
+    "target": "ENV[0][7:0]"
+  },
+  {
+    "module": "dsp.v",
+    "address": 4295,
+    "target": "ENV[1][7:0]"
+  },
+  {
+    "module": "dsp.v",
+    "address": 4297,
+    "target": "ENV[2][7:0]"
+  },
+  {
+    "module": "dsp.v",
+    "address": 4299,
+    "target": "ENV[3][7:0]"
+  },
+  {
+    "module": "dsp.v",
+    "address": 4301,
+    "target": "ENV[4][7:0]"
+  },
+  {
+    "module": "dsp.v",
+    "address": 4303,
+    "target": "ENV[5][7:0]"
+  },
+  {
+    "module": "dsp.v",
+    "address": 4305,
+    "target": "ENV[6][7:0]"
+  },
+  {
+    "module": "dsp.v",
+    "address": 4307,
+    "target": "ENV[7][7:0]"
+  },
+  {
+    "module": "dsp.v",
+    "address": 4309,
+    "target": "BENT_INC_MODE[7:0]"
+  },
+  {
+    "module": "dsp.v",
+    "address": 4310,
+    "target": "INTERP_POS[0][7:0]"
+  },
+  {
+    "module": "dsp.v",
+    "address": 4311,
+    "target": "INTERP_POS[0][15:8]"
+  },
+  {
+    "module": "dsp.v",
+    "address": 4312,
+    "target": "INTERP_POS[1][7:0]"
+  },
+  {
+    "module": "dsp.v",
+    "address": 4313,
+    "target": "INTERP_POS[1][15:8]"
+  },
+  {
+    "module": "dsp.v",
+    "address": 4314,
+    "target": "INTERP_POS[2][7:0]"
+  },
+  {
+    "module": "dsp.v",
+    "address": 4315,
+    "target": "INTERP_POS[2][15:8]"
+  },
+  {
+    "module": "dsp.v",
+    "address": 4316,
+    "target": "INTERP_POS[3][7:0]"
+  },
+  {
+    "module": "dsp.v",
+    "address": 4317,
+    "target": "INTERP_POS[3][15:8]"
+  },
+  {
+    "module": "dsp.v",
+    "address": 4318,
+    "target": "INTERP_POS[4][7:0]"
+  },
+  {
+    "module": "dsp.v",
+    "address": 4319,
+    "target": "INTERP_POS[4][15:8]"
+  },
+  {
+    "module": "dsp.v",
+    "address": 4320,
+    "target": "INTERP_POS[5][7:0]"
+  },
+  {
+    "module": "dsp.v",
+    "address": 4321,
+    "target": "INTERP_POS[5][15:8]"
+  },
+  {
+    "module": "dsp.v",
+    "address": 4322,
+    "target": "INTERP_POS[6][7:0]"
+  },
+  {
+    "module": "dsp.v",
+    "address": 4323,
+    "target": "INTERP_POS[6][15:8]"
+  },
+  {
+    "module": "dsp.v",
+    "address": 4324,
+    "target": "INTERP_POS[7][7:0]"
+  },
+  {
+    "module": "dsp.v",
+    "address": 4325,
+    "target": "INTERP_POS[7][15:8]"
+  },
+  {
+    "module": "dsp.v",
+    "address": 4326,
+    "target": "LAST_ENV[7:0]"
+  },
+  {
+    "module": "dsp.v",
+    "address": 4328,
+    "target": "GCNT_BY1[7:0]"
+  },
+  {
+    "module": "dsp.v",
+    "address": 4330,
+    "target": "GCNT_BY3[7:0]"
+  },
+  {
+    "module": "dsp.v",
+    "address": 4332,
+    "target": "GCNT_BY5[7:0]"
+  },
+  {
+    "module": "dsp.v",
+    "address": 4462,
+    "target": "SMP_DO_buf[7:0]"
+  },
+  {
+    "module": "dsp.v",
+    "address": 4463,
+    "target": "SMP_A_buf[7:0]"
+  },
+  {
+    "module": "dsp.v",
+    "address": 4464,
+    "target": "SMP_A_buf[15:8]"
+  },
+  {
+    "module": "cpu.v",
+    "address": 5641,
+    "target": "H_CNT[7:0]"
+  },
+  {
+    "module": "cpu.v",
+    "address": 5643,
+    "target": "V_CNT[7:0]"
+  },
+  {
+    "module": "cpu.v",
+    "address": 5656,
+    "target": "MDR[7:0]"
+  },
+  {
+    "module": "cpu.v",
+    "address": 5661,
+    "target": "WRMPYA[7:0]"
+  },
+  {
+    "module": "cpu.v",
+    "address": 5662,
+    "target": "WRDIVA[7:0]"
+  },
+  {
+    "module": "cpu.v",
+    "address": 5663,
+    "target": "WRDIVA[15:8]"
+  },
+  {
+    "module": "cpu.v",
+    "address": 5664,
+    "target": "HTIME[7:0]"
+  },
+  {
+    "module": "cpu.v",
+    "address": 5666,
+    "target": "VTIME[7:0]"
+  },
+  {
+    "module": "cpu.v",
+    "address": 5668,
+    "target": "MDMAEN[7:0]"
+  },
+  {
+    "module": "cpu.v",
+    "address": 5669,
+    "target": "HDMAEN[7:0]"
+  },
+  {
+    "module": "cpu.v",
+    "address": 5671,
+    "target": "RDDIV[7:0]"
+  },
+  {
+    "module": "cpu.v",
+    "address": 5672,
+    "target": "RDDIV[15:8]"
+  },
+  {
+    "module": "cpu.v",
+    "address": 5673,
+    "target": "RDMPY[7:0]"
+  },
+  {
+    "module": "cpu.v",
+    "address": 5674,
+    "target": "RDMPY[15:8]"
+  },
+  {
+    "module": "cpu.v",
+    "address": 5680,
+    "target": "MATH_TEMP[7:0]"
+  },
+  {
+    "module": "cpu.v",
+    "address": 5681,
+    "target": "MATH_TEMP[15:8]"
+  },
+  {
+    "module": "cpu.v",
+    "address": 5696,
+    "target": "DMAP[0][7:0]"
+  },
+  {
+    "module": "cpu.v",
+    "address": 5697,
+    "target": "DMAP[1][7:0]"
+  },
+  {
+    "module": "cpu.v",
+    "address": 5698,
+    "target": "DMAP[2][7:0]"
+  },
+  {
+    "module": "cpu.v",
+    "address": 5699,
+    "target": "DMAP[3][7:0]"
+  },
+  {
+    "module": "cpu.v",
+    "address": 5700,
+    "target": "DMAP[4][7:0]"
+  },
+  {
+    "module": "cpu.v",
+    "address": 5701,
+    "target": "DMAP[5][7:0]"
+  },
+  {
+    "module": "cpu.v",
+    "address": 5702,
+    "target": "DMAP[6][7:0]"
+  },
+  {
+    "module": "cpu.v",
+    "address": 5703,
+    "target": "DMAP[7][7:0]"
+  },
+  {
+    "module": "cpu.v",
+    "address": 5704,
+    "target": "BBAD[0][7:0]"
+  },
+  {
+    "module": "cpu.v",
+    "address": 5705,
+    "target": "BBAD[1][7:0]"
+  },
+  {
+    "module": "cpu.v",
+    "address": 5706,
+    "target": "BBAD[2][7:0]"
+  },
+  {
+    "module": "cpu.v",
+    "address": 5707,
+    "target": "BBAD[3][7:0]"
+  },
+  {
+    "module": "cpu.v",
+    "address": 5708,
+    "target": "BBAD[4][7:0]"
+  },
+  {
+    "module": "cpu.v",
+    "address": 5709,
+    "target": "BBAD[5][7:0]"
+  },
+  {
+    "module": "cpu.v",
+    "address": 5710,
+    "target": "BBAD[6][7:0]"
+  },
+  {
+    "module": "cpu.v",
+    "address": 5711,
+    "target": "BBAD[7][7:0]"
+  },
+  {
+    "module": "cpu.v",
+    "address": 5712,
+    "target": "A1T[0][7:0]"
+  },
+  {
+    "module": "cpu.v",
+    "address": 5713,
+    "target": "A1T[0][15:8]"
+  },
+  {
+    "module": "cpu.v",
+    "address": 5714,
+    "target": "A1T[1][7:0]"
+  },
+  {
+    "module": "cpu.v",
+    "address": 5715,
+    "target": "A1T[1][15:8]"
+  },
+  {
+    "module": "cpu.v",
+    "address": 5716,
+    "target": "A1T[2][7:0]"
+  },
+  {
+    "module": "cpu.v",
+    "address": 5717,
+    "target": "A1T[2][15:8]"
+  },
+  {
+    "module": "cpu.v",
+    "address": 5718,
+    "target": "A1T[3][7:0]"
+  },
+  {
+    "module": "cpu.v",
+    "address": 5719,
+    "target": "A1T[3][15:8]"
+  },
+  {
+    "module": "cpu.v",
+    "address": 5720,
+    "target": "A1T[4][7:0]"
+  },
+  {
+    "module": "cpu.v",
+    "address": 5721,
+    "target": "A1T[4][15:8]"
+  },
+  {
+    "module": "cpu.v",
+    "address": 5722,
+    "target": "A1T[5][7:0]"
+  },
+  {
+    "module": "cpu.v",
+    "address": 5723,
+    "target": "A1T[5][15:8]"
+  },
+  {
+    "module": "cpu.v",
+    "address": 5724,
+    "target": "A1T[6][7:0]"
+  },
+  {
+    "module": "cpu.v",
+    "address": 5725,
+    "target": "A1T[6][15:8]"
+  },
+  {
+    "module": "cpu.v",
+    "address": 5726,
+    "target": "A1T[7][7:0]"
+  },
+  {
+    "module": "cpu.v",
+    "address": 5727,
+    "target": "A1T[7][15:8]"
+  },
+  {
+    "module": "cpu.v",
+    "address": 5728,
+    "target": "A1B[0][7:0]"
+  },
+  {
+    "module": "cpu.v",
+    "address": 5729,
+    "target": "A1B[1][7:0]"
+  },
+  {
+    "module": "cpu.v",
+    "address": 5730,
+    "target": "A1B[2][7:0]"
+  },
+  {
+    "module": "cpu.v",
+    "address": 5731,
+    "target": "A1B[3][7:0]"
+  },
+  {
+    "module": "cpu.v",
+    "address": 5732,
+    "target": "A1B[4][7:0]"
+  },
+  {
+    "module": "cpu.v",
+    "address": 5733,
+    "target": "A1B[5][7:0]"
+  },
+  {
+    "module": "cpu.v",
+    "address": 5734,
+    "target": "A1B[6][7:0]"
+  },
+  {
+    "module": "cpu.v",
+    "address": 5735,
+    "target": "A1B[7][7:0]"
+  },
+  {
+    "module": "cpu.v",
+    "address": 5736,
+    "target": "DAS[0][7:0]"
+  },
+  {
+    "module": "cpu.v",
+    "address": 5737,
+    "target": "DAS[0][15:8]"
+  },
+  {
+    "module": "cpu.v",
+    "address": 5738,
+    "target": "DAS[1][7:0]"
+  },
+  {
+    "module": "cpu.v",
+    "address": 5739,
+    "target": "DAS[1][15:8]"
+  },
+  {
+    "module": "cpu.v",
+    "address": 5740,
+    "target": "DAS[2][7:0]"
+  },
+  {
+    "module": "cpu.v",
+    "address": 5741,
+    "target": "DAS[2][15:8]"
+  },
+  {
+    "module": "cpu.v",
+    "address": 5742,
+    "target": "DAS[3][7:0]"
+  },
+  {
+    "module": "cpu.v",
+    "address": 5743,
+    "target": "DAS[3][15:8]"
+  },
+  {
+    "module": "cpu.v",
+    "address": 5744,
+    "target": "DAS[4][7:0]"
+  },
+  {
+    "module": "cpu.v",
+    "address": 5745,
+    "target": "DAS[4][15:8]"
+  },
+  {
+    "module": "cpu.v",
+    "address": 5746,
+    "target": "DAS[5][7:0]"
+  },
+  {
+    "module": "cpu.v",
+    "address": 5747,
+    "target": "DAS[5][15:8]"
+  },
+  {
+    "module": "cpu.v",
+    "address": 5748,
+    "target": "DAS[6][7:0]"
+  },
+  {
+    "module": "cpu.v",
+    "address": 5749,
+    "target": "DAS[6][15:8]"
+  },
+  {
+    "module": "cpu.v",
+    "address": 5750,
+    "target": "DAS[7][7:0]"
+  },
+  {
+    "module": "cpu.v",
+    "address": 5751,
+    "target": "DAS[7][15:8]"
+  },
+  {
+    "module": "cpu.v",
+    "address": 5752,
+    "target": "DASB[0][7:0]"
+  },
+  {
+    "module": "cpu.v",
+    "address": 5753,
+    "target": "DASB[1][7:0]"
+  },
+  {
+    "module": "cpu.v",
+    "address": 5754,
+    "target": "DASB[2][7:0]"
+  },
+  {
+    "module": "cpu.v",
+    "address": 5755,
+    "target": "DASB[3][7:0]"
+  },
+  {
+    "module": "cpu.v",
+    "address": 5756,
+    "target": "DASB[4][7:0]"
+  },
+  {
+    "module": "cpu.v",
+    "address": 5757,
+    "target": "DASB[5][7:0]"
+  },
+  {
+    "module": "cpu.v",
+    "address": 5758,
+    "target": "DASB[6][7:0]"
+  },
+  {
+    "module": "cpu.v",
+    "address": 5759,
+    "target": "DASB[7][7:0]"
+  },
+  {
+    "module": "cpu.v",
+    "address": 5760,
+    "target": "A2A[0][7:0]"
+  },
+  {
+    "module": "cpu.v",
+    "address": 5761,
+    "target": "A2A[0][15:8]"
+  },
+  {
+    "module": "cpu.v",
+    "address": 5762,
+    "target": "A2A[1][7:0]"
+  },
+  {
+    "module": "cpu.v",
+    "address": 5763,
+    "target": "A2A[1][15:8]"
+  },
+  {
+    "module": "cpu.v",
+    "address": 5764,
+    "target": "A2A[2][7:0]"
+  },
+  {
+    "module": "cpu.v",
+    "address": 5765,
+    "target": "A2A[2][15:8]"
+  },
+  {
+    "module": "cpu.v",
+    "address": 5766,
+    "target": "A2A[3][7:0]"
+  },
+  {
+    "module": "cpu.v",
+    "address": 5767,
+    "target": "A2A[3][15:8]"
+  },
+  {
+    "module": "cpu.v",
+    "address": 5768,
+    "target": "A2A[4][7:0]"
+  },
+  {
+    "module": "cpu.v",
+    "address": 5769,
+    "target": "A2A[4][15:8]"
+  },
+  {
+    "module": "cpu.v",
+    "address": 5770,
+    "target": "A2A[5][7:0]"
+  },
+  {
+    "module": "cpu.v",
+    "address": 5771,
+    "target": "A2A[5][15:8]"
+  },
+  {
+    "module": "cpu.v",
+    "address": 5772,
+    "target": "A2A[6][7:0]"
+  },
+  {
+    "module": "cpu.v",
+    "address": 5773,
+    "target": "A2A[6][15:8]"
+  },
+  {
+    "module": "cpu.v",
+    "address": 5774,
+    "target": "A2A[7][7:0]"
+  },
+  {
+    "module": "cpu.v",
+    "address": 5775,
+    "target": "A2A[7][15:8]"
+  },
+  {
+    "module": "cpu.v",
+    "address": 5776,
+    "target": "NTLR[0][7:0]"
+  },
+  {
+    "module": "cpu.v",
+    "address": 5777,
+    "target": "NTLR[1][7:0]"
+  },
+  {
+    "module": "cpu.v",
+    "address": 5778,
+    "target": "NTLR[2][7:0]"
+  },
+  {
+    "module": "cpu.v",
+    "address": 5779,
+    "target": "NTLR[3][7:0]"
+  },
+  {
+    "module": "cpu.v",
+    "address": 5780,
+    "target": "NTLR[4][7:0]"
+  },
+  {
+    "module": "cpu.v",
+    "address": 5781,
+    "target": "NTLR[5][7:0]"
+  },
+  {
+    "module": "cpu.v",
+    "address": 5782,
+    "target": "NTLR[6][7:0]"
+  },
+  {
+    "module": "cpu.v",
+    "address": 5783,
+    "target": "NTLR[7][7:0]"
+  },
+  {
+    "module": "cpu.v",
+    "address": 5784,
+    "target": "UNUSED[0][7:0]"
+  },
+  {
+    "module": "cpu.v",
+    "address": 5785,
+    "target": "UNUSED[1][7:0]"
+  },
+  {
+    "module": "cpu.v",
+    "address": 5786,
+    "target": "UNUSED[2][7:0]"
+  },
+  {
+    "module": "cpu.v",
+    "address": 5787,
+    "target": "UNUSED[3][7:0]"
+  },
+  {
+    "module": "cpu.v",
+    "address": 5788,
+    "target": "UNUSED[4][7:0]"
+  },
+  {
+    "module": "cpu.v",
+    "address": 5789,
+    "target": "UNUSED[5][7:0]"
+  },
+  {
+    "module": "cpu.v",
+    "address": 5790,
+    "target": "UNUSED[6][7:0]"
+  },
+  {
+    "module": "cpu.v",
+    "address": 5791,
+    "target": "UNUSED[7][7:0]"
+  },
+  {
+    "module": "cpu.v",
+    "address": 5794,
+    "target": "HDMA_CH_WORK[7:0]"
+  },
+  {
+    "module": "cpu.v",
+    "address": 5795,
+    "target": "HDMA_CH_RUN[7:0]"
+  },
+  {
+    "module": "cpu.v",
+    "address": 5796,
+    "target": "HDMA_CH_DO[7:0]"
+  },
+  {
+    "module": "cpu.v",
+    "address": 5797,
+    "target": "HDMA_CH_EN[7:0]"
+  },
+  {
+    "module": "cpu.v",
+    "address": 5806,
+    "target": "JOY1_DATA[7:0]"
+  },
+  {
+    "module": "cpu.v",
+    "address": 5807,
+    "target": "JOY1_DATA[15:8]"
+  },
+  {
+    "module": "cpu.v",
+    "address": 5808,
+    "target": "JOY2_DATA[7:0]"
+  },
+  {
+    "module": "cpu.v",
+    "address": 5809,
+    "target": "JOY2_DATA[15:8]"
+  },
+  {
+    "module": "cpu.v",
+    "address": 5810,
+    "target": "JOY3_DATA[7:0]"
+  },
+  {
+    "module": "cpu.v",
+    "address": 5811,
+    "target": "JOY3_DATA[15:8]"
+  },
+  {
+    "module": "cpu.v",
+    "address": 5812,
+    "target": "JOY4_DATA[7:0]"
+  },
+  {
+    "module": "cpu.v",
+    "address": 5813,
+    "target": "JOY4_DATA[15:8]"
+  }
+]

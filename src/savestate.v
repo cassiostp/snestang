@@ -25,6 +25,9 @@ module savestate #(
     output reg [7:0]  ss_din,
     output reg        ss_we,
     input      [7:0]  ss_dout,
+`ifdef SS_SCAN_VERIFY
+    input      [7:0]  ss_verify_q,
+`endif
     // Retained phase-1 port shape; SNES read latches live in its register image.
     input      [7:0]  sd_douta,
     input      [7:0]  sd_doutb,
@@ -128,7 +131,7 @@ assign ss_active = (state != S_IDLE);
 // the controller while ss_block holds normal traffic; its edge detectors
 // are part of the register image.
 assign ss_edge_reset = (state == S_SETTLE) && was_load;
-wire ready = ((state == S_SAVE) && settle_cnt == 0) || (state == S_LOAD) || (state == S_HDR);
+wire ready = ((state == S_SAVE) && settle_cnt == 0 && scan_done) || (state == S_LOAD) || (state == S_HDR);
 wire [15:0] total_blocks = {5'b0, total_bytes_c[19:9]};  // total is 512-aligned by construction
 assign ss_status = {
     {5'b0, state}, VARIANT,
@@ -149,7 +152,28 @@ reg        pend_we = 0;
 // Fast-path (header/register) read completion, 1 clk after the strobe.
 reg [2:0]  fast_rdy = 0;
 reg [7:0]  fast_q = 0;
-reg        fast_sel = 0;   // 1: fast_q (header/dout), 0: ss_regs readback
+reg [1:0]  fast_sel = 0;   // 0: byte hooks, 1: header, 2: compact snapshot
+
+// Full-byte scalar slices share a circular scan path. Partial fields and
+// synchronous console RAMs retain their byte hooks. The snapshot also stages
+// incoming bytes, so the wire interface still accepts one byte every clock.
+`include "ss_scan_map.vh"
+localparam [1:0] SC_WAIT = 0, SC_EMIT = 1, SC_SHIFT = 2, SC_NEXT = 3;
+reg scan_busy = 0, scan_done = 0, scan_load = 0;
+reg [1:0] scan_phase = SC_WAIT;
+reg [8:0] scan_index = 0, snapshot_raddr = 0;
+reg [7:0] snapshot_q;
+reg [7:0] snapshot [0:511] /* synthesis syn_ramstyle = "block_ram" */;
+reg reg_wr_pending = 0, reg_wr_range = 0, reg_rd_range = 0;
+reg [12:0] reg_wr_addr = 0;
+reg [7:0] reg_wr_data = 0;
+wire snapshot_load_we = reg_wr_pending && reg_wr_range && scan_map_q != 0;
+wire snapshot_save_we = scan_busy && !scan_load && scan_phase == SC_SHIFT;
+always @(posedge clk) begin
+    if (snapshot_save_we) snapshot[scan_index] <= ss_dout;
+    else if (snapshot_load_we) snapshot[scan_map_q - 9'd1] <= reg_wr_data;
+    snapshot_q <= snapshot[scan_busy ? scan_index : snapshot_raddr];
+end
 
 // Address translation for a byte in a memory section.
 function [24:0] mem_translate(input [19:0] a);
@@ -188,6 +212,17 @@ always @(posedge clk) begin
         resync <= 0;
         rd_lat <= 0;
         fast_rdy <= 0;
+        scan_busy <= 0;
+        scan_done <= 0;
+        scan_load <= 0;
+        scan_phase <= SC_WAIT;
+        scan_index <= 0;
+        snapshot_raddr <= 0;
+        reg_wr_pending <= 0;
+        reg_wr_range <= 0;
+        reg_rd_range <= 0;
+        reg_wr_addr <= 0;
+        reg_wr_data <= 0;
         wdog <= 0;
         wait_cnt <= 0;
         settle_cnt <= 0;
@@ -198,6 +233,7 @@ always @(posedge clk) begin
         ss_we <= 0;
         sd_ld_we <= 0;
         ss_loaded <= 0;
+        reg_wr_pending <= 0;
         ack_s <= {ack_s[0], mem_ack};
 
         // ---------- control ----------
@@ -214,6 +250,7 @@ always @(posedge clk) begin
                 end else begin
                     err <= 0;
                     was_load <= 0;
+                    scan_done <= 0;
                     cart_bytes <= cart_bytes_c;
                     chr_bytes <= chr_bytes_c;
                     total_bytes <= total_bytes_c;
@@ -227,6 +264,7 @@ always @(posedge clk) begin
                 end else begin
                     err <= 0;
                     was_load <= 1;
+                    scan_done <= 0;
                     hdr_ok <= 0;
                     hdr_done <= 0;
                     chk_magic <= 1;
@@ -244,8 +282,10 @@ always @(posedge clk) begin
                 state <= S_SETTLE;
             end
             OP_ABORT: begin
-                state <= S_IDLE;
-                ss_freeze <= 0;
+                // A save scan must finish its rotation before release.
+                state <= scan_busy ? S_SETTLE : S_IDLE;
+                ss_freeze <= scan_busy;
+                settle_cnt <= 0;
                 ss_reset <= 0;
                 img_rdy <= 0;
                 fast_rdy <= 0;
@@ -261,8 +301,9 @@ always @(posedge clk) begin
             endcase
         end else if (state != S_IDLE && &wdog) begin
             // Link went silent mid-transfer: unfreeze rather than wedge.
-            state <= S_IDLE;
-            ss_freeze <= 0;
+            state <= scan_busy ? S_SETTLE : S_IDLE;
+            ss_freeze <= scan_busy;
+            settle_cnt <= 0;
             ss_reset <= 0;
             img_rdy <= 0;
             fast_rdy <= 0;
@@ -319,15 +360,30 @@ always @(posedge clk) begin
             // clkref, the NES dividers are restored, so resuming at a
             // canonical parity makes the loaded run's memory timing match
             // the saved run's post-save timing cycle for cycle.
-            if (settle_cnt == 7'd0 && clkref == 1'b0) begin
+            if (settle_cnt == 7'd0 && !scan_busy &&
+                (!was_load || scan_done) && clkref == 1'b0) begin
                 ss_freeze <= 0;
                 if (was_load) ss_loaded <= 1;
                 state <= S_IDLE;
             end else if (settle_cnt != 7'd0)
                 settle_cnt <= settle_cnt - 1'd1;
         end
+
         default: ;
         endcase
+        end
+
+        // One cycle of lookup latency classifies each incoming register byte.
+        // A following byte may arrive immediately; the data/address pipeline
+        // and synchronous map each advance once per clock.
+        if (reg_wr_pending && state == S_LOAD &&
+            !(op_stb && op == OP_ABORT)) begin
+            if (!snapshot_load_we &&
+                !(reg_wr_addr >= 13'h1bf0 && reg_wr_addr <= 13'h1bf5)) begin
+                ss_a <= reg_wr_addr;
+                ss_din <= reg_wr_data;
+                ss_we <= 1;
+            end
         end
 
         // ---------- image writes (load direction) ----------
@@ -371,9 +427,10 @@ always @(posedge clk) begin
                 end
             end else if (state == S_LOAD) begin
                 if (img_waddr < sec_reg_end) begin
-                    ss_a <= (img_waddr - 20'd512);
-                    ss_din <= img_wdin;
-                    ss_we <= 1;
+                    reg_wr_pending <= 1;
+                    reg_wr_addr <= img_waddr - 20'd512;
+                    reg_wr_data <= img_wdin;
+                    reg_wr_range <= scan_range(img_waddr - 20'd512);
                 end else begin
                     wr_pend <= 1;
                     pend_addr <= mem_translate(img_waddr);
@@ -394,7 +451,7 @@ always @(posedge clk) begin
             resync <= 1;
             mem_req <= ~mem_req;
         end else begin
-            if (img_rd_stb && state == S_SAVE) begin
+            if (img_rd_stb && state == S_SAVE && scan_done) begin
                 if (img_raddr < 20'd512) begin
                     fast_q <= hdr_byte(img_raddr[8:0]);
                     fast_rdy <= 3'd3;
@@ -403,15 +460,20 @@ always @(posedge clk) begin
                     ss_a <= (img_raddr - 20'd512);
                     fast_rdy <= 3'd3;      // ss_dout valid combinationally next clk
                     fast_sel <= 0;
+                    reg_rd_range <= scan_range(img_raddr - 20'd512);
                 end else begin
                     rd_pend <= 1;
                     pend_addr <= mem_translate(img_raddr);
                     pend_we <= 0;
                 end
             end
+            if (fast_rdy == 3 && fast_sel == 0 && reg_rd_range && scan_map_q != 0) begin
+                snapshot_raddr <= scan_map_q - 9'd1;
+                fast_sel <= 2;
+            end
             if (fast_rdy > 1) fast_rdy <= fast_rdy - 1'd1;
             if (fast_rdy == 1 && !img_taken) begin
-                img_q <= fast_sel ? fast_q : ss_dout;
+                img_q <= fast_sel == 2 ? snapshot_q : fast_sel == 1 ? fast_q : ss_dout;
                 img_rdy <= 1;
                 fast_rdy <= 0;
             end
@@ -421,6 +483,42 @@ always @(posedge clk) begin
                 img_rdy <= 0;
                 rd_out <= 0;
             end
+        end
+
+        // Drain before capture, and drain the final byte writes before load
+        // commit. Each chain uses its existing clock and exactly one complete
+        // rotation. End/abort cannot expose a partly rotated running machine.
+        if (!scan_busy && !scan_done &&
+            !(op_stb && (op == OP_ABORT || op == OP_END)) &&
+            ((state == S_SAVE && settle_cnt == 1) ||
+             (state == S_SETTLE && was_load && settle_cnt == 61))) begin
+            scan_busy <= 1;
+            scan_load <= was_load;
+            scan_index <= 0;
+            scan_phase <= SC_WAIT;
+            ss_a <= scan_command(0, was_load);
+        end
+        if (scan_busy) begin
+            case (scan_phase)
+            SC_WAIT: scan_phase <= SC_EMIT;
+            SC_EMIT: begin
+                ss_din <= snapshot_q;
+                ss_we <= 1;
+                scan_phase <= SC_SHIFT;
+            end
+            SC_SHIFT: scan_phase <= SC_NEXT;
+            SC_NEXT: begin
+                if (scan_index == SCAN_LAST) begin
+                    scan_busy <= 0;
+                    scan_done <= 1;
+                    if (state == S_SETTLE) settle_cnt <= 64;
+                end else begin
+                    scan_index <= scan_index + 1'd1;
+                    ss_a <= scan_command(scan_index + 1'd1, scan_load);
+                    scan_phase <= SC_WAIT;
+                end
+            end
+            endcase
         end
 
         // ---------- SDRAM engine ----------
@@ -453,4 +551,13 @@ always @(posedge clk) begin
     end
 end
 
+`ifdef SS_SCAN_VERIFY
+// Independent oracle: the original sparse read expressions, after the
+// circular save scan has restored every live register byte.
+always @(posedge clk) begin
+    if (state == S_SAVE && scan_done && img_rdy && fast_sel == 2 &&
+        img_q !== ss_verify_q)
+        $fatal(1, "sparse image changed at %h: %h != %h", ss_a, img_q, ss_verify_q);
+end
+`endif
 endmodule
