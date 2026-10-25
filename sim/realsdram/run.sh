@@ -76,11 +76,11 @@ do_build() {
     grep -q "localparam SIZE = $MAXS;" "$B/obj/test_loader.v"
     R=$src
     echo "Verilator model threads: $THREADS"
-    verilator -DSNES_SAVESTATE --threads "$THREADS" --top-module snes_realsdram_top --cc --exe \
+    verilator -DSNES_SAVESTATE ${SS_SCAN_VERIFY:+-DSS_SCAN_VERIFY} --threads "$THREADS" --top-module snes_realsdram_top --cc --exe \
       -CFLAGS "-O2 -DTANGCORE_SIM_THREADS=$THREADS" \
       -Wno-PINMISSING -Wno-IMPLICIT -Wno-WIDTHEXPAND -Wno-WIDTHTRUNC \
       -Wno-CASEINCOMPLETE -Wno-CASEOVERLAP -Wno-UNDRIVEN \
-      -I"$R/src" -I"$R/src/spc700" -I"$R/src/65C816" \
+      -I"$R/src" -I"$R/src/spc700" -I"$R/src/65C816" -I"$R/sim/savestate" \
       --Mdir "$B/obj/obj" --prefix Vsnestang_smoke \
       -o Vsnestang_smoke \
       "$B/gen/config_gsu.v" \

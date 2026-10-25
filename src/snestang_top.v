@@ -1126,6 +1126,9 @@ savestate #(
     .ss_freeze(ss_freeze), .ss_reset(ss_reset), .ss_loaded(ss_loaded),
     .ss_edge_reset(ss_edge_reset), .ss_active(ss_active),
     .ss_a(ss_a), .ss_din(ss_d), .ss_we(ss_we), .ss_dout(ss_regs_q | ss_sd_regs_q | ss_vr_regs_q | ss_top_q),
+`ifdef SS_SCAN_VERIFY
+    .ss_verify_q(main.SNES.CPU.ss_legacy_q | main.SNES.PPU.ss_legacy_q | main.SNES.dsp.ss_legacy_q),
+`endif
     .sd_douta(8'b0), .sd_doutb(8'b0), .sd_ld_we(), .sd_ld_douta(), .sd_ld_doutb(),
     .mem_addr(ss_mem_addr), .mem_din(ss_mem_din), .mem_we(ss_mem_we), .mem_req(ss_mem_req),
     .mem_ack(ss_mem_ack), .mem_q(ss_mem_q),

@@ -42,9 +42,9 @@ initial begin
  control(4);if(active||freeze||reset)$fatal(1,"abort failed");
  control(1);point=1;repeat(40)tick;
  if(dut.state!=2||!freeze)$fatal(1,"supported save failed");
- control(3);repeat(80)tick;
+ control(3);repeat(2500)tick;
  if(active||freeze||reset)$fatal(1,"end did not resume");
  $display("PASS: unsupported save/load, capture-abort race, foreign header before reset, save/end");$finish;
 end
-initial begin #100000;$fatal(1,"timeout");end
+initial begin #1000000;$fatal(1,"timeout");end
 endmodule

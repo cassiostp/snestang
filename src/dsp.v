@@ -293,7 +293,8 @@ always @(posedge CLK) begin
         ss_ram_saved <= 1;
     end
     if (!ss_hold) ss_ram_saved <= 0;
-    if (ss_we && ss_a == 13'h1006) regram_saved <= ss_d;
+    if (ss_we && (ss_a == 13'h1bf2 || ss_a == 13'h1bf3))
+        regram_saved <= WKON[7:0];
 end
 `else
 // Dual-port BRAM for registers (128 bytes)
@@ -313,8 +314,10 @@ always @(posedge CLK) begin
 `ifdef SNES_SAVESTATE
     if (ss_we) begin
       case (ss_a)
-        13'h1005: RI[7:0] <= ss_d;
         default: ;
+              13'h1bf2, 13'h1bf3: begin
+          RI[7:0] <= regram_saved;
+        end
       endcase
     end else if (!ss_hold || !RST_N) begin
 `endif
@@ -373,11 +376,13 @@ always @(posedge CLK) begin
 `ifdef SNES_SAVESTATE
     if (ss_we) begin
       case (ss_a)
-        13'h116e: SMP_DO_buf[7:0] <= ss_d;
-        13'h116f: SMP_A_buf[7:0] <= ss_d;
-        13'h1170: SMP_A_buf[15:8] <= ss_d;
         13'h1171: SMP_WE_N_buf <= ss_d[0:0];
         default: ;
+              13'h1bf2, 13'h1bf3: begin
+          SMP_DO_buf[7:0] <= SMP_A_buf[7:0];
+          SMP_A_buf[7:0] <= SMP_A_buf[15:8];
+          SMP_A_buf[15:8] <= (ss_a[0] ? ss_d : RI[7:0]);
+        end
       endcase
     end else if (!ss_hold || !RST_N) begin
 `endif
@@ -516,45 +521,47 @@ always @(posedge CLK) begin : ram_process
 `ifdef SNES_SAVESTATE
     if (ss_we) begin
       case (ss_a)
-        13'h1045: BRR_NEXT_ADDR[7:0] <= ss_d;
-        13'h1046: BRR_NEXT_ADDR[15:8] <= ss_d;
-        13'h105f: TBRRDAT[7:0] <= ss_d;
-        13'h1060: TBRRDAT[15:8] <= ss_d;
-        13'h1061: TBRRHDR[7:0] <= ss_d;
-        13'h1088: ECHO_BUF[0][0][7:0] <= ss_d;
         13'h1089: ECHO_BUF[0][0][14:8] <= ss_d[6:0];
-        13'h108a: ECHO_BUF[0][1][7:0] <= ss_d;
         13'h108b: ECHO_BUF[0][1][14:8] <= ss_d[6:0];
-        13'h108c: ECHO_BUF[0][2][7:0] <= ss_d;
         13'h108d: ECHO_BUF[0][2][14:8] <= ss_d[6:0];
-        13'h108e: ECHO_BUF[0][3][7:0] <= ss_d;
         13'h108f: ECHO_BUF[0][3][14:8] <= ss_d[6:0];
-        13'h1090: ECHO_BUF[0][4][7:0] <= ss_d;
         13'h1091: ECHO_BUF[0][4][14:8] <= ss_d[6:0];
-        13'h1092: ECHO_BUF[0][5][7:0] <= ss_d;
         13'h1093: ECHO_BUF[0][5][14:8] <= ss_d[6:0];
-        13'h1094: ECHO_BUF[0][6][7:0] <= ss_d;
         13'h1095: ECHO_BUF[0][6][14:8] <= ss_d[6:0];
-        13'h1096: ECHO_BUF[0][7][7:0] <= ss_d;
         13'h1097: ECHO_BUF[0][7][14:8] <= ss_d[6:0];
-        13'h1098: ECHO_BUF[1][0][7:0] <= ss_d;
         13'h1099: ECHO_BUF[1][0][14:8] <= ss_d[6:0];
-        13'h109a: ECHO_BUF[1][1][7:0] <= ss_d;
         13'h109b: ECHO_BUF[1][1][14:8] <= ss_d[6:0];
-        13'h109c: ECHO_BUF[1][2][7:0] <= ss_d;
         13'h109d: ECHO_BUF[1][2][14:8] <= ss_d[6:0];
-        13'h109e: ECHO_BUF[1][3][7:0] <= ss_d;
         13'h109f: ECHO_BUF[1][3][14:8] <= ss_d[6:0];
-        13'h10a0: ECHO_BUF[1][4][7:0] <= ss_d;
         13'h10a1: ECHO_BUF[1][4][14:8] <= ss_d[6:0];
-        13'h10a2: ECHO_BUF[1][5][7:0] <= ss_d;
         13'h10a3: ECHO_BUF[1][5][14:8] <= ss_d[6:0];
-        13'h10a4: ECHO_BUF[1][6][7:0] <= ss_d;
         13'h10a5: ECHO_BUF[1][6][14:8] <= ss_d[6:0];
-        13'h10a6: ECHO_BUF[1][7][7:0] <= ss_d;
         13'h10a7: ECHO_BUF[1][7][14:8] <= ss_d[6:0];
         13'h10aa: ECHO_DATA_TEMP[6:0] <= ss_d[6:0];
         default: ;
+              13'h1bf2, 13'h1bf3: begin
+          BRR_NEXT_ADDR[7:0] <= BRR_NEXT_ADDR[15:8];
+          BRR_NEXT_ADDR[15:8] <= BRR_ADDR[0][7:0];
+          TBRRDAT[7:0] <= TBRRDAT[15:8];
+          TBRRDAT[15:8] <= TBRRHDR[7:0];
+          TBRRHDR[7:0] <= BRR_END[7:0];
+          ECHO_BUF[0][0][7:0] <= ECHO_BUF[0][1][7:0];
+          ECHO_BUF[0][1][7:0] <= ECHO_BUF[0][2][7:0];
+          ECHO_BUF[0][2][7:0] <= ECHO_BUF[0][3][7:0];
+          ECHO_BUF[0][3][7:0] <= ECHO_BUF[0][4][7:0];
+          ECHO_BUF[0][4][7:0] <= ECHO_BUF[0][5][7:0];
+          ECHO_BUF[0][5][7:0] <= ECHO_BUF[0][6][7:0];
+          ECHO_BUF[0][6][7:0] <= ECHO_BUF[0][7][7:0];
+          ECHO_BUF[0][7][7:0] <= ECHO_BUF[1][0][7:0];
+          ECHO_BUF[1][0][7:0] <= ECHO_BUF[1][1][7:0];
+          ECHO_BUF[1][1][7:0] <= ECHO_BUF[1][2][7:0];
+          ECHO_BUF[1][2][7:0] <= ECHO_BUF[1][3][7:0];
+          ECHO_BUF[1][3][7:0] <= ECHO_BUF[1][4][7:0];
+          ECHO_BUF[1][4][7:0] <= ECHO_BUF[1][5][7:0];
+          ECHO_BUF[1][5][7:0] <= ECHO_BUF[1][6][7:0];
+          ECHO_BUF[1][6][7:0] <= ECHO_BUF[1][7][7:0];
+          ECHO_BUF[1][7][7:0] <= ECHO_LEN[7:0];
+        end
       endcase
     end else if (!ss_hold || !RST_N) begin
 `endif
@@ -648,12 +655,14 @@ always @(posedge CLK) begin
     end
     if (ss_we && ss_brr_sel && !ss_brr_offset[0]) ss_brr_low <= ss_d;
     if (ss_we) case (ss_a)
-    13'h106f: brr_saved_a[7:0] <= ss_d;
-    13'h1070: brr_saved_a[15:8] <= ss_d;
-    13'h1072: brr_saved_b[7:0] <= ss_d;
-    13'h1073: brr_saved_b[15:8] <= ss_d;
     default: ;
-    endcase
+            13'h1bf2, 13'h1bf3: begin
+          brr_saved_a[7:0] <= brr_saved_a[15:8];
+          brr_saved_a[15:8] <= brr_saved_b[7:0];
+          brr_saved_b[7:0] <= brr_saved_b[15:8];
+          brr_saved_b[15:8] <= GTBL_ADDR[7:0];
+        end
+      endcase
 end
 `else
 reg signed [15:0] BRR_BUF [128];     // [0:7][0:11]
@@ -691,16 +700,18 @@ always @(posedge CLK) begin : brr_decode
         13'h106a: BRR_BUF_ADDR[7][3:0] <= ss_d[3:0];
         13'h106b: BRR_BUF_ADDR_A[6:0] <= ss_d[6:0];
         13'h106c: BRR_BUF_WE <= ss_d[0:0];
-        13'h106d: BRR_BUF_DI[7:0] <= ss_d;
-        13'h106e: BRR_BUF_DI[15:8] <= ss_d;
         13'h107d: BD_STATE[1:0] <= ss_d[1:0];
-        13'h107e: SR[7:0] <= ss_d;
-        13'h107f: SR[15:8] <= ss_d;
         13'h1080: BD_VOICE[2:0] <= ss_d[2:0];
-        13'h1081: P0[7:0] <= ss_d;
-        13'h1082: P0[15:8] <= ss_d;
         13'h1083: P0[16:16] <= ss_d[0:0];
         default: ;
+              13'h1bf2, 13'h1bf3: begin
+          BRR_BUF_DI[7:0] <= BRR_BUF_DI[15:8];
+          BRR_BUF_DI[15:8] <= brr_saved_a[7:0];
+          SR[7:0] <= SR[15:8];
+          SR[15:8] <= P0[7:0];
+          P0[7:0] <= P0[15:8];
+          P0[15:8] <= ECHO_POS[7:0];
+        end
       endcase
     end else if (!ss_hold || !RST_N) begin
 `endif
@@ -829,9 +840,6 @@ always @(posedge CLK) begin : main_process
         13'h1009: RST_FLG <= ss_d[0:0];
         13'h100a: MUTE_FLG <= ss_d[0:0];
         13'h100b: ECEN_FLG <= ss_d[0:0];
-        13'h100c: WKON[7:0] <= ss_d;
-        13'h100d: TKON[7:0] <= ss_d;
-        13'h100e: TKOFF[7:0] <= ss_d;
         13'h100f: KON_CNT[0][2:0] <= ss_d[2:0];
         13'h1010: KON_CNT[1][2:0] <= ss_d[2:0];
         13'h1011: KON_CNT[2][2:0] <= ss_d[2:0];
@@ -840,64 +848,10 @@ always @(posedge CLK) begin : main_process
         13'h1014: KON_CNT[5][2:0] <= ss_d[2:0];
         13'h1015: KON_CNT[6][2:0] <= ss_d[2:0];
         13'h1016: KON_CNT[7][2:0] <= ss_d[2:0];
-        13'h1017: TSRCN[7:0] <= ss_d;
-        13'h1018: TDIR[7:0] <= ss_d;
-        13'h1019: TPITCH[7:0] <= ss_d;
         13'h101a: TPITCH[14:8] <= ss_d[6:0];
-        13'h101b: TADSR1[7:0] <= ss_d;
-        13'h101c: TADSR2[7:0] <= ss_d;
-        13'h101d: TNON[7:0] <= ss_d;
-        13'h101e: TESA[7:0] <= ss_d;
-        13'h101f: TEON[7:0] <= ss_d;
-        13'h1020: TPMON[7:0] <= ss_d;
-        13'h1021: ENDX[7:0] <= ss_d;
-        13'h1022: ENDX_BUF[7:0] <= ss_d;
-        13'h1023: OUTX_OUT[7:0] <= ss_d;
-        13'h1024: ENVX_OUT[7:0] <= ss_d;
-        13'h1025: TENVX[0][7:0] <= ss_d;
-        13'h1026: TENVX[1][7:0] <= ss_d;
-        13'h1027: TENVX[2][7:0] <= ss_d;
-        13'h1028: TENVX[3][7:0] <= ss_d;
-        13'h1029: TENVX[4][7:0] <= ss_d;
-        13'h102a: TENVX[5][7:0] <= ss_d;
-        13'h102b: TENVX[6][7:0] <= ss_d;
-        13'h102c: TENVX[7][7:0] <= ss_d;
         13'h102d: EVEN_SAMPLE <= ss_d[0:0];
         13'h102e: BRR_DECODE_EN <= ss_d[0:0];
-        13'h102f: TOUT[7:0] <= ss_d;
-        13'h1030: TOUT[15:8] <= ss_d;
-        13'h1031: NOISE[7:0] <= ss_d;
         13'h1032: NOISE[14:8] <= ss_d[6:0];
-        13'h1033: OUTL[7:0] <= ss_d;
-        13'h1034: OUTL[15:8] <= ss_d;
-        13'h1035: OUTR[7:0] <= ss_d;
-        13'h1036: OUTR[15:8] <= ss_d;
-        13'h103b: MOUT[0][7:0] <= ss_d;
-        13'h103c: MOUT[0][15:8] <= ss_d;
-        13'h103d: MOUT[1][7:0] <= ss_d;
-        13'h103e: MOUT[1][15:8] <= ss_d;
-        13'h103f: EOUT[0][7:0] <= ss_d;
-        13'h1040: EOUT[0][15:8] <= ss_d;
-        13'h1041: EOUT[1][7:0] <= ss_d;
-        13'h1042: EOUT[1][15:8] <= ss_d;
-        13'h1043: TDIR_ADDR[7:0] <= ss_d;
-        13'h1044: TDIR_ADDR[15:8] <= ss_d;
-        13'h1047: BRR_ADDR[0][7:0] <= ss_d;
-        13'h1048: BRR_ADDR[0][15:8] <= ss_d;
-        13'h1049: BRR_ADDR[1][7:0] <= ss_d;
-        13'h104a: BRR_ADDR[1][15:8] <= ss_d;
-        13'h104b: BRR_ADDR[2][7:0] <= ss_d;
-        13'h104c: BRR_ADDR[2][15:8] <= ss_d;
-        13'h104d: BRR_ADDR[3][7:0] <= ss_d;
-        13'h104e: BRR_ADDR[3][15:8] <= ss_d;
-        13'h104f: BRR_ADDR[4][7:0] <= ss_d;
-        13'h1050: BRR_ADDR[4][15:8] <= ss_d;
-        13'h1051: BRR_ADDR[5][7:0] <= ss_d;
-        13'h1052: BRR_ADDR[5][15:8] <= ss_d;
-        13'h1053: BRR_ADDR[6][7:0] <= ss_d;
-        13'h1054: BRR_ADDR[6][15:8] <= ss_d;
-        13'h1055: BRR_ADDR[7][7:0] <= ss_d;
-        13'h1056: BRR_ADDR[7][15:8] <= ss_d;
         13'h1057: BRR_OFFS[0][2:0] <= ss_d[2:0];
         13'h1058: BRR_OFFS[1][2:0] <= ss_d[2:0];
         13'h1059: BRR_OFFS[2][2:0] <= ss_d[2:0];
@@ -906,41 +860,16 @@ always @(posedge CLK) begin : main_process
         13'h105c: BRR_OFFS[5][2:0] <= ss_d[2:0];
         13'h105d: BRR_OFFS[6][2:0] <= ss_d[2:0];
         13'h105e: BRR_OFFS[7][2:0] <= ss_d[2:0];
-        13'h1062: BRR_END[7:0] <= ss_d;
         13'h1071: BRR_BUF_ADDR_B[6:0] <= ss_d[6:0];
         13'h1074: GS_STATE[2:0] <= ss_d[2:0];
-        13'h1075: GTBL_ADDR[7:0] <= ss_d;
         13'h1076: GTBL_ADDR[8:8] <= ss_d[0:0];
-        13'h1077: GTBL_DO[7:0] <= ss_d;
         13'h1078: GTBL_DO[11:8] <= ss_d[3:0];
         13'h1079: G_VOICE[2:0] <= ss_d[2:0];
-        13'h107a: SUM012[7:0] <= ss_d;
-        13'h107b: SUM012[15:8] <= ss_d;
         13'h107c: SUM012[16:16] <= ss_d[0:0];
-        13'h1084: ECHO_POS[7:0] <= ss_d;
         13'h1085: ECHO_POS[14:8] <= ss_d[6:0];
-        13'h1086: ECHO_ADDR[7:0] <= ss_d;
-        13'h1087: ECHO_ADDR[15:8] <= ss_d;
-        13'h10a8: ECHO_LEN[7:0] <= ss_d;
         13'h10a9: ECHO_LEN[14:8] <= ss_d[6:0];
         13'h10ab: ECHO_WR_EN <= ss_d[0:0];
-        13'h10ac: ECHO_FIR[0][7:0] <= ss_d;
-        13'h10ad: ECHO_FIR[0][15:8] <= ss_d;
-        13'h10ae: ECHO_FIR[1][7:0] <= ss_d;
-        13'h10af: ECHO_FIR[1][15:8] <= ss_d;
-        13'h10b0: ECHO_FFC[0][7:0] <= ss_d;
-        13'h10b1: ECHO_FFC[1][7:0] <= ss_d;
-        13'h10b2: ECHO_FFC[2][7:0] <= ss_d;
-        13'h10b3: ECHO_FFC[3][7:0] <= ss_d;
-        13'h10b4: ECHO_FFC[4][7:0] <= ss_d;
-        13'h10b5: ECHO_FFC[5][7:0] <= ss_d;
-        13'h10b6: ECHO_FFC[6][7:0] <= ss_d;
-        13'h10b7: ECHO_FFC[7][7:0] <= ss_d;
         13'h10b8: FFC_CNT[2:0] <= ss_d[2:0];
-        13'h10b9: ECHO_FIR_TEMP[0][7:0] <= ss_d;
-        13'h10ba: ECHO_FIR_TEMP[0][15:8] <= ss_d;
-        13'h10bb: ECHO_FIR_TEMP[1][7:0] <= ss_d;
-        13'h10bc: ECHO_FIR_TEMP[1][15:8] <= ss_d;
         13'h10bd: ENV_MODE[0][1:0] <= ss_d[1:0];
         13'h10be: ENV_MODE[1][1:0] <= ss_d[1:0];
         13'h10bf: ENV_MODE[2][1:0] <= ss_d[1:0];
@@ -949,42 +878,126 @@ always @(posedge CLK) begin : main_process
         13'h10c2: ENV_MODE[5][1:0] <= ss_d[1:0];
         13'h10c3: ENV_MODE[6][1:0] <= ss_d[1:0];
         13'h10c4: ENV_MODE[7][1:0] <= ss_d[1:0];
-        13'h10c5: ENV[0][7:0] <= ss_d;
         13'h10c6: ENV[0][11:8] <= ss_d[3:0];
-        13'h10c7: ENV[1][7:0] <= ss_d;
         13'h10c8: ENV[1][11:8] <= ss_d[3:0];
-        13'h10c9: ENV[2][7:0] <= ss_d;
         13'h10ca: ENV[2][11:8] <= ss_d[3:0];
-        13'h10cb: ENV[3][7:0] <= ss_d;
         13'h10cc: ENV[3][11:8] <= ss_d[3:0];
-        13'h10cd: ENV[4][7:0] <= ss_d;
         13'h10ce: ENV[4][11:8] <= ss_d[3:0];
-        13'h10cf: ENV[5][7:0] <= ss_d;
         13'h10d0: ENV[5][11:8] <= ss_d[3:0];
-        13'h10d1: ENV[6][7:0] <= ss_d;
         13'h10d2: ENV[6][11:8] <= ss_d[3:0];
-        13'h10d3: ENV[7][7:0] <= ss_d;
         13'h10d4: ENV[7][11:8] <= ss_d[3:0];
-        13'h10d5: BENT_INC_MODE[7:0] <= ss_d;
-        13'h10d6: INTERP_POS[0][7:0] <= ss_d;
-        13'h10d7: INTERP_POS[0][15:8] <= ss_d;
-        13'h10d8: INTERP_POS[1][7:0] <= ss_d;
-        13'h10d9: INTERP_POS[1][15:8] <= ss_d;
-        13'h10da: INTERP_POS[2][7:0] <= ss_d;
-        13'h10db: INTERP_POS[2][15:8] <= ss_d;
-        13'h10dc: INTERP_POS[3][7:0] <= ss_d;
-        13'h10dd: INTERP_POS[3][15:8] <= ss_d;
-        13'h10de: INTERP_POS[4][7:0] <= ss_d;
-        13'h10df: INTERP_POS[4][15:8] <= ss_d;
-        13'h10e0: INTERP_POS[5][7:0] <= ss_d;
-        13'h10e1: INTERP_POS[5][15:8] <= ss_d;
-        13'h10e2: INTERP_POS[6][7:0] <= ss_d;
-        13'h10e3: INTERP_POS[6][15:8] <= ss_d;
-        13'h10e4: INTERP_POS[7][7:0] <= ss_d;
-        13'h10e5: INTERP_POS[7][15:8] <= ss_d;
-        13'h10e6: LAST_ENV[7:0] <= ss_d;
         13'h10e7: LAST_ENV[11:8] <= ss_d[3:0];
         default: ;
+              13'h1bf2, 13'h1bf3: begin
+          WKON[7:0] <= TKON[7:0];
+          TKON[7:0] <= TKOFF[7:0];
+          TKOFF[7:0] <= TSRCN[7:0];
+          TSRCN[7:0] <= TDIR[7:0];
+          TDIR[7:0] <= TPITCH[7:0];
+          TPITCH[7:0] <= TADSR1[7:0];
+          TADSR1[7:0] <= TADSR2[7:0];
+          TADSR2[7:0] <= TNON[7:0];
+          TNON[7:0] <= TESA[7:0];
+          TESA[7:0] <= TEON[7:0];
+          TEON[7:0] <= TPMON[7:0];
+          TPMON[7:0] <= ENDX[7:0];
+          ENDX[7:0] <= ENDX_BUF[7:0];
+          ENDX_BUF[7:0] <= OUTX_OUT[7:0];
+          OUTX_OUT[7:0] <= ENVX_OUT[7:0];
+          ENVX_OUT[7:0] <= TENVX[0][7:0];
+          TENVX[0][7:0] <= TENVX[1][7:0];
+          TENVX[1][7:0] <= TENVX[2][7:0];
+          TENVX[2][7:0] <= TENVX[3][7:0];
+          TENVX[3][7:0] <= TENVX[4][7:0];
+          TENVX[4][7:0] <= TENVX[5][7:0];
+          TENVX[5][7:0] <= TENVX[6][7:0];
+          TENVX[6][7:0] <= TENVX[7][7:0];
+          TENVX[7][7:0] <= TOUT[7:0];
+          TOUT[7:0] <= TOUT[15:8];
+          TOUT[15:8] <= NOISE[7:0];
+          NOISE[7:0] <= OUTL[7:0];
+          OUTL[7:0] <= OUTL[15:8];
+          OUTL[15:8] <= OUTR[7:0];
+          OUTR[7:0] <= OUTR[15:8];
+          OUTR[15:8] <= OUTPUT[7:0];
+          MOUT[0][7:0] <= MOUT[0][15:8];
+          MOUT[0][15:8] <= MOUT[1][7:0];
+          MOUT[1][7:0] <= MOUT[1][15:8];
+          MOUT[1][15:8] <= EOUT[0][7:0];
+          EOUT[0][7:0] <= EOUT[0][15:8];
+          EOUT[0][15:8] <= EOUT[1][7:0];
+          EOUT[1][7:0] <= EOUT[1][15:8];
+          EOUT[1][15:8] <= TDIR_ADDR[7:0];
+          TDIR_ADDR[7:0] <= TDIR_ADDR[15:8];
+          TDIR_ADDR[15:8] <= BRR_NEXT_ADDR[7:0];
+          BRR_ADDR[0][7:0] <= BRR_ADDR[0][15:8];
+          BRR_ADDR[0][15:8] <= BRR_ADDR[1][7:0];
+          BRR_ADDR[1][7:0] <= BRR_ADDR[1][15:8];
+          BRR_ADDR[1][15:8] <= BRR_ADDR[2][7:0];
+          BRR_ADDR[2][7:0] <= BRR_ADDR[2][15:8];
+          BRR_ADDR[2][15:8] <= BRR_ADDR[3][7:0];
+          BRR_ADDR[3][7:0] <= BRR_ADDR[3][15:8];
+          BRR_ADDR[3][15:8] <= BRR_ADDR[4][7:0];
+          BRR_ADDR[4][7:0] <= BRR_ADDR[4][15:8];
+          BRR_ADDR[4][15:8] <= BRR_ADDR[5][7:0];
+          BRR_ADDR[5][7:0] <= BRR_ADDR[5][15:8];
+          BRR_ADDR[5][15:8] <= BRR_ADDR[6][7:0];
+          BRR_ADDR[6][7:0] <= BRR_ADDR[6][15:8];
+          BRR_ADDR[6][15:8] <= BRR_ADDR[7][7:0];
+          BRR_ADDR[7][7:0] <= BRR_ADDR[7][15:8];
+          BRR_ADDR[7][15:8] <= TBRRDAT[7:0];
+          BRR_END[7:0] <= BRR_BUF_DI[7:0];
+          GTBL_ADDR[7:0] <= GTBL_DO[7:0];
+          GTBL_DO[7:0] <= SUM012[7:0];
+          SUM012[7:0] <= SUM012[15:8];
+          SUM012[15:8] <= SR[7:0];
+          ECHO_POS[7:0] <= ECHO_ADDR[7:0];
+          ECHO_ADDR[7:0] <= ECHO_ADDR[15:8];
+          ECHO_ADDR[15:8] <= ECHO_BUF[0][0][7:0];
+          ECHO_LEN[7:0] <= ECHO_FIR[0][7:0];
+          ECHO_FIR[0][7:0] <= ECHO_FIR[0][15:8];
+          ECHO_FIR[0][15:8] <= ECHO_FIR[1][7:0];
+          ECHO_FIR[1][7:0] <= ECHO_FIR[1][15:8];
+          ECHO_FIR[1][15:8] <= ECHO_FFC[0][7:0];
+          ECHO_FFC[0][7:0] <= ECHO_FFC[1][7:0];
+          ECHO_FFC[1][7:0] <= ECHO_FFC[2][7:0];
+          ECHO_FFC[2][7:0] <= ECHO_FFC[3][7:0];
+          ECHO_FFC[3][7:0] <= ECHO_FFC[4][7:0];
+          ECHO_FFC[4][7:0] <= ECHO_FFC[5][7:0];
+          ECHO_FFC[5][7:0] <= ECHO_FFC[6][7:0];
+          ECHO_FFC[6][7:0] <= ECHO_FFC[7][7:0];
+          ECHO_FFC[7][7:0] <= ECHO_FIR_TEMP[0][7:0];
+          ECHO_FIR_TEMP[0][7:0] <= ECHO_FIR_TEMP[0][15:8];
+          ECHO_FIR_TEMP[0][15:8] <= ECHO_FIR_TEMP[1][7:0];
+          ECHO_FIR_TEMP[1][7:0] <= ECHO_FIR_TEMP[1][15:8];
+          ECHO_FIR_TEMP[1][15:8] <= ENV[0][7:0];
+          ENV[0][7:0] <= ENV[1][7:0];
+          ENV[1][7:0] <= ENV[2][7:0];
+          ENV[2][7:0] <= ENV[3][7:0];
+          ENV[3][7:0] <= ENV[4][7:0];
+          ENV[4][7:0] <= ENV[5][7:0];
+          ENV[5][7:0] <= ENV[6][7:0];
+          ENV[6][7:0] <= ENV[7][7:0];
+          ENV[7][7:0] <= BENT_INC_MODE[7:0];
+          BENT_INC_MODE[7:0] <= INTERP_POS[0][7:0];
+          INTERP_POS[0][7:0] <= INTERP_POS[0][15:8];
+          INTERP_POS[0][15:8] <= INTERP_POS[1][7:0];
+          INTERP_POS[1][7:0] <= INTERP_POS[1][15:8];
+          INTERP_POS[1][15:8] <= INTERP_POS[2][7:0];
+          INTERP_POS[2][7:0] <= INTERP_POS[2][15:8];
+          INTERP_POS[2][15:8] <= INTERP_POS[3][7:0];
+          INTERP_POS[3][7:0] <= INTERP_POS[3][15:8];
+          INTERP_POS[3][15:8] <= INTERP_POS[4][7:0];
+          INTERP_POS[4][7:0] <= INTERP_POS[4][15:8];
+          INTERP_POS[4][15:8] <= INTERP_POS[5][7:0];
+          INTERP_POS[5][7:0] <= INTERP_POS[5][15:8];
+          INTERP_POS[5][15:8] <= INTERP_POS[6][7:0];
+          INTERP_POS[6][7:0] <= INTERP_POS[6][15:8];
+          INTERP_POS[6][15:8] <= INTERP_POS[7][7:0];
+          INTERP_POS[7][7:0] <= INTERP_POS[7][15:8];
+          INTERP_POS[7][15:8] <= LAST_ENV[7:0];
+          LAST_ENV[7:0] <= GCNT_BY1[7:0];
+        end
       endcase
     end else if (!ss_hold || !RST_N) begin
 `endif
@@ -1432,13 +1445,15 @@ always @(posedge CLK) begin : gcount
 `ifdef SNES_SAVESTATE
     if (ss_we) begin
       case (ss_a)
-        13'h10e8: GCNT_BY1[7:0] <= ss_d;
         13'h10e9: GCNT_BY1[11:8] <= ss_d[3:0];
-        13'h10ea: GCNT_BY3[7:0] <= ss_d;
         13'h10eb: GCNT_BY3[11:8] <= ss_d[3:0];
-        13'h10ec: GCNT_BY5[7:0] <= ss_d;
         13'h10ed: GCNT_BY5[11:8] <= ss_d[3:0];
         default: ;
+              13'h1bf2, 13'h1bf3: begin
+          GCNT_BY1[7:0] <= GCNT_BY3[7:0];
+          GCNT_BY3[7:0] <= GCNT_BY5[7:0];
+          GCNT_BY5[7:0] <= SMP_DO_buf[7:0];
+        end
       endcase
     end else if (!ss_hold || !RST_N) begin
 `endif
@@ -1477,11 +1492,13 @@ always @(posedge CLK) begin : output2audio
         13'h1002: AUDIO_R[7:0] <= ss_d;
         13'h1003: AUDIO_R[15:8] <= ss_d;
         13'h1004: SND_RDY <= ss_d[0:0];
-        13'h1037: OUTPUT[7:0] <= ss_d;
-        13'h1038: OUTPUT[15:8] <= ss_d;
-        13'h1039: OUTPUT[23:16] <= ss_d;
-        13'h103a: OUTPUT[31:24] <= ss_d;
         default: ;
+              13'h1bf2, 13'h1bf3: begin
+          OUTPUT[7:0] <= OUTPUT[15:8];
+          OUTPUT[15:8] <= OUTPUT[23:16];
+          OUTPUT[23:16] <= OUTPUT[31:24];
+          OUTPUT[31:24] <= MOUT[0][7:0];
+        end
       endcase
     end else if (!ss_hold || !RST_N) begin
 `endif
@@ -1531,16 +1548,11 @@ always @* begin
     13'h1002: ss_q = AUDIO_R[7:0];
     13'h1003: ss_q = AUDIO_R[15:8];
     13'h1004: ss_q = {7'b0, SND_RDY};
-    13'h1005: ss_q = RI[7:0];
-    13'h1006: ss_q = REGS_DO[7:0];
     13'h1007: ss_q = {3'b0, STEP_CNT[4:0]};
     13'h1008: ss_q = {6'b0, SUBSTEP_CNT[1:0]};
     13'h1009: ss_q = {7'b0, RST_FLG};
     13'h100a: ss_q = {7'b0, MUTE_FLG};
     13'h100b: ss_q = {7'b0, ECEN_FLG};
-    13'h100c: ss_q = WKON[7:0];
-    13'h100d: ss_q = TKON[7:0];
-    13'h100e: ss_q = TKOFF[7:0];
     13'h100f: ss_q = {5'b0, KON_CNT[0][2:0]};
     13'h1010: ss_q = {5'b0, KON_CNT[1][2:0]};
     13'h1011: ss_q = {5'b0, KON_CNT[2][2:0]};
@@ -1549,70 +1561,10 @@ always @* begin
     13'h1014: ss_q = {5'b0, KON_CNT[5][2:0]};
     13'h1015: ss_q = {5'b0, KON_CNT[6][2:0]};
     13'h1016: ss_q = {5'b0, KON_CNT[7][2:0]};
-    13'h1017: ss_q = TSRCN[7:0];
-    13'h1018: ss_q = TDIR[7:0];
-    13'h1019: ss_q = TPITCH[7:0];
     13'h101a: ss_q = {1'b0, TPITCH[14:8]};
-    13'h101b: ss_q = TADSR1[7:0];
-    13'h101c: ss_q = TADSR2[7:0];
-    13'h101d: ss_q = TNON[7:0];
-    13'h101e: ss_q = TESA[7:0];
-    13'h101f: ss_q = TEON[7:0];
-    13'h1020: ss_q = TPMON[7:0];
-    13'h1021: ss_q = ENDX[7:0];
-    13'h1022: ss_q = ENDX_BUF[7:0];
-    13'h1023: ss_q = OUTX_OUT[7:0];
-    13'h1024: ss_q = ENVX_OUT[7:0];
-    13'h1025: ss_q = TENVX[0][7:0];
-    13'h1026: ss_q = TENVX[1][7:0];
-    13'h1027: ss_q = TENVX[2][7:0];
-    13'h1028: ss_q = TENVX[3][7:0];
-    13'h1029: ss_q = TENVX[4][7:0];
-    13'h102a: ss_q = TENVX[5][7:0];
-    13'h102b: ss_q = TENVX[6][7:0];
-    13'h102c: ss_q = TENVX[7][7:0];
     13'h102d: ss_q = {7'b0, EVEN_SAMPLE};
     13'h102e: ss_q = {7'b0, BRR_DECODE_EN};
-    13'h102f: ss_q = TOUT[7:0];
-    13'h1030: ss_q = TOUT[15:8];
-    13'h1031: ss_q = NOISE[7:0];
     13'h1032: ss_q = {1'b0, NOISE[14:8]};
-    13'h1033: ss_q = OUTL[7:0];
-    13'h1034: ss_q = OUTL[15:8];
-    13'h1035: ss_q = OUTR[7:0];
-    13'h1036: ss_q = OUTR[15:8];
-    13'h1037: ss_q = OUTPUT[7:0];
-    13'h1038: ss_q = OUTPUT[15:8];
-    13'h1039: ss_q = OUTPUT[23:16];
-    13'h103a: ss_q = OUTPUT[31:24];
-    13'h103b: ss_q = MOUT[0][7:0];
-    13'h103c: ss_q = MOUT[0][15:8];
-    13'h103d: ss_q = MOUT[1][7:0];
-    13'h103e: ss_q = MOUT[1][15:8];
-    13'h103f: ss_q = EOUT[0][7:0];
-    13'h1040: ss_q = EOUT[0][15:8];
-    13'h1041: ss_q = EOUT[1][7:0];
-    13'h1042: ss_q = EOUT[1][15:8];
-    13'h1043: ss_q = TDIR_ADDR[7:0];
-    13'h1044: ss_q = TDIR_ADDR[15:8];
-    13'h1045: ss_q = BRR_NEXT_ADDR[7:0];
-    13'h1046: ss_q = BRR_NEXT_ADDR[15:8];
-    13'h1047: ss_q = BRR_ADDR[0][7:0];
-    13'h1048: ss_q = BRR_ADDR[0][15:8];
-    13'h1049: ss_q = BRR_ADDR[1][7:0];
-    13'h104a: ss_q = BRR_ADDR[1][15:8];
-    13'h104b: ss_q = BRR_ADDR[2][7:0];
-    13'h104c: ss_q = BRR_ADDR[2][15:8];
-    13'h104d: ss_q = BRR_ADDR[3][7:0];
-    13'h104e: ss_q = BRR_ADDR[3][15:8];
-    13'h104f: ss_q = BRR_ADDR[4][7:0];
-    13'h1050: ss_q = BRR_ADDR[4][15:8];
-    13'h1051: ss_q = BRR_ADDR[5][7:0];
-    13'h1052: ss_q = BRR_ADDR[5][15:8];
-    13'h1053: ss_q = BRR_ADDR[6][7:0];
-    13'h1054: ss_q = BRR_ADDR[6][15:8];
-    13'h1055: ss_q = BRR_ADDR[7][7:0];
-    13'h1056: ss_q = BRR_ADDR[7][15:8];
     13'h1057: ss_q = {5'b0, BRR_OFFS[0][2:0]};
     13'h1058: ss_q = {5'b0, BRR_OFFS[1][2:0]};
     13'h1059: ss_q = {5'b0, BRR_OFFS[2][2:0]};
@@ -1621,10 +1573,6 @@ always @* begin
     13'h105c: ss_q = {5'b0, BRR_OFFS[5][2:0]};
     13'h105d: ss_q = {5'b0, BRR_OFFS[6][2:0]};
     13'h105e: ss_q = {5'b0, BRR_OFFS[7][2:0]};
-    13'h105f: ss_q = TBRRDAT[7:0];
-    13'h1060: ss_q = TBRRDAT[15:8];
-    13'h1061: ss_q = TBRRHDR[7:0];
-    13'h1062: ss_q = BRR_END[7:0];
     13'h1063: ss_q = {4'b0, BRR_BUF_ADDR[0][3:0]};
     13'h1064: ss_q = {4'b0, BRR_BUF_ADDR[1][3:0]};
     13'h1065: ss_q = {4'b0, BRR_BUF_ADDR[2][3:0]};
@@ -1635,86 +1583,36 @@ always @* begin
     13'h106a: ss_q = {4'b0, BRR_BUF_ADDR[7][3:0]};
     13'h106b: ss_q = {1'b0, BRR_BUF_ADDR_A[6:0]};
     13'h106c: ss_q = {7'b0, BRR_BUF_WE};
-    13'h106d: ss_q = BRR_BUF_DI[7:0];
-    13'h106e: ss_q = BRR_BUF_DI[15:8];
-    13'h106f: ss_q = BRR_BUF_DO[7:0];
-    13'h1070: ss_q = BRR_BUF_DO[15:8];
     13'h1071: ss_q = {1'b0, BRR_BUF_ADDR_B[6:0]};
-    13'h1072: ss_q = BRR_BUF_GAUSS_DO[7:0];
-    13'h1073: ss_q = BRR_BUF_GAUSS_DO[15:8];
     13'h1074: ss_q = {5'b0, GS_STATE[2:0]};
-    13'h1075: ss_q = GTBL_ADDR[7:0];
     13'h1076: ss_q = {7'b0, GTBL_ADDR[8:8]};
-    13'h1077: ss_q = GTBL_DO[7:0];
     13'h1078: ss_q = {4'b0, GTBL_DO[11:8]};
     13'h1079: ss_q = {5'b0, G_VOICE[2:0]};
-    13'h107a: ss_q = SUM012[7:0];
-    13'h107b: ss_q = SUM012[15:8];
     13'h107c: ss_q = {7'b0, SUM012[16:16]};
     13'h107d: ss_q = {6'b0, BD_STATE[1:0]};
-    13'h107e: ss_q = SR[7:0];
-    13'h107f: ss_q = SR[15:8];
     13'h1080: ss_q = {5'b0, BD_VOICE[2:0]};
-    13'h1081: ss_q = P0[7:0];
-    13'h1082: ss_q = P0[15:8];
     13'h1083: ss_q = {7'b0, P0[16:16]};
-    13'h1084: ss_q = ECHO_POS[7:0];
     13'h1085: ss_q = {1'b0, ECHO_POS[14:8]};
-    13'h1086: ss_q = ECHO_ADDR[7:0];
-    13'h1087: ss_q = ECHO_ADDR[15:8];
-    13'h1088: ss_q = ECHO_BUF[0][0][7:0];
     13'h1089: ss_q = {1'b0, ECHO_BUF[0][0][14:8]};
-    13'h108a: ss_q = ECHO_BUF[0][1][7:0];
     13'h108b: ss_q = {1'b0, ECHO_BUF[0][1][14:8]};
-    13'h108c: ss_q = ECHO_BUF[0][2][7:0];
     13'h108d: ss_q = {1'b0, ECHO_BUF[0][2][14:8]};
-    13'h108e: ss_q = ECHO_BUF[0][3][7:0];
     13'h108f: ss_q = {1'b0, ECHO_BUF[0][3][14:8]};
-    13'h1090: ss_q = ECHO_BUF[0][4][7:0];
     13'h1091: ss_q = {1'b0, ECHO_BUF[0][4][14:8]};
-    13'h1092: ss_q = ECHO_BUF[0][5][7:0];
     13'h1093: ss_q = {1'b0, ECHO_BUF[0][5][14:8]};
-    13'h1094: ss_q = ECHO_BUF[0][6][7:0];
     13'h1095: ss_q = {1'b0, ECHO_BUF[0][6][14:8]};
-    13'h1096: ss_q = ECHO_BUF[0][7][7:0];
     13'h1097: ss_q = {1'b0, ECHO_BUF[0][7][14:8]};
-    13'h1098: ss_q = ECHO_BUF[1][0][7:0];
     13'h1099: ss_q = {1'b0, ECHO_BUF[1][0][14:8]};
-    13'h109a: ss_q = ECHO_BUF[1][1][7:0];
     13'h109b: ss_q = {1'b0, ECHO_BUF[1][1][14:8]};
-    13'h109c: ss_q = ECHO_BUF[1][2][7:0];
     13'h109d: ss_q = {1'b0, ECHO_BUF[1][2][14:8]};
-    13'h109e: ss_q = ECHO_BUF[1][3][7:0];
     13'h109f: ss_q = {1'b0, ECHO_BUF[1][3][14:8]};
-    13'h10a0: ss_q = ECHO_BUF[1][4][7:0];
     13'h10a1: ss_q = {1'b0, ECHO_BUF[1][4][14:8]};
-    13'h10a2: ss_q = ECHO_BUF[1][5][7:0];
     13'h10a3: ss_q = {1'b0, ECHO_BUF[1][5][14:8]};
-    13'h10a4: ss_q = ECHO_BUF[1][6][7:0];
     13'h10a5: ss_q = {1'b0, ECHO_BUF[1][6][14:8]};
-    13'h10a6: ss_q = ECHO_BUF[1][7][7:0];
     13'h10a7: ss_q = {1'b0, ECHO_BUF[1][7][14:8]};
-    13'h10a8: ss_q = ECHO_LEN[7:0];
     13'h10a9: ss_q = {1'b0, ECHO_LEN[14:8]};
     13'h10aa: ss_q = {1'b0, ECHO_DATA_TEMP[6:0]};
     13'h10ab: ss_q = {7'b0, ECHO_WR_EN};
-    13'h10ac: ss_q = ECHO_FIR[0][7:0];
-    13'h10ad: ss_q = ECHO_FIR[0][15:8];
-    13'h10ae: ss_q = ECHO_FIR[1][7:0];
-    13'h10af: ss_q = ECHO_FIR[1][15:8];
-    13'h10b0: ss_q = ECHO_FFC[0][7:0];
-    13'h10b1: ss_q = ECHO_FFC[1][7:0];
-    13'h10b2: ss_q = ECHO_FFC[2][7:0];
-    13'h10b3: ss_q = ECHO_FFC[3][7:0];
-    13'h10b4: ss_q = ECHO_FFC[4][7:0];
-    13'h10b5: ss_q = ECHO_FFC[5][7:0];
-    13'h10b6: ss_q = ECHO_FFC[6][7:0];
-    13'h10b7: ss_q = ECHO_FFC[7][7:0];
     13'h10b8: ss_q = {5'b0, FFC_CNT[2:0]};
-    13'h10b9: ss_q = ECHO_FIR_TEMP[0][7:0];
-    13'h10ba: ss_q = ECHO_FIR_TEMP[0][15:8];
-    13'h10bb: ss_q = ECHO_FIR_TEMP[1][7:0];
-    13'h10bc: ss_q = ECHO_FIR_TEMP[1][15:8];
     13'h10bd: ss_q = {6'b0, ENV_MODE[0][1:0]};
     13'h10be: ss_q = {6'b0, ENV_MODE[1][1:0]};
     13'h10bf: ss_q = {6'b0, ENV_MODE[2][1:0]};
@@ -1723,56 +1621,31 @@ always @* begin
     13'h10c2: ss_q = {6'b0, ENV_MODE[5][1:0]};
     13'h10c3: ss_q = {6'b0, ENV_MODE[6][1:0]};
     13'h10c4: ss_q = {6'b0, ENV_MODE[7][1:0]};
-    13'h10c5: ss_q = ENV[0][7:0];
     13'h10c6: ss_q = {4'b0, ENV[0][11:8]};
-    13'h10c7: ss_q = ENV[1][7:0];
     13'h10c8: ss_q = {4'b0, ENV[1][11:8]};
-    13'h10c9: ss_q = ENV[2][7:0];
     13'h10ca: ss_q = {4'b0, ENV[2][11:8]};
-    13'h10cb: ss_q = ENV[3][7:0];
     13'h10cc: ss_q = {4'b0, ENV[3][11:8]};
-    13'h10cd: ss_q = ENV[4][7:0];
     13'h10ce: ss_q = {4'b0, ENV[4][11:8]};
-    13'h10cf: ss_q = ENV[5][7:0];
     13'h10d0: ss_q = {4'b0, ENV[5][11:8]};
-    13'h10d1: ss_q = ENV[6][7:0];
     13'h10d2: ss_q = {4'b0, ENV[6][11:8]};
-    13'h10d3: ss_q = ENV[7][7:0];
     13'h10d4: ss_q = {4'b0, ENV[7][11:8]};
-    13'h10d5: ss_q = BENT_INC_MODE[7:0];
-    13'h10d6: ss_q = INTERP_POS[0][7:0];
-    13'h10d7: ss_q = INTERP_POS[0][15:8];
-    13'h10d8: ss_q = INTERP_POS[1][7:0];
-    13'h10d9: ss_q = INTERP_POS[1][15:8];
-    13'h10da: ss_q = INTERP_POS[2][7:0];
-    13'h10db: ss_q = INTERP_POS[2][15:8];
-    13'h10dc: ss_q = INTERP_POS[3][7:0];
-    13'h10dd: ss_q = INTERP_POS[3][15:8];
-    13'h10de: ss_q = INTERP_POS[4][7:0];
-    13'h10df: ss_q = INTERP_POS[4][15:8];
-    13'h10e0: ss_q = INTERP_POS[5][7:0];
-    13'h10e1: ss_q = INTERP_POS[5][15:8];
-    13'h10e2: ss_q = INTERP_POS[6][7:0];
-    13'h10e3: ss_q = INTERP_POS[6][15:8];
-    13'h10e4: ss_q = INTERP_POS[7][7:0];
-    13'h10e5: ss_q = INTERP_POS[7][15:8];
-    13'h10e6: ss_q = LAST_ENV[7:0];
     13'h10e7: ss_q = {4'b0, LAST_ENV[11:8]};
-    13'h10e8: ss_q = GCNT_BY1[7:0];
     13'h10e9: ss_q = {4'b0, GCNT_BY1[11:8]};
-    13'h10ea: ss_q = GCNT_BY3[7:0];
     13'h10eb: ss_q = {4'b0, GCNT_BY3[11:8]};
-    13'h10ec: ss_q = GCNT_BY5[7:0];
     13'h10ed: ss_q = {4'b0, GCNT_BY5[11:8]};
-    13'h116e: ss_q = SMP_DO_buf[7:0];
-    13'h116f: ss_q = SMP_A_buf[7:0];
-    13'h1170: ss_q = SMP_A_buf[15:8];
     13'h1171: ss_q = {7'b0, SMP_WE_N_buf};
     default: ;
     endcase
     ss_q = ss_q | ss_q_ce;
     if (ss_regram_sel) ss_q = regram_raw;
     if (ss_brr_sel) ss_q = ss_brr_offset[0] ? brr_raw_a[15:8] : brr_raw_a[7:0];
+    // Scan data is visible only during an internal write command.
+    if (ss_we && (ss_a == 13'h1bf2 || ss_a == 13'h1bf3))
+        ss_q = RI[7:0];
 end
+`ifdef SS_SCAN_VERIFY
+`include "legacy_dsp_read.vh"
+`endif
+
 `endif
 endmodule
