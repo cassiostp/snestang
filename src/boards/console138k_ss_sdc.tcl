@@ -1,11 +1,13 @@
-proc snes_ss_sdc {base} {
-    if {$::dev ne "console138k"} { return $base }
+proc snes_ss_enabled {} {
+    if {$::dev ne "console138k"} { return 0 }
     set f [open src/boards/console138k.v r]
     set config [read $f]
     close $f
-    if {![regexp -line {^[ \t]*`define[ \t]+SNES_SAVESTATE([ \t]|$)} $config]} {
-        return $base
-    }
+    return [regexp -line {^[ \t]*`define[ \t]+SNES_SAVESTATE([ \t]|$)} $config]
+}
+
+proc snes_ss_sdc {base} {
+    if {![snes_ss_enabled]} { return $base }
     set f [open $base r]
     set constraints [read $f]
     close $f
