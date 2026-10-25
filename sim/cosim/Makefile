@@ -99,7 +99,7 @@ model: $(GEN)/iosys_bl616_cosim.v $(GEN)/sdram_snes_sim.v $(GEN)/uart_fixed_sim.
 	# documented seds, so the waivers live here, not in its sources.
 	$(VERILATOR) --cc --top-module cosim_top --prefix Vsnestang_cosim \
 	    -Mdir obj -DCOSIM -DSNES_SAVESTATE -CFLAGS "-O2" \
-	    +incdir+/coresim-src/src/variant/standard \
+	    +incdir+/coresim-src/src/variant/standard +incdir+/coresim-src/src \
 	    -Wno-PINMISSING -Wno-IMPLICIT -Wno-WIDTHEXPAND -Wno-WIDTHTRUNC -Wno-CASEINCOMPLETE \
 	    $(COSIM_SRCS) > $(COSIM)/build/verilate.log 2>&1 && \
 	{ test ! -s $(COSIM)/build/verilate.log || ! grep -E "PINMISSING.*(cosim_top|sdram_chip|gowin_dpb)" $(COSIM)/build/verilate.log; } || \
@@ -122,7 +122,7 @@ lint: $(GEN)/iosys_bl616_cosim.v $(GEN)/sdram_snes_sim.v $(GEN)/uart_fixed_sim.v
 	# -DVERILATOR selects vram.v's behavioural RAM (the one the Verilator model
 	# runs); its other branch needs the Gowin SP primitives, which have no sim model.
 	$(IVERILOG) iverilog -g2012 -DCOSIM -DSNES_SAVESTATE -DVERILATOR -o /dev/null -s cosim_top \
-	    -I/coresim-src/src/variant/standard \
+	    -I/coresim-src/src/variant/standard -I/coresim-src/src \
 	    /coresim-src/src/verilator/config.v /coresim-src/src/savestate.v /coresim-src/src/vram.v \
 	    /coresim-src/sim/cosim/cosim_top.sv \
 	    /coresim-build/gen/iosys_bl616_cosim.v /coresim-build/gen/uart_fixed_sim.v \
