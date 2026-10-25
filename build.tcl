@@ -259,6 +259,9 @@ set_option -include_path src/variant/$variant
 set_option -rw_check_on_ram 1
 set_option -route_option 2
 set_option -place_option 3
+if {$dev eq "console138k"} {
+    if {[snes_state_enabled]} { set_option -place_option 1 }
+}
 # GW5A-138 leaves I/O registers in the fabric unless asked (SUG100).
 # mdtang, smstang and gbatang set these. Without them the SDRAM command
 # flop sits ~5 ns of route away from its pin and misses tCMS.
