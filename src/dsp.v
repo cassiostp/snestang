@@ -1523,253 +1523,406 @@ assign SDAT = OUTPUT[31];
 `ifdef SNES_SAVESTATE
 `endif
 // Register image; RAM and pipeline state are read only while frozen.
+// Local 16-byte readback banks isolate running-machine registers from
+// the global image mux. The transport waits three clocks after ss_a,
+// so this one-clock read stage preserves the byte protocol and layout.
+reg [7:0] ss_bank_100;
+always @(posedge CLK) begin
+    ss_bank_100 <= 8'b0;
+    if (ss_a[12:4] == 9'h100) begin
+        case (ss_a[3:0])
+        4'h0: ss_bank_100 <= AUDIO_L[7:0];
+        4'h1: ss_bank_100 <= AUDIO_L[15:8];
+        4'h2: ss_bank_100 <= AUDIO_R[7:0];
+        4'h3: ss_bank_100 <= AUDIO_R[15:8];
+        4'h4: ss_bank_100 <= {7'b0, SND_RDY};
+        4'h5: ss_bank_100 <= RI[7:0];
+        4'h6: ss_bank_100 <= REGS_DO[7:0];
+        4'h7: ss_bank_100 <= {3'b0, STEP_CNT[4:0]};
+        4'h8: ss_bank_100 <= {6'b0, SUBSTEP_CNT[1:0]};
+        4'h9: ss_bank_100 <= {7'b0, RST_FLG};
+        4'ha: ss_bank_100 <= {7'b0, MUTE_FLG};
+        4'hb: ss_bank_100 <= {7'b0, ECEN_FLG};
+        4'hc: ss_bank_100 <= WKON[7:0];
+        4'hd: ss_bank_100 <= TKON[7:0];
+        4'he: ss_bank_100 <= TKOFF[7:0];
+        4'hf: ss_bank_100 <= {5'b0, KON_CNT[0][2:0]};
+        default: ;
+        endcase
+    end
+end
+reg [7:0] ss_bank_101;
+always @(posedge CLK) begin
+    ss_bank_101 <= 8'b0;
+    if (ss_a[12:4] == 9'h101) begin
+        case (ss_a[3:0])
+        4'h0: ss_bank_101 <= {5'b0, KON_CNT[1][2:0]};
+        4'h1: ss_bank_101 <= {5'b0, KON_CNT[2][2:0]};
+        4'h2: ss_bank_101 <= {5'b0, KON_CNT[3][2:0]};
+        4'h3: ss_bank_101 <= {5'b0, KON_CNT[4][2:0]};
+        4'h4: ss_bank_101 <= {5'b0, KON_CNT[5][2:0]};
+        4'h5: ss_bank_101 <= {5'b0, KON_CNT[6][2:0]};
+        4'h6: ss_bank_101 <= {5'b0, KON_CNT[7][2:0]};
+        4'h7: ss_bank_101 <= TSRCN[7:0];
+        4'h8: ss_bank_101 <= TDIR[7:0];
+        4'h9: ss_bank_101 <= TPITCH[7:0];
+        4'ha: ss_bank_101 <= {1'b0, TPITCH[14:8]};
+        4'hb: ss_bank_101 <= TADSR1[7:0];
+        4'hc: ss_bank_101 <= TADSR2[7:0];
+        4'hd: ss_bank_101 <= TNON[7:0];
+        4'he: ss_bank_101 <= TESA[7:0];
+        4'hf: ss_bank_101 <= TEON[7:0];
+        default: ;
+        endcase
+    end
+end
+reg [7:0] ss_bank_102;
+always @(posedge CLK) begin
+    ss_bank_102 <= 8'b0;
+    if (ss_a[12:4] == 9'h102) begin
+        case (ss_a[3:0])
+        4'h0: ss_bank_102 <= TPMON[7:0];
+        4'h1: ss_bank_102 <= ENDX[7:0];
+        4'h2: ss_bank_102 <= ENDX_BUF[7:0];
+        4'h3: ss_bank_102 <= OUTX_OUT[7:0];
+        4'h4: ss_bank_102 <= ENVX_OUT[7:0];
+        4'h5: ss_bank_102 <= TENVX[0][7:0];
+        4'h6: ss_bank_102 <= TENVX[1][7:0];
+        4'h7: ss_bank_102 <= TENVX[2][7:0];
+        4'h8: ss_bank_102 <= TENVX[3][7:0];
+        4'h9: ss_bank_102 <= TENVX[4][7:0];
+        4'ha: ss_bank_102 <= TENVX[5][7:0];
+        4'hb: ss_bank_102 <= TENVX[6][7:0];
+        4'hc: ss_bank_102 <= TENVX[7][7:0];
+        4'hd: ss_bank_102 <= {7'b0, EVEN_SAMPLE};
+        4'he: ss_bank_102 <= {7'b0, BRR_DECODE_EN};
+        4'hf: ss_bank_102 <= TOUT[7:0];
+        default: ;
+        endcase
+    end
+end
+reg [7:0] ss_bank_103;
+always @(posedge CLK) begin
+    ss_bank_103 <= 8'b0;
+    if (ss_a[12:4] == 9'h103) begin
+        case (ss_a[3:0])
+        4'h0: ss_bank_103 <= TOUT[15:8];
+        4'h1: ss_bank_103 <= NOISE[7:0];
+        4'h2: ss_bank_103 <= {1'b0, NOISE[14:8]};
+        4'h3: ss_bank_103 <= OUTL[7:0];
+        4'h4: ss_bank_103 <= OUTL[15:8];
+        4'h5: ss_bank_103 <= OUTR[7:0];
+        4'h6: ss_bank_103 <= OUTR[15:8];
+        4'h7: ss_bank_103 <= OUTPUT[7:0];
+        4'h8: ss_bank_103 <= OUTPUT[15:8];
+        4'h9: ss_bank_103 <= OUTPUT[23:16];
+        4'ha: ss_bank_103 <= OUTPUT[31:24];
+        4'hb: ss_bank_103 <= MOUT[0][7:0];
+        4'hc: ss_bank_103 <= MOUT[0][15:8];
+        4'hd: ss_bank_103 <= MOUT[1][7:0];
+        4'he: ss_bank_103 <= MOUT[1][15:8];
+        4'hf: ss_bank_103 <= EOUT[0][7:0];
+        default: ;
+        endcase
+    end
+end
+reg [7:0] ss_bank_104;
+always @(posedge CLK) begin
+    ss_bank_104 <= 8'b0;
+    if (ss_a[12:4] == 9'h104) begin
+        case (ss_a[3:0])
+        4'h0: ss_bank_104 <= EOUT[0][15:8];
+        4'h1: ss_bank_104 <= EOUT[1][7:0];
+        4'h2: ss_bank_104 <= EOUT[1][15:8];
+        4'h3: ss_bank_104 <= TDIR_ADDR[7:0];
+        4'h4: ss_bank_104 <= TDIR_ADDR[15:8];
+        4'h5: ss_bank_104 <= BRR_NEXT_ADDR[7:0];
+        4'h6: ss_bank_104 <= BRR_NEXT_ADDR[15:8];
+        4'h7: ss_bank_104 <= BRR_ADDR[0][7:0];
+        4'h8: ss_bank_104 <= BRR_ADDR[0][15:8];
+        4'h9: ss_bank_104 <= BRR_ADDR[1][7:0];
+        4'ha: ss_bank_104 <= BRR_ADDR[1][15:8];
+        4'hb: ss_bank_104 <= BRR_ADDR[2][7:0];
+        4'hc: ss_bank_104 <= BRR_ADDR[2][15:8];
+        4'hd: ss_bank_104 <= BRR_ADDR[3][7:0];
+        4'he: ss_bank_104 <= BRR_ADDR[3][15:8];
+        4'hf: ss_bank_104 <= BRR_ADDR[4][7:0];
+        default: ;
+        endcase
+    end
+end
+reg [7:0] ss_bank_105;
+always @(posedge CLK) begin
+    ss_bank_105 <= 8'b0;
+    if (ss_a[12:4] == 9'h105) begin
+        case (ss_a[3:0])
+        4'h0: ss_bank_105 <= BRR_ADDR[4][15:8];
+        4'h1: ss_bank_105 <= BRR_ADDR[5][7:0];
+        4'h2: ss_bank_105 <= BRR_ADDR[5][15:8];
+        4'h3: ss_bank_105 <= BRR_ADDR[6][7:0];
+        4'h4: ss_bank_105 <= BRR_ADDR[6][15:8];
+        4'h5: ss_bank_105 <= BRR_ADDR[7][7:0];
+        4'h6: ss_bank_105 <= BRR_ADDR[7][15:8];
+        4'h7: ss_bank_105 <= {5'b0, BRR_OFFS[0][2:0]};
+        4'h8: ss_bank_105 <= {5'b0, BRR_OFFS[1][2:0]};
+        4'h9: ss_bank_105 <= {5'b0, BRR_OFFS[2][2:0]};
+        4'ha: ss_bank_105 <= {5'b0, BRR_OFFS[3][2:0]};
+        4'hb: ss_bank_105 <= {5'b0, BRR_OFFS[4][2:0]};
+        4'hc: ss_bank_105 <= {5'b0, BRR_OFFS[5][2:0]};
+        4'hd: ss_bank_105 <= {5'b0, BRR_OFFS[6][2:0]};
+        4'he: ss_bank_105 <= {5'b0, BRR_OFFS[7][2:0]};
+        4'hf: ss_bank_105 <= TBRRDAT[7:0];
+        default: ;
+        endcase
+    end
+end
+reg [7:0] ss_bank_106;
+always @(posedge CLK) begin
+    ss_bank_106 <= 8'b0;
+    if (ss_a[12:4] == 9'h106) begin
+        case (ss_a[3:0])
+        4'h0: ss_bank_106 <= TBRRDAT[15:8];
+        4'h1: ss_bank_106 <= TBRRHDR[7:0];
+        4'h2: ss_bank_106 <= BRR_END[7:0];
+        4'h3: ss_bank_106 <= {4'b0, BRR_BUF_ADDR[0][3:0]};
+        4'h4: ss_bank_106 <= {4'b0, BRR_BUF_ADDR[1][3:0]};
+        4'h5: ss_bank_106 <= {4'b0, BRR_BUF_ADDR[2][3:0]};
+        4'h6: ss_bank_106 <= {4'b0, BRR_BUF_ADDR[3][3:0]};
+        4'h7: ss_bank_106 <= {4'b0, BRR_BUF_ADDR[4][3:0]};
+        4'h8: ss_bank_106 <= {4'b0, BRR_BUF_ADDR[5][3:0]};
+        4'h9: ss_bank_106 <= {4'b0, BRR_BUF_ADDR[6][3:0]};
+        4'ha: ss_bank_106 <= {4'b0, BRR_BUF_ADDR[7][3:0]};
+        4'hb: ss_bank_106 <= {1'b0, BRR_BUF_ADDR_A[6:0]};
+        4'hc: ss_bank_106 <= {7'b0, BRR_BUF_WE};
+        4'hd: ss_bank_106 <= BRR_BUF_DI[7:0];
+        4'he: ss_bank_106 <= BRR_BUF_DI[15:8];
+        4'hf: ss_bank_106 <= BRR_BUF_DO[7:0];
+        default: ;
+        endcase
+    end
+end
+reg [7:0] ss_bank_107;
+always @(posedge CLK) begin
+    ss_bank_107 <= 8'b0;
+    if (ss_a[12:4] == 9'h107) begin
+        case (ss_a[3:0])
+        4'h0: ss_bank_107 <= BRR_BUF_DO[15:8];
+        4'h1: ss_bank_107 <= {1'b0, BRR_BUF_ADDR_B[6:0]};
+        4'h2: ss_bank_107 <= BRR_BUF_GAUSS_DO[7:0];
+        4'h3: ss_bank_107 <= BRR_BUF_GAUSS_DO[15:8];
+        4'h4: ss_bank_107 <= {5'b0, GS_STATE[2:0]};
+        4'h5: ss_bank_107 <= GTBL_ADDR[7:0];
+        4'h6: ss_bank_107 <= {7'b0, GTBL_ADDR[8:8]};
+        4'h7: ss_bank_107 <= GTBL_DO[7:0];
+        4'h8: ss_bank_107 <= {4'b0, GTBL_DO[11:8]};
+        4'h9: ss_bank_107 <= {5'b0, G_VOICE[2:0]};
+        4'ha: ss_bank_107 <= SUM012[7:0];
+        4'hb: ss_bank_107 <= SUM012[15:8];
+        4'hc: ss_bank_107 <= {7'b0, SUM012[16:16]};
+        4'hd: ss_bank_107 <= {6'b0, BD_STATE[1:0]};
+        4'he: ss_bank_107 <= SR[7:0];
+        4'hf: ss_bank_107 <= SR[15:8];
+        default: ;
+        endcase
+    end
+end
+reg [7:0] ss_bank_108;
+always @(posedge CLK) begin
+    ss_bank_108 <= 8'b0;
+    if (ss_a[12:4] == 9'h108) begin
+        case (ss_a[3:0])
+        4'h0: ss_bank_108 <= {5'b0, BD_VOICE[2:0]};
+        4'h1: ss_bank_108 <= P0[7:0];
+        4'h2: ss_bank_108 <= P0[15:8];
+        4'h3: ss_bank_108 <= {7'b0, P0[16:16]};
+        4'h4: ss_bank_108 <= ECHO_POS[7:0];
+        4'h5: ss_bank_108 <= {1'b0, ECHO_POS[14:8]};
+        4'h6: ss_bank_108 <= ECHO_ADDR[7:0];
+        4'h7: ss_bank_108 <= ECHO_ADDR[15:8];
+        4'h8: ss_bank_108 <= ECHO_BUF[0][0][7:0];
+        4'h9: ss_bank_108 <= {1'b0, ECHO_BUF[0][0][14:8]};
+        4'ha: ss_bank_108 <= ECHO_BUF[0][1][7:0];
+        4'hb: ss_bank_108 <= {1'b0, ECHO_BUF[0][1][14:8]};
+        4'hc: ss_bank_108 <= ECHO_BUF[0][2][7:0];
+        4'hd: ss_bank_108 <= {1'b0, ECHO_BUF[0][2][14:8]};
+        4'he: ss_bank_108 <= ECHO_BUF[0][3][7:0];
+        4'hf: ss_bank_108 <= {1'b0, ECHO_BUF[0][3][14:8]};
+        default: ;
+        endcase
+    end
+end
+reg [7:0] ss_bank_109;
+always @(posedge CLK) begin
+    ss_bank_109 <= 8'b0;
+    if (ss_a[12:4] == 9'h109) begin
+        case (ss_a[3:0])
+        4'h0: ss_bank_109 <= ECHO_BUF[0][4][7:0];
+        4'h1: ss_bank_109 <= {1'b0, ECHO_BUF[0][4][14:8]};
+        4'h2: ss_bank_109 <= ECHO_BUF[0][5][7:0];
+        4'h3: ss_bank_109 <= {1'b0, ECHO_BUF[0][5][14:8]};
+        4'h4: ss_bank_109 <= ECHO_BUF[0][6][7:0];
+        4'h5: ss_bank_109 <= {1'b0, ECHO_BUF[0][6][14:8]};
+        4'h6: ss_bank_109 <= ECHO_BUF[0][7][7:0];
+        4'h7: ss_bank_109 <= {1'b0, ECHO_BUF[0][7][14:8]};
+        4'h8: ss_bank_109 <= ECHO_BUF[1][0][7:0];
+        4'h9: ss_bank_109 <= {1'b0, ECHO_BUF[1][0][14:8]};
+        4'ha: ss_bank_109 <= ECHO_BUF[1][1][7:0];
+        4'hb: ss_bank_109 <= {1'b0, ECHO_BUF[1][1][14:8]};
+        4'hc: ss_bank_109 <= ECHO_BUF[1][2][7:0];
+        4'hd: ss_bank_109 <= {1'b0, ECHO_BUF[1][2][14:8]};
+        4'he: ss_bank_109 <= ECHO_BUF[1][3][7:0];
+        4'hf: ss_bank_109 <= {1'b0, ECHO_BUF[1][3][14:8]};
+        default: ;
+        endcase
+    end
+end
+reg [7:0] ss_bank_10a;
+always @(posedge CLK) begin
+    ss_bank_10a <= 8'b0;
+    if (ss_a[12:4] == 9'h10a) begin
+        case (ss_a[3:0])
+        4'h0: ss_bank_10a <= ECHO_BUF[1][4][7:0];
+        4'h1: ss_bank_10a <= {1'b0, ECHO_BUF[1][4][14:8]};
+        4'h2: ss_bank_10a <= ECHO_BUF[1][5][7:0];
+        4'h3: ss_bank_10a <= {1'b0, ECHO_BUF[1][5][14:8]};
+        4'h4: ss_bank_10a <= ECHO_BUF[1][6][7:0];
+        4'h5: ss_bank_10a <= {1'b0, ECHO_BUF[1][6][14:8]};
+        4'h6: ss_bank_10a <= ECHO_BUF[1][7][7:0];
+        4'h7: ss_bank_10a <= {1'b0, ECHO_BUF[1][7][14:8]};
+        4'h8: ss_bank_10a <= ECHO_LEN[7:0];
+        4'h9: ss_bank_10a <= {1'b0, ECHO_LEN[14:8]};
+        4'ha: ss_bank_10a <= {1'b0, ECHO_DATA_TEMP[6:0]};
+        4'hb: ss_bank_10a <= {7'b0, ECHO_WR_EN};
+        4'hc: ss_bank_10a <= ECHO_FIR[0][7:0];
+        4'hd: ss_bank_10a <= ECHO_FIR[0][15:8];
+        4'he: ss_bank_10a <= ECHO_FIR[1][7:0];
+        4'hf: ss_bank_10a <= ECHO_FIR[1][15:8];
+        default: ;
+        endcase
+    end
+end
+reg [7:0] ss_bank_10b;
+always @(posedge CLK) begin
+    ss_bank_10b <= 8'b0;
+    if (ss_a[12:4] == 9'h10b) begin
+        case (ss_a[3:0])
+        4'h0: ss_bank_10b <= ECHO_FFC[0][7:0];
+        4'h1: ss_bank_10b <= ECHO_FFC[1][7:0];
+        4'h2: ss_bank_10b <= ECHO_FFC[2][7:0];
+        4'h3: ss_bank_10b <= ECHO_FFC[3][7:0];
+        4'h4: ss_bank_10b <= ECHO_FFC[4][7:0];
+        4'h5: ss_bank_10b <= ECHO_FFC[5][7:0];
+        4'h6: ss_bank_10b <= ECHO_FFC[6][7:0];
+        4'h7: ss_bank_10b <= ECHO_FFC[7][7:0];
+        4'h8: ss_bank_10b <= {5'b0, FFC_CNT[2:0]};
+        4'h9: ss_bank_10b <= ECHO_FIR_TEMP[0][7:0];
+        4'ha: ss_bank_10b <= ECHO_FIR_TEMP[0][15:8];
+        4'hb: ss_bank_10b <= ECHO_FIR_TEMP[1][7:0];
+        4'hc: ss_bank_10b <= ECHO_FIR_TEMP[1][15:8];
+        4'hd: ss_bank_10b <= {6'b0, ENV_MODE[0][1:0]};
+        4'he: ss_bank_10b <= {6'b0, ENV_MODE[1][1:0]};
+        4'hf: ss_bank_10b <= {6'b0, ENV_MODE[2][1:0]};
+        default: ;
+        endcase
+    end
+end
+reg [7:0] ss_bank_10c;
+always @(posedge CLK) begin
+    ss_bank_10c <= 8'b0;
+    if (ss_a[12:4] == 9'h10c) begin
+        case (ss_a[3:0])
+        4'h0: ss_bank_10c <= {6'b0, ENV_MODE[3][1:0]};
+        4'h1: ss_bank_10c <= {6'b0, ENV_MODE[4][1:0]};
+        4'h2: ss_bank_10c <= {6'b0, ENV_MODE[5][1:0]};
+        4'h3: ss_bank_10c <= {6'b0, ENV_MODE[6][1:0]};
+        4'h4: ss_bank_10c <= {6'b0, ENV_MODE[7][1:0]};
+        4'h5: ss_bank_10c <= ENV[0][7:0];
+        4'h6: ss_bank_10c <= {4'b0, ENV[0][11:8]};
+        4'h7: ss_bank_10c <= ENV[1][7:0];
+        4'h8: ss_bank_10c <= {4'b0, ENV[1][11:8]};
+        4'h9: ss_bank_10c <= ENV[2][7:0];
+        4'ha: ss_bank_10c <= {4'b0, ENV[2][11:8]};
+        4'hb: ss_bank_10c <= ENV[3][7:0];
+        4'hc: ss_bank_10c <= {4'b0, ENV[3][11:8]};
+        4'hd: ss_bank_10c <= ENV[4][7:0];
+        4'he: ss_bank_10c <= {4'b0, ENV[4][11:8]};
+        4'hf: ss_bank_10c <= ENV[5][7:0];
+        default: ;
+        endcase
+    end
+end
+reg [7:0] ss_bank_10d;
+always @(posedge CLK) begin
+    ss_bank_10d <= 8'b0;
+    if (ss_a[12:4] == 9'h10d) begin
+        case (ss_a[3:0])
+        4'h0: ss_bank_10d <= {4'b0, ENV[5][11:8]};
+        4'h1: ss_bank_10d <= ENV[6][7:0];
+        4'h2: ss_bank_10d <= {4'b0, ENV[6][11:8]};
+        4'h3: ss_bank_10d <= ENV[7][7:0];
+        4'h4: ss_bank_10d <= {4'b0, ENV[7][11:8]};
+        4'h5: ss_bank_10d <= BENT_INC_MODE[7:0];
+        4'h6: ss_bank_10d <= INTERP_POS[0][7:0];
+        4'h7: ss_bank_10d <= INTERP_POS[0][15:8];
+        4'h8: ss_bank_10d <= INTERP_POS[1][7:0];
+        4'h9: ss_bank_10d <= INTERP_POS[1][15:8];
+        4'ha: ss_bank_10d <= INTERP_POS[2][7:0];
+        4'hb: ss_bank_10d <= INTERP_POS[2][15:8];
+        4'hc: ss_bank_10d <= INTERP_POS[3][7:0];
+        4'hd: ss_bank_10d <= INTERP_POS[3][15:8];
+        4'he: ss_bank_10d <= INTERP_POS[4][7:0];
+        4'hf: ss_bank_10d <= INTERP_POS[4][15:8];
+        default: ;
+        endcase
+    end
+end
+reg [7:0] ss_bank_10e;
+always @(posedge CLK) begin
+    ss_bank_10e <= 8'b0;
+    if (ss_a[12:4] == 9'h10e) begin
+        case (ss_a[3:0])
+        4'h0: ss_bank_10e <= INTERP_POS[5][7:0];
+        4'h1: ss_bank_10e <= INTERP_POS[5][15:8];
+        4'h2: ss_bank_10e <= INTERP_POS[6][7:0];
+        4'h3: ss_bank_10e <= INTERP_POS[6][15:8];
+        4'h4: ss_bank_10e <= INTERP_POS[7][7:0];
+        4'h5: ss_bank_10e <= INTERP_POS[7][15:8];
+        4'h6: ss_bank_10e <= LAST_ENV[7:0];
+        4'h7: ss_bank_10e <= {4'b0, LAST_ENV[11:8]};
+        4'h8: ss_bank_10e <= GCNT_BY1[7:0];
+        4'h9: ss_bank_10e <= {4'b0, GCNT_BY1[11:8]};
+        4'ha: ss_bank_10e <= GCNT_BY3[7:0];
+        4'hb: ss_bank_10e <= {4'b0, GCNT_BY3[11:8]};
+        4'hc: ss_bank_10e <= GCNT_BY5[7:0];
+        4'hd: ss_bank_10e <= {4'b0, GCNT_BY5[11:8]};
+        default: ;
+        endcase
+    end
+end
+reg [7:0] ss_bank_116;
+always @(posedge CLK) begin
+    ss_bank_116 <= 8'b0;
+    if (ss_a[12:4] == 9'h116) begin
+        case (ss_a[3:0])
+        4'he: ss_bank_116 <= SMP_DO_buf[7:0];
+        4'hf: ss_bank_116 <= SMP_A_buf[7:0];
+        default: ;
+        endcase
+    end
+end
+reg [7:0] ss_bank_117;
+always @(posedge CLK) begin
+    ss_bank_117 <= 8'b0;
+    if (ss_a[12:4] == 9'h117) begin
+        case (ss_a[3:0])
+        4'h0: ss_bank_117 <= SMP_A_buf[15:8];
+        4'h1: ss_bank_117 <= {7'b0, SMP_WE_N_buf};
+        default: ;
+        endcase
+    end
+end
 always @* begin
-    ss_q = 8'b0;
-    case (ss_a)
-    13'h1000: ss_q = AUDIO_L[7:0];
-    13'h1001: ss_q = AUDIO_L[15:8];
-    13'h1002: ss_q = AUDIO_R[7:0];
-    13'h1003: ss_q = AUDIO_R[15:8];
-    13'h1004: ss_q = {7'b0, SND_RDY};
-    13'h1005: ss_q = RI[7:0];
-    13'h1006: ss_q = REGS_DO[7:0];
-    13'h1007: ss_q = {3'b0, STEP_CNT[4:0]};
-    13'h1008: ss_q = {6'b0, SUBSTEP_CNT[1:0]};
-    13'h1009: ss_q = {7'b0, RST_FLG};
-    13'h100a: ss_q = {7'b0, MUTE_FLG};
-    13'h100b: ss_q = {7'b0, ECEN_FLG};
-    13'h100c: ss_q = WKON[7:0];
-    13'h100d: ss_q = TKON[7:0];
-    13'h100e: ss_q = TKOFF[7:0];
-    13'h100f: ss_q = {5'b0, KON_CNT[0][2:0]};
-    13'h1010: ss_q = {5'b0, KON_CNT[1][2:0]};
-    13'h1011: ss_q = {5'b0, KON_CNT[2][2:0]};
-    13'h1012: ss_q = {5'b0, KON_CNT[3][2:0]};
-    13'h1013: ss_q = {5'b0, KON_CNT[4][2:0]};
-    13'h1014: ss_q = {5'b0, KON_CNT[5][2:0]};
-    13'h1015: ss_q = {5'b0, KON_CNT[6][2:0]};
-    13'h1016: ss_q = {5'b0, KON_CNT[7][2:0]};
-    13'h1017: ss_q = TSRCN[7:0];
-    13'h1018: ss_q = TDIR[7:0];
-    13'h1019: ss_q = TPITCH[7:0];
-    13'h101a: ss_q = {1'b0, TPITCH[14:8]};
-    13'h101b: ss_q = TADSR1[7:0];
-    13'h101c: ss_q = TADSR2[7:0];
-    13'h101d: ss_q = TNON[7:0];
-    13'h101e: ss_q = TESA[7:0];
-    13'h101f: ss_q = TEON[7:0];
-    13'h1020: ss_q = TPMON[7:0];
-    13'h1021: ss_q = ENDX[7:0];
-    13'h1022: ss_q = ENDX_BUF[7:0];
-    13'h1023: ss_q = OUTX_OUT[7:0];
-    13'h1024: ss_q = ENVX_OUT[7:0];
-    13'h1025: ss_q = TENVX[0][7:0];
-    13'h1026: ss_q = TENVX[1][7:0];
-    13'h1027: ss_q = TENVX[2][7:0];
-    13'h1028: ss_q = TENVX[3][7:0];
-    13'h1029: ss_q = TENVX[4][7:0];
-    13'h102a: ss_q = TENVX[5][7:0];
-    13'h102b: ss_q = TENVX[6][7:0];
-    13'h102c: ss_q = TENVX[7][7:0];
-    13'h102d: ss_q = {7'b0, EVEN_SAMPLE};
-    13'h102e: ss_q = {7'b0, BRR_DECODE_EN};
-    13'h102f: ss_q = TOUT[7:0];
-    13'h1030: ss_q = TOUT[15:8];
-    13'h1031: ss_q = NOISE[7:0];
-    13'h1032: ss_q = {1'b0, NOISE[14:8]};
-    13'h1033: ss_q = OUTL[7:0];
-    13'h1034: ss_q = OUTL[15:8];
-    13'h1035: ss_q = OUTR[7:0];
-    13'h1036: ss_q = OUTR[15:8];
-    13'h1037: ss_q = OUTPUT[7:0];
-    13'h1038: ss_q = OUTPUT[15:8];
-    13'h1039: ss_q = OUTPUT[23:16];
-    13'h103a: ss_q = OUTPUT[31:24];
-    13'h103b: ss_q = MOUT[0][7:0];
-    13'h103c: ss_q = MOUT[0][15:8];
-    13'h103d: ss_q = MOUT[1][7:0];
-    13'h103e: ss_q = MOUT[1][15:8];
-    13'h103f: ss_q = EOUT[0][7:0];
-    13'h1040: ss_q = EOUT[0][15:8];
-    13'h1041: ss_q = EOUT[1][7:0];
-    13'h1042: ss_q = EOUT[1][15:8];
-    13'h1043: ss_q = TDIR_ADDR[7:0];
-    13'h1044: ss_q = TDIR_ADDR[15:8];
-    13'h1045: ss_q = BRR_NEXT_ADDR[7:0];
-    13'h1046: ss_q = BRR_NEXT_ADDR[15:8];
-    13'h1047: ss_q = BRR_ADDR[0][7:0];
-    13'h1048: ss_q = BRR_ADDR[0][15:8];
-    13'h1049: ss_q = BRR_ADDR[1][7:0];
-    13'h104a: ss_q = BRR_ADDR[1][15:8];
-    13'h104b: ss_q = BRR_ADDR[2][7:0];
-    13'h104c: ss_q = BRR_ADDR[2][15:8];
-    13'h104d: ss_q = BRR_ADDR[3][7:0];
-    13'h104e: ss_q = BRR_ADDR[3][15:8];
-    13'h104f: ss_q = BRR_ADDR[4][7:0];
-    13'h1050: ss_q = BRR_ADDR[4][15:8];
-    13'h1051: ss_q = BRR_ADDR[5][7:0];
-    13'h1052: ss_q = BRR_ADDR[5][15:8];
-    13'h1053: ss_q = BRR_ADDR[6][7:0];
-    13'h1054: ss_q = BRR_ADDR[6][15:8];
-    13'h1055: ss_q = BRR_ADDR[7][7:0];
-    13'h1056: ss_q = BRR_ADDR[7][15:8];
-    13'h1057: ss_q = {5'b0, BRR_OFFS[0][2:0]};
-    13'h1058: ss_q = {5'b0, BRR_OFFS[1][2:0]};
-    13'h1059: ss_q = {5'b0, BRR_OFFS[2][2:0]};
-    13'h105a: ss_q = {5'b0, BRR_OFFS[3][2:0]};
-    13'h105b: ss_q = {5'b0, BRR_OFFS[4][2:0]};
-    13'h105c: ss_q = {5'b0, BRR_OFFS[5][2:0]};
-    13'h105d: ss_q = {5'b0, BRR_OFFS[6][2:0]};
-    13'h105e: ss_q = {5'b0, BRR_OFFS[7][2:0]};
-    13'h105f: ss_q = TBRRDAT[7:0];
-    13'h1060: ss_q = TBRRDAT[15:8];
-    13'h1061: ss_q = TBRRHDR[7:0];
-    13'h1062: ss_q = BRR_END[7:0];
-    13'h1063: ss_q = {4'b0, BRR_BUF_ADDR[0][3:0]};
-    13'h1064: ss_q = {4'b0, BRR_BUF_ADDR[1][3:0]};
-    13'h1065: ss_q = {4'b0, BRR_BUF_ADDR[2][3:0]};
-    13'h1066: ss_q = {4'b0, BRR_BUF_ADDR[3][3:0]};
-    13'h1067: ss_q = {4'b0, BRR_BUF_ADDR[4][3:0]};
-    13'h1068: ss_q = {4'b0, BRR_BUF_ADDR[5][3:0]};
-    13'h1069: ss_q = {4'b0, BRR_BUF_ADDR[6][3:0]};
-    13'h106a: ss_q = {4'b0, BRR_BUF_ADDR[7][3:0]};
-    13'h106b: ss_q = {1'b0, BRR_BUF_ADDR_A[6:0]};
-    13'h106c: ss_q = {7'b0, BRR_BUF_WE};
-    13'h106d: ss_q = BRR_BUF_DI[7:0];
-    13'h106e: ss_q = BRR_BUF_DI[15:8];
-    13'h106f: ss_q = BRR_BUF_DO[7:0];
-    13'h1070: ss_q = BRR_BUF_DO[15:8];
-    13'h1071: ss_q = {1'b0, BRR_BUF_ADDR_B[6:0]};
-    13'h1072: ss_q = BRR_BUF_GAUSS_DO[7:0];
-    13'h1073: ss_q = BRR_BUF_GAUSS_DO[15:8];
-    13'h1074: ss_q = {5'b0, GS_STATE[2:0]};
-    13'h1075: ss_q = GTBL_ADDR[7:0];
-    13'h1076: ss_q = {7'b0, GTBL_ADDR[8:8]};
-    13'h1077: ss_q = GTBL_DO[7:0];
-    13'h1078: ss_q = {4'b0, GTBL_DO[11:8]};
-    13'h1079: ss_q = {5'b0, G_VOICE[2:0]};
-    13'h107a: ss_q = SUM012[7:0];
-    13'h107b: ss_q = SUM012[15:8];
-    13'h107c: ss_q = {7'b0, SUM012[16:16]};
-    13'h107d: ss_q = {6'b0, BD_STATE[1:0]};
-    13'h107e: ss_q = SR[7:0];
-    13'h107f: ss_q = SR[15:8];
-    13'h1080: ss_q = {5'b0, BD_VOICE[2:0]};
-    13'h1081: ss_q = P0[7:0];
-    13'h1082: ss_q = P0[15:8];
-    13'h1083: ss_q = {7'b0, P0[16:16]};
-    13'h1084: ss_q = ECHO_POS[7:0];
-    13'h1085: ss_q = {1'b0, ECHO_POS[14:8]};
-    13'h1086: ss_q = ECHO_ADDR[7:0];
-    13'h1087: ss_q = ECHO_ADDR[15:8];
-    13'h1088: ss_q = ECHO_BUF[0][0][7:0];
-    13'h1089: ss_q = {1'b0, ECHO_BUF[0][0][14:8]};
-    13'h108a: ss_q = ECHO_BUF[0][1][7:0];
-    13'h108b: ss_q = {1'b0, ECHO_BUF[0][1][14:8]};
-    13'h108c: ss_q = ECHO_BUF[0][2][7:0];
-    13'h108d: ss_q = {1'b0, ECHO_BUF[0][2][14:8]};
-    13'h108e: ss_q = ECHO_BUF[0][3][7:0];
-    13'h108f: ss_q = {1'b0, ECHO_BUF[0][3][14:8]};
-    13'h1090: ss_q = ECHO_BUF[0][4][7:0];
-    13'h1091: ss_q = {1'b0, ECHO_BUF[0][4][14:8]};
-    13'h1092: ss_q = ECHO_BUF[0][5][7:0];
-    13'h1093: ss_q = {1'b0, ECHO_BUF[0][5][14:8]};
-    13'h1094: ss_q = ECHO_BUF[0][6][7:0];
-    13'h1095: ss_q = {1'b0, ECHO_BUF[0][6][14:8]};
-    13'h1096: ss_q = ECHO_BUF[0][7][7:0];
-    13'h1097: ss_q = {1'b0, ECHO_BUF[0][7][14:8]};
-    13'h1098: ss_q = ECHO_BUF[1][0][7:0];
-    13'h1099: ss_q = {1'b0, ECHO_BUF[1][0][14:8]};
-    13'h109a: ss_q = ECHO_BUF[1][1][7:0];
-    13'h109b: ss_q = {1'b0, ECHO_BUF[1][1][14:8]};
-    13'h109c: ss_q = ECHO_BUF[1][2][7:0];
-    13'h109d: ss_q = {1'b0, ECHO_BUF[1][2][14:8]};
-    13'h109e: ss_q = ECHO_BUF[1][3][7:0];
-    13'h109f: ss_q = {1'b0, ECHO_BUF[1][3][14:8]};
-    13'h10a0: ss_q = ECHO_BUF[1][4][7:0];
-    13'h10a1: ss_q = {1'b0, ECHO_BUF[1][4][14:8]};
-    13'h10a2: ss_q = ECHO_BUF[1][5][7:0];
-    13'h10a3: ss_q = {1'b0, ECHO_BUF[1][5][14:8]};
-    13'h10a4: ss_q = ECHO_BUF[1][6][7:0];
-    13'h10a5: ss_q = {1'b0, ECHO_BUF[1][6][14:8]};
-    13'h10a6: ss_q = ECHO_BUF[1][7][7:0];
-    13'h10a7: ss_q = {1'b0, ECHO_BUF[1][7][14:8]};
-    13'h10a8: ss_q = ECHO_LEN[7:0];
-    13'h10a9: ss_q = {1'b0, ECHO_LEN[14:8]};
-    13'h10aa: ss_q = {1'b0, ECHO_DATA_TEMP[6:0]};
-    13'h10ab: ss_q = {7'b0, ECHO_WR_EN};
-    13'h10ac: ss_q = ECHO_FIR[0][7:0];
-    13'h10ad: ss_q = ECHO_FIR[0][15:8];
-    13'h10ae: ss_q = ECHO_FIR[1][7:0];
-    13'h10af: ss_q = ECHO_FIR[1][15:8];
-    13'h10b0: ss_q = ECHO_FFC[0][7:0];
-    13'h10b1: ss_q = ECHO_FFC[1][7:0];
-    13'h10b2: ss_q = ECHO_FFC[2][7:0];
-    13'h10b3: ss_q = ECHO_FFC[3][7:0];
-    13'h10b4: ss_q = ECHO_FFC[4][7:0];
-    13'h10b5: ss_q = ECHO_FFC[5][7:0];
-    13'h10b6: ss_q = ECHO_FFC[6][7:0];
-    13'h10b7: ss_q = ECHO_FFC[7][7:0];
-    13'h10b8: ss_q = {5'b0, FFC_CNT[2:0]};
-    13'h10b9: ss_q = ECHO_FIR_TEMP[0][7:0];
-    13'h10ba: ss_q = ECHO_FIR_TEMP[0][15:8];
-    13'h10bb: ss_q = ECHO_FIR_TEMP[1][7:0];
-    13'h10bc: ss_q = ECHO_FIR_TEMP[1][15:8];
-    13'h10bd: ss_q = {6'b0, ENV_MODE[0][1:0]};
-    13'h10be: ss_q = {6'b0, ENV_MODE[1][1:0]};
-    13'h10bf: ss_q = {6'b0, ENV_MODE[2][1:0]};
-    13'h10c0: ss_q = {6'b0, ENV_MODE[3][1:0]};
-    13'h10c1: ss_q = {6'b0, ENV_MODE[4][1:0]};
-    13'h10c2: ss_q = {6'b0, ENV_MODE[5][1:0]};
-    13'h10c3: ss_q = {6'b0, ENV_MODE[6][1:0]};
-    13'h10c4: ss_q = {6'b0, ENV_MODE[7][1:0]};
-    13'h10c5: ss_q = ENV[0][7:0];
-    13'h10c6: ss_q = {4'b0, ENV[0][11:8]};
-    13'h10c7: ss_q = ENV[1][7:0];
-    13'h10c8: ss_q = {4'b0, ENV[1][11:8]};
-    13'h10c9: ss_q = ENV[2][7:0];
-    13'h10ca: ss_q = {4'b0, ENV[2][11:8]};
-    13'h10cb: ss_q = ENV[3][7:0];
-    13'h10cc: ss_q = {4'b0, ENV[3][11:8]};
-    13'h10cd: ss_q = ENV[4][7:0];
-    13'h10ce: ss_q = {4'b0, ENV[4][11:8]};
-    13'h10cf: ss_q = ENV[5][7:0];
-    13'h10d0: ss_q = {4'b0, ENV[5][11:8]};
-    13'h10d1: ss_q = ENV[6][7:0];
-    13'h10d2: ss_q = {4'b0, ENV[6][11:8]};
-    13'h10d3: ss_q = ENV[7][7:0];
-    13'h10d4: ss_q = {4'b0, ENV[7][11:8]};
-    13'h10d5: ss_q = BENT_INC_MODE[7:0];
-    13'h10d6: ss_q = INTERP_POS[0][7:0];
-    13'h10d7: ss_q = INTERP_POS[0][15:8];
-    13'h10d8: ss_q = INTERP_POS[1][7:0];
-    13'h10d9: ss_q = INTERP_POS[1][15:8];
-    13'h10da: ss_q = INTERP_POS[2][7:0];
-    13'h10db: ss_q = INTERP_POS[2][15:8];
-    13'h10dc: ss_q = INTERP_POS[3][7:0];
-    13'h10dd: ss_q = INTERP_POS[3][15:8];
-    13'h10de: ss_q = INTERP_POS[4][7:0];
-    13'h10df: ss_q = INTERP_POS[4][15:8];
-    13'h10e0: ss_q = INTERP_POS[5][7:0];
-    13'h10e1: ss_q = INTERP_POS[5][15:8];
-    13'h10e2: ss_q = INTERP_POS[6][7:0];
-    13'h10e3: ss_q = INTERP_POS[6][15:8];
-    13'h10e4: ss_q = INTERP_POS[7][7:0];
-    13'h10e5: ss_q = INTERP_POS[7][15:8];
-    13'h10e6: ss_q = LAST_ENV[7:0];
-    13'h10e7: ss_q = {4'b0, LAST_ENV[11:8]};
-    13'h10e8: ss_q = GCNT_BY1[7:0];
-    13'h10e9: ss_q = {4'b0, GCNT_BY1[11:8]};
-    13'h10ea: ss_q = GCNT_BY3[7:0];
-    13'h10eb: ss_q = {4'b0, GCNT_BY3[11:8]};
-    13'h10ec: ss_q = GCNT_BY5[7:0];
-    13'h10ed: ss_q = {4'b0, GCNT_BY5[11:8]};
-    13'h116e: ss_q = SMP_DO_buf[7:0];
-    13'h116f: ss_q = SMP_A_buf[7:0];
-    13'h1170: ss_q = SMP_A_buf[15:8];
-    13'h1171: ss_q = {7'b0, SMP_WE_N_buf};
-    default: ;
-    endcase
+    ss_q = ss_bank_100 | ss_bank_101 | ss_bank_102 | ss_bank_103 | ss_bank_104 | ss_bank_105 | ss_bank_106 | ss_bank_107 | ss_bank_108 | ss_bank_109 | ss_bank_10a | ss_bank_10b | ss_bank_10c | ss_bank_10d | ss_bank_10e | ss_bank_116 | ss_bank_117;
     ss_q = ss_q | ss_q_ce;
     if (ss_regram_sel) ss_q = regram_raw;
     if (ss_brr_sel) ss_q = ss_brr_offset[0] ? brr_raw_a[15:8] : brr_raw_a[7:0];
