@@ -217,8 +217,10 @@ wire        BSRAM_OE_N;
 wire        BSRAM_WE_N;
 wire        BSRAM_RD_N;
 // The SNES reads the controller's sticky read register directly. Once the save
-// channel uses the port, that register holds save-channel bytes, so the SNES
-// sees the value from its own last access until it makes a new one.
+// channel uses the port, that register holds save-channel bytes, so the bridge
+// below keeps the SNES's last read byte and its address behind the shadow
+// select: while shadowed, a read of that address keeps the held byte until
+// its own service captures, however many save bytes crossed in between.
 wire  [7:0] bsram_dout;            // the sdram controller's BSRAM read register
 reg   [7:0] snes_bsram_hold = 0;
 reg         snes_bsram_shadow = 0;
@@ -333,11 +335,22 @@ wire refresh;
 reg enable; // && ~dbg_break;
 reg loaded;
 
+// Enable may only rise again at the same 2-cycle clock phase it fell,
+// so every enable-low span is an even number of master clocks. The
+// CPU/SDRAM fetch alignments (see sim/sdram_port's stable windows, and
+// the scaler's identical pause_sync rule for its halt) only hold at
+// that parity; resuming on the opposite phase can present an SDRAM
+// fetch too late for the cycle that samples it. The frame-sync halt
+// already keeps this rule; the firmware pause and the load release
+// now get it too, at a cost of at most one cycle per edge.
+reg en_phase = 0;
+reg en_fall_phase = 0;
+wire en_want = ~sdram_busy & ~pause_snes_for_frame_sync & ~pause & loaded;
 always @(posedge mclk) begin        // wait until memory initialize to start SNES
-    if (~sdram_busy && ~pause_snes_for_frame_sync && ~pause && loaded)
-        enable <= 1;
-    else 
-        enable <= 0;
+    en_phase <= ~en_phase;
+    if (enable && !en_want)
+        en_fall_phase <= ~en_phase;
+    enable <= en_want && (enable || (~en_phase == en_fall_phase));
 end
 
 wire sysclkf_ce, sysclkr_ce;
@@ -508,8 +521,13 @@ always @(posedge mclk) begin
 
         // BSRAM read/write. The save-RAM bridge below serializes these with
         // the save channel's accesses; bs_det_new (in the bridge) marks a
-        // new access from these edge registers and queues it there.
-        bsram_rd_r <= bsram_rd; bsram_wr_r <= bsram_wr;
+        // new access from these edge registers and queues it there. The
+        // edge registers hold while enable is low: the bus strobes are
+        // enable-gated combinationally, so tracking them through a pause
+        // would re-detect the access the pause froze at the resume.
+        if (enable) begin
+            bsram_rd_r <= bsram_rd; bsram_wr_r <= bsram_wr;
+        end
 
         // ARAM read/write. The controller is fed the address/data/we
         // snapshot taken on the toggle edge (not the combinational DSP/SMP
@@ -567,10 +585,18 @@ reg   [4:0] bs_fifo_wptr = 0, bs_fifo_rptr = 0;
 wire        bs_fifo_empty = bs_fifo_wptr == bs_fifo_rptr;
 wire        bs_fifo_full  = bs_fifo_wptr == bs_fifo_rptr + (gsu_mode ? 5'd16 : 5'd4);
 // Only the low 64 KiB of GSU RAM is mirrored. All non-GSU cartridges and
-// the upper 64 KiB retain the SDRAM read and save-data shadow path.
+// the upper 64 KiB retain the SDRAM read and tagged-hold path.
 wire        bs_mirror_sel = gsu_mode && !BSRAM_ADDR[16];
-wire        bs_det_new = (bsram_rd && BSRAM_ADDR != bsram_addr) ||
-                         (bsram_wr & ~bsram_wr_r) || (bsram_rd & ~bsram_rd_r);
+// Detect new cartridge accesses only while the core runs. An access
+// presented as enable falls is held by the frozen core and detected at
+// the resume; an access presented before the fall was already queued,
+// and must not be detected again at the resume (its re-service would
+// put the port's byte on BSRAM_Q until the re-capture, past the
+// S-CPU's fixed sample edge: issue #71). This
+// also keeps the GSU's forced-on RAM_CE_N under ~ENABLE from queueing
+// a phantom read at its frozen fetch address.
+wire        bs_det_new = enable && ((bsram_rd && BSRAM_ADDR != bsram_addr) ||
+                         (bsram_wr & ~bsram_wr_r) || (bsram_rd & ~bsram_rd_r));
 // Mirrored reads need no SDRAM transaction; writes still go through the
 // queue for save-channel coherence. Unmirrored accesses keep the detector.
 wire        bs_push = (bs_mirror_sel ? (bsram_wr & ~bsram_wr_r) : bs_det_new)
@@ -614,6 +640,8 @@ reg  [16:0] bs_addr_r = 0;
 reg  [7:0]  bs_din_r = 0;
 reg         sv_ack_r = 0, sv_rack_r = 0;    // toggles back into iosys
 reg  [7:0]  sv_q_r = 0;
+reg  [16:0] snes_bsram_tag = 0;             // address snes_bsram_hold belongs to
+reg         snes_bsram_tag_v = 0;
 wire        snes_bs_new = ~bs_fifo_empty;
 wire        sv_w_new    = sv_req != sv_w_seen;
 wire        sv_r_new    = sv_rreq != sv_r_seen;
@@ -626,11 +654,15 @@ wire        bs_issue_ok = ~bs_busy | bs_free;   // idle, or acked this very cloc
 // save-channel byte issued while the core runs can still be in flight when
 // the S-CPU presents its read; the queued S-CPU byte then misses its sample
 // edge and reads the in-flight byte (issue #65). So the bridge only starts
-// save-channel bytes while the core cannot present one (enable low: the
-// firmware pauses the core for dumps and restores before release). A pending
-// save toggle simply waits for the pause; the S-CPU path is untouched and
-// gains no wait states, and GSU wait / SA-1 BW-RAM behaviour is unchanged.
-wire        bs_save_allow = ~enable;
+// save-channel bytes while the core cannot present one: enable low *and*
+// the core held for the firmware (pause bit, or the not-yet-loaded hold the
+// restore runs under). Enable alone is not enough: enable also falls for
+// the per-frame HDMI halt, and a byte slipped into a halt is in flight at
+// the resume the game cannot avoid presenting against (issue #71). A
+// pending save toggle simply waits for the pause; the S-CPU path is
+// untouched and gains no wait states, and GSU wait / SA-1 BW-RAM behaviour
+// is unchanged.
+wire        bs_save_allow = ~enable & (pause | ~loaded);
 wire        bs_sv_w_issue = bs_issue_ok && sv_w_new && !sa1_mode &&
                             !(gsu_mode && bs_push) && bs_save_allow;
 
@@ -667,16 +699,35 @@ always @(posedge mclk) begin
     end
     if (bs_busy && bs_free) begin               // the access just completed
         bs_busy <= 0;
+        // Keep the held byte coherent: SNES reads (re)tag it, writes to
+        // the tagged address from either side refresh its data.
+        if (!bs_owner) begin
+            if (bs_we_r) begin
+                if (snes_bsram_tag_v && bs_addr_r == snes_bsram_tag)
+                    snes_bsram_hold <= bs_din_r;
+            end else begin
+                snes_bsram_hold <= bsram_dout;
+                snes_bsram_tag <= bs_addr_r;
+                snes_bsram_tag_v <= 1;
+            end
+        end
         if (bs_owner) begin
-            if (bs_we_r) sv_ack_r <= ~sv_ack_r;
-            else begin
+            if (bs_we_r) begin
+                sv_ack_r <= ~sv_ack_r;
+                if (snes_bsram_tag_v && bs_addr_r == snes_bsram_tag)
+                    snes_bsram_hold <= bs_din_r;
+            end else begin
                 sv_q_r <= bsram_dout;           // the controller's sticky read reg
                 sv_rack_r <= ~sv_rack_r;
             end
         end
     end
     if (bs_issue_ok && snes_bs_new && ~sa1_mode) begin
-        snes_bsram_shadow <= 0;                 // the SNES gets the port's data again
+        // The SNES gets the port's data again, unless this access is to
+        // the held byte's address: then the held byte stays presented
+        // until the access captures (it is refreshed at completion).
+        if (!(snes_bsram_tag_v && bs_issue_addr == snes_bsram_tag))
+            snes_bsram_shadow <= 0;
         bs_addr_r <= bs_issue_addr;
         bs_din_r  <= bs_issue_din;
         bs_we_r   <= bs_issue_we;
@@ -685,10 +736,8 @@ always @(posedge mclk) begin
         bs_req_tog <= ~bs_req_tog;
         bs_fifo_rptr <= bs_fifo_rptr + 5'd1;
     end else if (bs_sv_w_issue) begin
-        if (!snes_bsram_shadow) begin           // keep the SNES's last read data
-            snes_bsram_hold <= bsram_dout;
-            snes_bsram_shadow <= 1;
-        end
+        if (!snes_bsram_shadow && snes_bsram_tag_v)
+            snes_bsram_shadow <= 1;             // port data stops being the SNES's
         bs_addr_r <= sv_addr[16:0];
         bs_din_r  <= sv_din;
         bs_we_r   <= 1;
@@ -697,10 +746,8 @@ always @(posedge mclk) begin
         bs_req_tog <= ~bs_req_tog;
         sv_w_seen <= sv_req;
     end else if (bs_issue_ok && sv_r_new && ~sa1_mode && bs_save_allow) begin
-        if (!snes_bsram_shadow) begin           // keep the SNES's last read data
-            snes_bsram_hold <= bsram_dout;
+        if (!snes_bsram_shadow && snes_bsram_tag_v)
             snes_bsram_shadow <= 1;
-        end
         bs_addr_r <= sv_addr[16:0];
         bs_din_r  <= 8'h0;
         bs_we_r   <= 0;

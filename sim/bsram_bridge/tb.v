@@ -12,8 +12,8 @@ wire [7:0] q, qb;
 reg ack=0, ackb=0;
 reg [7:0] dout=0,doutb=0;
 reg bs_save_allow=1;
-bridge dut(clk,gsu,sa1,owner,mapper,addr,din,ce,rd,we,sa,sd,sw,sr,ack,dout,q,bs_save_allow);
-bridge_base base(clk,gsu,sa1,owner,mapper,addr,din,ce,rd,we,sa,sd,sw,sr,ackb,doutb,qb,bs_save_allow);
+bridge dut(clk,gsu,sa1,owner,mapper,addr,din,ce,rd,we,sa,sd,sw,sr,ack,dout,q,bs_save_allow,1'b1);
+bridge_base base(clk,gsu,sa1,owner,mapper,addr,din,ce,rd,we,sa,sd,sw,sr,ackb,doutb,qb,bs_save_allow,1'b1);
 reg [7:0] mem[0:131071], memb[0:131071];
 integer delay=0,delayb=0,checks=0,requests=0;
 reg compare=1;
@@ -35,8 +35,17 @@ always @(posedge clk) begin
 end
 always @(negedge clk) if(compare) begin
  checks=checks+1;
- if ({q,dut.bs_req_tog,dut.bs_addr_r,dut.bs_din_r,dut.bs_we_r,dut.sv_ack_r,dut.sv_rack_r,dut.sv_q_r,dut.bs_fifo_full,dut.bs_fifo_empty}
- !== {qb,base.bs_req_tog,base.bs_addr_r,base.bs_din_r,base.bs_we_r,base.sv_ack_r,base.sv_rack_r,base.sv_q_r,base.bs_fifo_full,base.bs_fifo_empty})
+ // q may differ only where one side presents its held SNES byte and
+ // the other the port's: the DUT's shadow, kept past issue for its
+ // tagged address (issue #71), or the baseline's shadow. During a
+ // presented read with neither hold engaged both must match; q is
+ // otherwise unobserved (write and idle cycles).
+ if (q !== qb && !((dut.snes_bsram_shadow && dut.snes_bsram_tag_v && addr[16:0] === dut.snes_bsram_tag && q === dut.snes_bsram_hold) ||
+                   (base.snes_bsram_shadow && qb === base.snes_bsram_hold) ||
+                   !(ce == 1'b0 && rd == 1'b0)))
+  $fatal(1,"non-GSU bridge q differs at check %0d mapper=%h q=%h qb=%h addr=%h tagv=%b tag=%h hold=%h dout=%h doutb=%h",checks,mapper,q,qb,addr,dut.snes_bsram_tag_v,dut.snes_bsram_tag,dut.snes_bsram_hold,dout,doutb);
+ if ({dut.bs_req_tog,dut.bs_addr_r,dut.bs_din_r,dut.bs_we_r,dut.sv_ack_r,dut.sv_rack_r,dut.sv_q_r,dut.bs_fifo_full,dut.bs_fifo_empty}
+ !== {base.bs_req_tog,base.bs_addr_r,base.bs_din_r,base.bs_we_r,base.sv_ack_r,base.sv_rack_r,base.sv_q_r,base.bs_fifo_full,base.bs_fifo_empty})
   $fatal(1,"non-GSU bridge differs at check %0d mapper=%h",checks,mapper);
 end
 task idle;

@@ -58,6 +58,7 @@ not part of the repositories.
 - `framelock`: native-1647 vs 1364-clock SNES line; 1 halt/frame locked, interlace/slow-crystal must free-run.
 - `gsu_boot`: PeterLemon `GSU2BPP FillPoly` on full-chip Verilator; tables + picture match.
 - `gsu_halt`: NOP sled with `ENABLE` low; PC/ROM/RAM frozen.
+- `gsu_save_halt`: extracted save bridge vs GSU/S-CPU masters crossing halt/pause windows with save traffic (regression `tangcore#71`).
 - `ppu_sprite`: left-edge 16x16 sprite slivers (regression `tangcore#19`).
 - `ppu_timing`: 1364 clocks/line, 1360 short line, 263/262 interlace.
 - `sa1_cache`: `sa1_rom_cache`+`bwram_256k` vs behavioural CPU2.

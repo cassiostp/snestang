@@ -274,7 +274,16 @@ always @(posedge CLK) begin : cpu_clk_gen
 
         if (CPU_ACTIVEr && DMA_ACTIVE && ~DMA_ACTIVEr && ~REFRESHED)
             CPU_ACTIVEr <= 1'b0;
-        else if (~CPU_ACTIVEr && ~DMA_ACTIVE && P65_CLK_CNT >= CPU_LAST_CLOCK && ~REFRESHED)
+        // An enable drop (menu pause, frame-sync halt) switches the CE
+        // source to DMA_CLK_CNT below (~ENABLE). Give that switch the
+        // DMA handoff's alignment too: retire CPU_ACTIVEr at a DMA
+        // counter boundary and only re-arm it at a CPU counter boundary
+        // once enabled again. Without this the source switches back
+        // mid-counter at the resume and the first bus cycle comes out
+        // short -- too short for the SDRAM fetch it samples at its end.
+        else if (CPU_ACTIVEr && ~ENABLE && DMA_CLK_CNT == DMA_LAST_CLOCK && ~REFRESHED)
+            CPU_ACTIVEr <= 1'b0;
+        else if (~CPU_ACTIVEr && ENABLE && ~DMA_ACTIVE && P65_CLK_CNT >= CPU_LAST_CLOCK && ~REFRESHED)
             CPU_ACTIVEr <= 1'b1;
 
         if (DMA_ACTIVEr || ~ENABLE) begin
