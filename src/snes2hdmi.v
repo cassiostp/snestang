@@ -405,15 +405,15 @@ module snes2hdmi (
     always @(posedge clk_pixel) begin
         if (resetn) begin
             audio_rinc <= 0;
-            if (audio_divider != AUDIO_DELAY - 1) 
+            if (audio_divider != AUDIO_DELAY - 1)
                 audio_divider <= audio_divider + 1;
-            else begin 
+            else begin
                 audio_divider <= 0;
                 clk_audio <= ~clk_audio;     // generate audio clock @ 32Khz
-                // output audio sample on posedge clk_audio
+                // latch the next sample on the falling edge of clk_audio
                 if (clk_audio && !audio_empty) begin
                     {audio_sample_word[0], audio_sample_word[1]} <= audio_sample;
-                    audio_rinc <= 1'b1;                    
+                    audio_rinc <= 1'b1;
                 end else if (clk_audio && pause)
                     // menu pause drained the fifo: output silence, not the last held sample
                     {audio_sample_word[0], audio_sample_word[1]} <= 32'd0;
@@ -423,7 +423,7 @@ module snes2hdmi (
 
     // Audio sample FIFO for 16 samples
     dual_clk_fifo #(.DATESIZE(32), .ADDRSIZE(4)) audio_fifo (
-        .clk(clk), .wrst_n(1'b1), 
+        .clk(clk), .wrst_n(1'b1),
         .winc(audio_ready), .wdata({audio_l, audio_r}), .wfull(audio_full),
         .rclk(clk_pixel), .rrst_n(1'b1),
         .rinc(audio_rinc), .rdata(audio_sample), .rempty(audio_empty),
