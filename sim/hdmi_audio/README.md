@@ -44,6 +44,9 @@ Two simulator accommodations are explicit:
   that toggle and the sample latch to nonblocking/falling-edge intent, matching
   the already accepted `f234c65` transport fix. It also initializes the old
   divider/clock as power-up state. It is not an unmodified historical RTL run.
+  The historical transport uses today's behavioral PPU frame, so its sample
+  repeats are reported rather than asserted; current-tree continuity remains
+  required after acquisition.
 
 The scaler's frame-sync registers receive the same initial deposits as the
 existing FIFO bench. The source/DSP and external SDRAM are behavioral/excluded;

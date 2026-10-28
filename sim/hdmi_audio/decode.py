@@ -23,7 +23,7 @@ def ecc(value, bits):
     return crc
 
 
-def decode(path, rate, tone):
+def decode(path, rate, tone, historical):
     words = array('I')
     with path.open('rb') as f:
         words.fromfile(f, path.stat().st_size // 4)
@@ -146,7 +146,7 @@ def decode(path, rate, tone):
         errors['iec_channel_status'] += 1
     if info.get('84') != {'84010a7001000000000000000000'}:
         errors['audio_infoframe'] += 1
-    if steady_discontinuities:
+    if steady_discontinuities and not historical:
         errors['steady_sample_continuity'] += 1
     result = dict(stream=str(path), pixel_clocks=len(words), counts=dict(counts),
                   errors=dict(errors), acr_n=sorted(set(x[1] for x in cts)),
@@ -168,5 +168,7 @@ if __name__ == '__main__':
     parser.add_argument('stream', type=Path)
     parser.add_argument('--rate', type=int, choices=(32000, 48000), default=32000)
     parser.add_argument('--tone', action='store_true')
+    parser.add_argument('--historical', action='store_true',
+                        help='report historical transport repeats without requiring continuity')
     args = parser.parse_args()
-    sys.exit(decode(args.stream, args.rate, args.tone))
+    sys.exit(decode(args.stream, args.rate, args.tone, args.historical))

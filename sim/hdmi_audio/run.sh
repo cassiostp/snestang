@@ -20,7 +20,9 @@ if [ "${HDMI_AUDIO_IN_CONTAINER:-0}" != 1 ]; then
     rate=$(sed -n 's/.*localparam AUDIO_OUT_RATE = \([0-9]*\);/\1/p' "$rtl/snes2hdmi.v")
     tone=
     if grep -q 'diagnostic_audio_word' "$rtl/snes2hdmi.v"; then tone=--tone; fi
-    python3 decode.py "build/$ref-$variant.bin" --rate "$rate" $tone
+    historical=
+    [ "$ref" = current ] || historical=--historical
+    python3 decode.py "build/$ref-$variant.bin" --rate "$rate" $tone $historical
     exit
 fi
 mkdir -p build
