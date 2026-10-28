@@ -334,11 +334,22 @@ wire refresh;
 reg enable; // && ~dbg_break;
 reg loaded;
 
+// Enable may only rise again at the same 2-cycle clock phase it fell,
+// so every enable-low span is an even number of master clocks. The
+// CPU/SDRAM fetch alignments (see sim/sdram_port's stable windows, and
+// the scaler's identical pause_sync rule for its halt) only hold at
+// that parity; resuming on the opposite phase can present an SDRAM
+// fetch too late for the cycle that samples it. The frame-sync halt
+// already keeps this rule; the firmware pause and the load release
+// now get it too, at a cost of at most one cycle per edge.
+reg en_phase = 0;
+reg en_fall_phase = 0;
+wire en_want = ~sdram_busy & ~pause_snes_for_frame_sync & ~pause & loaded;
 always @(posedge mclk) begin        // wait until memory initialize to start SNES
-    if (~sdram_busy && ~pause_snes_for_frame_sync && ~pause && loaded)
-        enable <= 1;
-    else 
-        enable <= 0;
+    en_phase <= ~en_phase;
+    if (enable && !en_want)
+        en_fall_phase <= ~en_phase;
+    enable <= en_want && (enable || (~en_phase == en_fall_phase));
 end
 
 wire sysclkf_ce, sysclkr_ce;
