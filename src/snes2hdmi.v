@@ -664,6 +664,22 @@ module snes2hdmi (
         .rgb_out(rgb)
     );
 
+    // SNESSOUND8 diagnostic, not a candidate: 1 kHz at -18 dBFS.
+    // Replace only the HDMI input words; keep the pixel-clock sample phase.
+    reg [5:0] diagnostic_phase = 0;
+    always @(posedge clk_pixel) begin
+        if (!resetn)
+            diagnostic_phase <= 0;
+        else if (audio_divider >= audio_limit && clk_audio)
+            diagnostic_phase <= diagnostic_phase == AUDIO_OUT_RATE/1000 - 1 ?
+                                6'd0 : diagnostic_phase + 6'd1;
+    end
+    wire [15:0] diagnostic_tone = diagnostic_phase < AUDIO_OUT_RATE/2000 ?
+                                  16'h1000 : 16'hf000;
+    wire [15:0] diagnostic_audio_word [1:0];
+    assign diagnostic_audio_word[0] = diagnostic_tone;
+    assign diagnostic_audio_word[1] = diagnostic_tone;
+
     // HDMI output.
     logic[2:0] tmds;
 
@@ -689,7 +705,7 @@ module snes2hdmi (
           .rgb(rgb), 
           .reset( ~resetn ),
           .std_timing(std_timing),
-          .audio_sample_word(audio_sample_word),
+          .audio_sample_word(diagnostic_audio_word),
           .tmds(tmds), 
           .tmds_clock(tmdsClk), 
           .cx(cx), 
