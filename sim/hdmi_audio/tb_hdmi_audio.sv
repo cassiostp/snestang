@@ -4,7 +4,7 @@
 `timescale 1ns/1ps
 
 `ifndef MCLK_HALF_NS
-`define MCLK_HALF_NS 23.2727
+`define MCLK_HALF_NS 23.2498
 `endif
 
 module tb_hdmi_audio;
@@ -15,7 +15,7 @@ module tb_hdmi_audio;
 `else
     always #6.734 clk_pixel = ~clk_pixel;       // 74.25 MHz
 `endif
-    always #(`MCLK_HALF_NS) clk = ~clk;         // board mclk (run.sh: 138K and 60K)
+    always #(`MCLK_HALF_NS) clk = ~clk;         // Console 138K mclk
 
     reg resetn = 0;
     initial begin
@@ -28,7 +28,7 @@ module tb_hdmi_audio;
     wire [7:0] overlay_x, overlay_y;
 
     // ACLK_FREQ from src/dsp.vh, over the CEGen IN_CLK (board-independent: rates are exact counter ratios)
-    `ifdef LEGACY
+`ifdef LEGACY
     parameter PROD_NUM = 411904;
 `else
     parameter PROD_NUM = 409584;
