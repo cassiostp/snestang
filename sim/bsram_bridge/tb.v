@@ -36,11 +36,11 @@ end
 always @(negedge clk) if(compare) begin
  checks=checks+1;
  // q may differ only where one side presents its held SNES byte and
- // the other the port's: the DUT's tag-held byte for its tagged
- // address (issue #71), or the baseline's untagged shadow. During a
+ // the other the port's: the DUT's shadow, kept past issue for its
+ // tagged address (issue #71), or the baseline's shadow. During a
  // presented read with neither hold engaged both must match; q is
  // otherwise unobserved (write and idle cycles).
- if (q !== qb && !((dut.snes_bsram_tag_v && addr[16:0] === dut.snes_bsram_tag && q === dut.snes_bsram_hold) ||
+ if (q !== qb && !((dut.snes_bsram_shadow && dut.snes_bsram_tag_v && addr[16:0] === dut.snes_bsram_tag && q === dut.snes_bsram_hold) ||
                    (base.snes_bsram_shadow && qb === base.snes_bsram_hold) ||
                    !(ce == 1'b0 && rd == 1'b0)))
   $fatal(1,"non-GSU bridge q differs at check %0d mapper=%h q=%h qb=%h addr=%h tagv=%b tag=%h hold=%h dout=%h doutb=%h",checks,mapper,q,qb,addr,dut.snes_bsram_tag_v,dut.snes_bsram_tag,dut.snes_bsram_hold,dout,doutb);

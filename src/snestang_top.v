@@ -218,11 +218,12 @@ wire        BSRAM_WE_N;
 wire        BSRAM_RD_N;
 // The SNES reads the controller's sticky read register directly. Once the save
 // channel uses the port, that register holds save-channel bytes, so the bridge
-// below keeps the SNES's last read byte and its address: a read of that
-// address keeps seeing the held byte until its own service captures, however
-// many save bytes crossed the port in between.
+// below keeps the SNES's last read byte and its address behind the shadow
+// select: while shadowed, a read of that address keeps the held byte until
+// its own service captures, however many save bytes crossed in between.
 wire  [7:0] bsram_dout;            // the sdram controller's BSRAM read register
 reg   [7:0] snes_bsram_hold = 0;
+reg         snes_bsram_shadow = 0;
 // SA-1: its own ROM lane (served from the SDRAM CPU2 port through the word
 // cache below) and BW-RAM in block RAM instead of the SDRAM save RAM.
 wire [22:0] sa1_rom_addr;
@@ -722,6 +723,11 @@ always @(posedge mclk) begin
         end
     end
     if (bs_issue_ok && snes_bs_new && ~sa1_mode) begin
+        // The SNES gets the port's data again, unless this access is to
+        // the held byte's address: then the held byte stays presented
+        // until the access captures (it is refreshed at completion).
+        if (!(snes_bsram_tag_v && bs_issue_addr == snes_bsram_tag))
+            snes_bsram_shadow <= 0;
         bs_addr_r <= bs_issue_addr;
         bs_din_r  <= bs_issue_din;
         bs_we_r   <= bs_issue_we;
@@ -730,6 +736,8 @@ always @(posedge mclk) begin
         bs_req_tog <= ~bs_req_tog;
         bs_fifo_rptr <= bs_fifo_rptr + 5'd1;
     end else if (bs_sv_w_issue) begin
+        if (!snes_bsram_shadow && snes_bsram_tag_v)
+            snes_bsram_shadow <= 1;             // port data stops being the SNES's
         bs_addr_r <= sv_addr[16:0];
         bs_din_r  <= sv_din;
         bs_we_r   <= 1;
@@ -738,6 +746,8 @@ always @(posedge mclk) begin
         bs_req_tog <= ~bs_req_tog;
         sv_w_seen <= sv_req;
     end else if (bs_issue_ok && sv_r_new && ~sa1_mode && bs_save_allow) begin
+        if (!snes_bsram_shadow && snes_bsram_tag_v)
+            snes_bsram_shadow <= 1;
         bs_addr_r <= sv_addr[16:0];
         bs_din_r  <= 8'h0;
         bs_we_r   <= 0;
@@ -782,8 +792,7 @@ initial begin
 end
 `endif
 assign BSRAM_Q = sa1_mode ? bwram_q_a : bs_mirror_sel ? bs_mirror_q :
-                ((snes_bsram_tag_v && BSRAM_ADDR[16:0] == snes_bsram_tag) ?
-                 snes_bsram_hold : bsram_dout);
+                (snes_bsram_shadow ? snes_bsram_hold : bsram_dout);
 
 // ---- SA-1: ROM word cache on CPU2, BW-RAM in block RAM ----------------------
 // In SA-1 mode the save channel talks to the BW-RAM's second port (through
