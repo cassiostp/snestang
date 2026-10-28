@@ -21,7 +21,7 @@ if [ "${HDMI_AUDIO_IN_CONTAINER:-0}" != 1 ]; then
     tone=
     if grep -q 'diagnostic_audio_word' "$rtl/snes2hdmi.v"; then tone=--tone; fi
     historical=
-    [ "$ref" = current ] || historical=--historical
+    if ! grep -q 'input std_timing' "$rtl/snes2hdmi.v"; then historical=--historical; fi
     python3 decode.py "build/$ref-$variant.bin" --rate "$rate" $tone $historical
     exit
 fi
@@ -32,11 +32,13 @@ if [ "$ref" != current ]; then
     mkdir -p "build/$ref"
     git -C ../.. archive "$ref" src | tar -x -C "build/$ref"
     rtl="build/$ref/src"
-    # The historical blocking toggle races both pixel-domain edge detectors.
-    # Match the falling-edge hardware intent explicitly, as f234c65 does.
-    sed -i -e 's/clk_audio = ~clk_audio/clk_audio <= ~clk_audio/' \
-        -e 's/!clk_audio/clk_audio/g' "$rtl/snes2hdmi.v"
-    flags=-DLEGACY
+    if ! grep -q 'input std_timing' "$rtl/snes2hdmi.v"; then
+        # The historical blocking toggle races both pixel-domain edge detectors.
+        # Match the falling-edge hardware intent explicitly, as f234c65 does.
+        sed -i -e 's/clk_audio = ~clk_audio/clk_audio <= ~clk_audio/' \
+            -e 's/!clk_audio/clk_audio/g' "$rtl/snes2hdmi.v"
+        flags=-DLEGACY
+    fi
 fi
 case "$variant" in
     standard) flags="$flags -I../../src/variant/standard" ;;

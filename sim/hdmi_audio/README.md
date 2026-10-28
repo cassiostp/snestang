@@ -4,6 +4,9 @@ From the repository root:
 
 ```sh
 SIM_PREFIX=snesaudio sh sim/hdmi_audio/run.sh both
+# Test a diagnostic's committed RTL with this checkout's current bench/decoder:
+git fetch origin
+SIM_PREFIX=snesaudio_diag sh sim/hdmi_audio/run.sh standard <commit>
 # Historical source, explicitly normalized as described below:
 SIM_PREFIX=snesaudio_r4 sh sim/hdmi_audio/run.sh standard 9800f11
 ```
@@ -12,6 +15,9 @@ The host wrapper starts Verilator through `simrun` when available, otherwise
 `docker run --rm`, and decodes the result with host Python 3. Set `SIM_PREFIX`
 to give the container a task-specific name. `build/` stays local and ignored.
 The regression catalog includes this bench in `full`, for both variants.
+The optional ref exports only `src/` from that commit; modern sources retain
+their current timing/continuity checks. The historical normalization below is
+applied only to the older interface without `std_timing`.
 
 A synthetic DSP counter/complement pair runs at the real ACLK ratio and pauses
 with a behavioral 262-line SNES frame. Unlike `sim/snes_audio`, this bench uses
