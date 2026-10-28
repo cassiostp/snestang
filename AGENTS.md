@@ -67,6 +67,7 @@ not part of the repositories.
 - `scpu_timing`: 1x WRAM refresh/scanline + H-IRQ/HDMA positions.
 - `sdram_port`: port-level `sdram_cl2_2ch.v` (S-CPU + CPU2 + ARAM + BSRAM); `run_stable.sh` proves SDC windows.
 - `snes_audio`: 32 kHz FIFO+servo vs `tangcore#26` (16 NTSC frames, no drop/repeat after warmup).
+- `hdmi_audio`: synthetic stereo through real HDMI packets and parallel TMDS; independent TERC4/BCH/ACR/IEC-status/payload decoder (no ROM).
 - `srtc`: `srtc_time_pack` firmware-BCD to MiSTer nibble map; `smc_parser` `0x35/0x55`.
 - `tmds`: 2-stage `tmds_channel` vs git-history `old` over 2.5M clocks.
 - `video_fx`: `0x13`, `video_fx` vs `model.py`, git-history regress with filters off, FX/linebuf/hires checks (`tb_snes_framebuf.v` replaces the line buffer bench for hz120).
