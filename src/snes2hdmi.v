@@ -397,7 +397,7 @@ module snes2hdmi (
     // residual (clock tolerance): above FIFO_HI the audio period shortens by
     // one pixel clock, below FIFO_LO it lengthens by one, so the level stays
     // mid-FIFO and samples are neither dropped nor repeated.
-    localparam AUDIO_OUT_RATE = 32000;
+    localparam AUDIO_OUT_RATE = 48000;
     localparam AUDIO_DELAY = CLKFRQ * 1000 / AUDIO_OUT_RATE / 2;
     localparam [10:0] AUDIO_PERIOD = AUDIO_DELAY - 1;    // pixel clocks per half audio clock
     localparam FIFO_ADDRSIZE = 6;       // 64 samples, ~2 ms at 32 kHz
@@ -410,8 +410,8 @@ module snes2hdmi (
     wire audio_full, audio_empty;
     wire [FIFO_ADDRSIZE:0] audio_used;
     wire [31:0] audio_sample;
-    wire [10:0] audio_limit = (audio_used >= FIFO_HI) ? AUDIO_PERIOD - 11'd1 :
-                              (audio_used <= FIFO_LO) ? AUDIO_PERIOD + 11'd1 : AUDIO_PERIOD;
+    // SNESSOUND8 diagnostic, not a candidate: no occupancy servo.
+    wire [10:0] audio_limit = AUDIO_PERIOD;
 
     always @(posedge clk_pixel) begin
         if (!resetn) begin
@@ -664,6 +664,22 @@ module snes2hdmi (
         .rgb_out(rgb)
     );
 
+    // SNESSOUND8 diagnostic, not a candidate: 1 kHz at -18 dBFS.
+    // Replace only the HDMI input words; keep the pixel-clock sample phase.
+    reg [5:0] diagnostic_phase = 0;
+    always @(posedge clk_pixel) begin
+        if (!resetn)
+            diagnostic_phase <= 0;
+        else if (audio_divider >= audio_limit && clk_audio)
+            diagnostic_phase <= diagnostic_phase == AUDIO_OUT_RATE/1000 - 1 ?
+                                6'd0 : diagnostic_phase + 6'd1;
+    end
+    wire [15:0] diagnostic_tone = diagnostic_phase < AUDIO_OUT_RATE/2000 ?
+                                  16'h1000 : 16'hf000;
+    wire [15:0] diagnostic_audio_word [1:0];
+    assign diagnostic_audio_word[0] = diagnostic_tone;
+    assign diagnostic_audio_word[1] = diagnostic_tone;
+
     // HDMI output.
     logic[2:0] tmds;
 
@@ -689,7 +705,7 @@ module snes2hdmi (
           .rgb(rgb), 
           .reset( ~resetn ),
           .std_timing(std_timing),
-          .audio_sample_word(audio_sample_word),
+          .audio_sample_word(diagnostic_audio_word),
           .tmds(tmds), 
           .tmds_clock(tmdsClk), 
           .cx(cx), 
