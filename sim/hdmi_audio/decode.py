@@ -142,6 +142,10 @@ def decode(path, rate, tone, historical):
         errors['acr_coverage_range'] += 1
     if len(values) < 1000 or len(channels) < 5:
         errors['audio_coverage'] += 1
+    if tone:
+        expected_transitions = len(values) * 2000 / rate
+        if set(values) != {0x1000, 0xf000} or abs(discontinuities['jump'] - expected_transitions) > 2:
+            errors['tone_frequency'] += 1
     if any(x != expected_status for x in channels):
         errors['iec_channel_status'] += 1
     if info.get('84') != {'84010a7001000000000000000000'}:

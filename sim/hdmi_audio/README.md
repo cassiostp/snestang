@@ -27,6 +27,8 @@ reports CTS values and sample counts. Initial partial CTS and acquisition-time
 sample repeats are reported separately from steady operation. Expected IEC
 status is consumer LPCM, stereo channel numbers 1/2, 16 bits, 32 kHz (48 kHz
 for a diagnostic tree that changes `AUDIO_OUT_RATE`).
+For direct-tone diagnostics it also requires both polarities and the transition
+count of a 1 kHz square wave, within two transitions at the capture boundaries.
 
 The layout follows HDMI 1.4b sections 5.2.3, 5.3.3–5.3.5, 7.2–7.3 and 8.2.2.
 The library's [original source](https://github.com/hdl-util/hdmi) and AMD's
