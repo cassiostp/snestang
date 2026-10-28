@@ -23,15 +23,17 @@ signature. With a signature present it writes only a `$77` marker.
 
 - boot 0, a dump while the game keeps running, without the pause. The
   bridge defers save-channel bytes while the core runs (they only start
-  while `enable` is low: paused or held for loading), so the unpaused dump
-  acks nothing and the game's own SRAM reads stay intact; pausing then lets
-  the pending dump complete, and it equals the SRAM. (Before the deferral,
-  the game's own SRAM read came back wrong within a few hundred clocks of
-  the dump starting, because the save channel and the game share the
-  controller's one BSRAM port.) Save-channel senders must keep the existing
-  discipline the firmware already follows: `0x11` blocks only while the core
-  is held, `0x12` block fetches one at a time waiting for each reply —
-  toggles are consumed one at a time and must not be pipelined.
+  while the core is held for the firmware: the pause bit, or the
+  not-yet-loaded hold; the per-frame HDMI halt does not admit them), so
+  the unpaused dump acks nothing and the game's own SRAM reads stay
+  intact; pausing then lets the pending dump complete, and it equals the
+  SRAM. (Before the deferral, the game's own SRAM read came back wrong
+  within a few hundred clocks of the dump starting, because the save
+  channel and the game share the controller's one BSRAM port.)
+  Save-channel senders must keep the existing discipline the firmware
+  already follows: `0x11` blocks only while the core is held, `0x12`
+  block fetches one at a time waiting for each reply — toggles are
+  consumed one at a time and must not be pipelined.
 - boot 1, blank BSRAM: the writes land at the right BSRAM offsets (signature,
   pattern, marker, mirror), `sv_core_we` pulses once per SRAM write (size + 2),
   and a dump read through the bridge with the game paused equals the SRAM and
@@ -39,6 +41,13 @@ signature. With a signature present it writes only a `$77` marker.
 - boot 2, the dump restored through the bridge while the core is still held in
   its loading state (the firmware's order): the game finds the signature, reads
   its save back and writes only its marker.
+- boot 3 (issue #71), a churn against the restored game's signature-poll
+  loop: whole dumps under firmware-style pauses, single bytes through
+  pauses, and dump bytes pending across forced per-frame halts, all at
+  swept phases. No save byte may be served while the game runs (halts
+  included) and no poll may come back disturbed across any
+  pause/resume. `+churnmode` (see `main.cpp`) isolates the shapes for
+  debugging, including fine sweeps of single enable drops.
 
 `test_loader_sim.v` replaces `src/verilator/test_loader.v`: the ROM and size
 come from the command line, `loading` is held until the driver releases it, and

@@ -27,6 +27,13 @@
 #include "Vgamesave_top_gamesave_top.h"
 #include "Vgamesave_top_snestang_top.h"
 #include "Vgamesave_top_sdram_chip.h"
+#if defined(__has_include)
+# if __has_include("Vgamesave_top_main__UF1.h") && __has_include("Vgamesave_top_SNES.h")
+#  include "Vgamesave_top_main__UF1.h"
+#  include "Vgamesave_top_SNES.h"
+#  define GAMESAVE_CPU_TRACE 1
+# endif
+#endif
 #include "verilated.h"
 
 struct Run {
@@ -46,6 +53,8 @@ struct Sim {
     uint64_t cycles = 0;
     bool err_seen = false;                  // first $EE write to the error flag
     uint64_t err_at = 0, err_write = 0;
+    uint64_t err_writes = 0;                // every $EE write (the loop rewrites it)
+    bool trace_on = false;                  // per-tick BSRAM signal trace (debug)
 
     Sim() {
         top = new Vgamesave_top;
@@ -64,11 +73,33 @@ struct Sim {
         bool we = s->sv_core_we;
         if (we && !prev_we) {
             writes++;
-            if (s->BSRAM_D == 0xEE && s->BSRAM_ADDR == 0x3F0 && !err_seen) {
-                err_seen = true;
-                err_at = cycles;
-                err_write = writes;
+            if (s->BSRAM_D == 0xEE && s->BSRAM_ADDR == 0x3F0) {
+                err_writes++;
+                if (!err_seen) {
+                    err_seen = true;
+                    err_at = cycles;
+                    err_write = writes;
+                }
             }
+        }
+        bool cef = false;
+#ifdef GAMESAVE_CPU_TRACE
+        cef = s->main->SYSCLKF_CE;
+#endif
+        if (trace_on && (cef || s->enable == 0)) {
+            printf("t%llu en=%d A=%05x ce=%d rd=%d we=%d Q=%02x dout=%02x det=%d busy=%d",
+                   (unsigned long long)cycles, (int)s->enable,
+                   (unsigned)s->BSRAM_ADDR, (int)s->BSRAM_CE_N, (int)s->BSRAM_RD_N,
+                   (int)s->BSRAM_WE_N, (unsigned)s->BSRAM_Q, (unsigned)s->bsram_dout,
+                   (int)s->bs_det_new, (int)s->bs_busy);
+#ifdef GAMESAVE_CPU_TRACE
+            printf(" CA=%06x DI=%02x CEF=%d RWN=%d",
+                   (unsigned)s->main->SNES->CPU__DOT__P65_A,
+                   (unsigned)s->main->SNES->CPU__DOT__P65_DI,
+                   (int)s->main->SNES->CPU__DOT__INT_CLKF_CE,
+                   (int)s->main->SNES->CPU__DOT__P65_R_WN);
+#endif
+            printf("\n");
         }
         prev_we = we;
         cycles++;
@@ -106,6 +137,41 @@ struct Sim {
         s->sv_addr = a;
         s->sv_rreq = !s->sv_rreq;
         for (int i = 0; i < 4000; i++) {
+            tick();
+            if (s->sv_rack_r != ack0) {
+                *b = s->sv_q_r;
+                return true;
+            }
+        }
+        return false;
+    }
+    // Force the verilator top's frame-sync halt (test_halt_snes) for
+    // n sys ticks: enable falls without the core_config pause bit,
+    // exactly the hardware halt shape. The top's own block would
+    // release it early, so top its counter up every tick.
+    void force_halt_ticks(uint64_t n) {
+        s->test_sync_done = 0;
+        s->test_halt_snes = 1;
+        while (n--) {
+            s->test_halt_cnt = 15;
+            tick();
+            s->test_halt_snes = 1;
+            s->test_sync_done = 0;
+        }
+        s->test_halt_snes = 0;
+        s->test_halt_cnt = 0;
+        s->test_sync_done = 1;
+    }
+    // Toggle one save read without waiting (churn boot: the byte may be
+    // let through by a later pause window). Returns the rack level to
+    // compare against.
+    bool bridge_toggle_read(uint32_t a) {
+        s->sv_addr = a;
+        s->sv_rreq = !s->sv_rreq;
+        return s->sv_rack_r;
+    }
+    bool bridge_poll_rack(bool ack0, uint8_t *b, int max_ticks) {
+        for (int i = 0; i < max_ticks; i++) {
             tick();
             if (s->sv_rack_r != ack0) {
                 *b = s->sv_q_r;
@@ -208,7 +274,206 @@ static Run boot(int argc, char **argv, uint32_t size, const std::vector<uint8_t>
         printf("    error flag first written at cycle %llu (write #%llu of %llu, run began at %llu)\n",
                (unsigned long long)sim.err_at, (unsigned long long)sim.err_write,
                (unsigned long long)sim.writes, (unsigned long long)run_start);
+    run.err_flag = sim.err_seen;
     return run;
+}
+
+// Issue #71 churn: the restored game polls SRAM+0 in a tight loop and
+// writes $EE at SRAM+$3F0 the first time a poll reads back anything
+// else. Against that loop, run save traffic through every enable-low
+// shape the hardware has -- long firmware pauses with whole dumps,
+// and short pause pulses standing in for the per-frame HDMI halt with
+// a dump byte pending -- walking the phase bit by bit so the game's
+// polls land at every offset around the pause edges. A game read
+// that returns a save-channel byte anywhere in the sweep sets the
+// error flag; none may.
+static void boot_churn(int argc, char **argv, uint32_t size,
+                       const std::vector<uint8_t> &image, uint64_t run_cycles) {
+    Verilated::commandArgs(argc, argv);
+    Sim sim;
+    for (uint32_t i = 0; i < 0x20000; i++)
+        sim.set_bsram(i, 0xFF);
+    sim.s->test_loader__DOT__hold = 1;
+    for (uint64_t t = 0; t < 8000000; t++) {
+        sim.tick();
+        if (sim.s->test_loader__DOT__addr == sim.s->test_loader__DOT__size && sim.s->resetn)
+            break;
+    }
+    sim.ticks(2000);
+    bool ok = true;
+    for (uint32_t i = 0; i < size && ok; i++)
+        ok = sim.bridge_write(i, image[i]);
+    check(ok, "churn: save restored while held");
+    sim.writes = 0;
+    sim.s->test_loader__DOT__hold = 0;
+    sim.ticks(run_cycles / 4);
+    check(sim.writes == 1 && !sim.err_seen,
+          "churn: game is in its signature-poll loop (one marker write)");
+
+    const uint64_t widths[4] = {78, 180, 600, 3000};   // 13..500 mclk
+    uint64_t acked_in_halt = 0, acked_running = 0;
+    const int iters = 320;
+    // +churnmode: 0 all, 1 pause bit only (no save toggles), 2 forced
+    // halt only (no save toggles), 3 firmware-pause dumps only,
+    // 4 forced halt with a save byte pending only. Debug isolation.
+    int churnmode = 0;
+    for (int i = 1; i < argc; i++)
+        if (!strncmp(argv[i], "+churnmode=", 11))
+            churnmode = atoi(argv[i] + 11);
+    if (churnmode >= 5) {
+        // Fine phase sweep of single enable drops (modes 5/6 = halt,
+        // 7/8 = pause bit), gap growing by +gapstep ticks (default 5)
+        // per iteration from +gap0 (default 6000), reporting every
+        // iteration that makes the game write its error flag. Modes
+        // 6/8 add a per-tick signal trace during +traceit=<n>.
+        uint64_t gap0 = 6000, gapstep = 5, width = widths[1];
+        int traceit = -1;
+        for (int i = 1; i < argc; i++) {
+            if (!strncmp(argv[i], "+gap0=", 6)) gap0 = (uint64_t)atoll(argv[i] + 6);
+            if (!strncmp(argv[i], "+gapstep=", 9)) gapstep = (uint64_t)atoll(argv[i] + 9);
+            if (!strncmp(argv[i], "+width=", 7)) width = (uint64_t)atoll(argv[i] + 7);
+            if (!strncmp(argv[i], "+traceit=", 9)) traceit = atoi(argv[i] + 9);
+        }
+        uint64_t errs0 = sim.err_writes;
+        int bad = 0;
+        if (churnmode == 9) {
+            // Width sweep at fixed shape: pause-bit drops of every
+            // width in 1-mclk steps, reporting bad counts per width.
+            for (uint64_t w = 48; w <= 48 + 6 * 41; w += 6) {
+                uint64_t e0 = sim.err_writes;
+                int wb = 0;
+                for (int it = 0; it < 60; it++) {
+                    sim.ticks(6000 + (uint64_t)((it * 13) % 3000));
+                    sim.s->core_config |= 1u << 17;
+                    sim.ticks(w);
+                    sim.s->core_config &= ~(1u << 17);
+                    sim.ticks(3000);
+                    if (sim.err_writes != e0) { wb++; e0 = sim.err_writes; }
+                }
+                printf("    widthsweep: width %llu ticks (%llu mclk) bad %d/60\n",
+                       (unsigned long long)w, (unsigned long long)(w / 6), wb);
+                bad += wb;
+            }
+            check(bad == 0, "widthsweep: no pause width disturbs the polls");
+            return;
+        }
+        for (int it = 0; it < 400; it++) {
+            uint64_t gap = gap0 + (uint64_t)it * gapstep;
+            if (it == traceit && gap > 900) {
+                sim.ticks(gap - 900);
+                sim.trace_on = true;
+                sim.ticks(900);
+            } else {
+                sim.ticks(gap);
+            }
+            if (churnmode >= 7) {
+                sim.s->core_config |= 1u << 17;
+                sim.ticks(width);
+                sim.s->core_config &= ~(1u << 17);
+            } else {
+                sim.force_halt_ticks(width);
+            }
+            sim.ticks(3000);
+            sim.trace_on = false;
+            if (sim.err_writes != errs0) {
+                printf("    sweep: error at it=%d gap=%llu width=%llu errwrites=%llu atcycle=%llu\n",
+                       it, (unsigned long long)(gap0 + (uint64_t)it * gapstep),
+                       (unsigned long long)width,
+                       (unsigned long long)sim.err_writes,
+                       (unsigned long long)sim.err_at);
+                errs0 = sim.err_writes;
+                bad++;
+            }
+        }
+        sim.ticks(100000);
+        printf("    sweep: %d bad iterations of 400, writes %llu\n", bad,
+               (unsigned long long)sim.writes);
+        check(bad == 0, "sweep: no enable drop disturbs the polls");
+        return;
+    }
+    int traceit2 = -1;
+    for (int i = 1; i < argc; i++)
+        if (!strncmp(argv[i], "+traceit=", 9))
+            traceit2 = atoi(argv[i] + 9);
+    int done_iters = 0;
+    for (int it = 0; it < iters && ok; it++) {
+        done_iters = it + 1;
+        sim.trace_on = (it == traceit2);
+        sim.ticks(6000 + (uint64_t)((it * 13) % 3000));   // walk the phase
+        if (churnmode == 1 || churnmode == 2) {
+            if (churnmode == 1) {
+                sim.s->core_config |= 1u << 17;
+                sim.ticks(widths[it % 4]);
+                sim.s->core_config &= ~(1u << 17);
+            } else {
+                sim.force_halt_ticks(widths[it % 4]);
+            }
+            if (sim.err_seen) { printf("    churn: error first after iteration %d type %d mode %d\n", it, it % 4, churnmode); break; }
+            continue;
+        } else if (it % 4 == 3) {
+            // A whole dump under a firmware-style pause, then Resume:
+            // the pause lasts until every byte has acked, as the
+            // firmware's reply-waited block fetches leave it.
+            sim.s->core_config |= 1u << 17;
+            for (uint32_t a = 0; a < 128 && ok; a++) {
+                uint8_t b = 0;
+                ok = sim.bridge_read(a, &b) && b == sim.bsram(a);
+            }
+            sim.s->core_config &= ~(1u << 17);
+            continue;
+        }
+        if (churnmode == 3 && it % 4 != 2 && it % 4 != 3) {
+            if (sim.err_seen) { printf("    churn: error first after iteration %d type %d mode %d\n", it, it % 4, churnmode); break; }
+            continue;
+        }
+        if (churnmode == 4 && (it % 4 == 2 || it % 4 == 3)) {
+            if (sim.err_seen) { printf("    churn: error first after iteration %d type %d mode %d\n", it, it % 4, churnmode); break; }
+            continue;
+        }
+        uint32_t a = (uint32_t)((it * 128 + 17) % (int)size);
+        bool ack0 = sim.bridge_toggle_read(a);
+        uint8_t b = 0;
+        sim.ticks(120);                          // pending, core running
+        if (it % 4 == 2) {
+            // Firmware pause for this byte: held until it acks.
+            sim.s->core_config |= 1u << 17;
+            bool done = sim.bridge_poll_rack(ack0, &b, 20000);
+            sim.s->core_config &= ~(1u << 17);
+            ok = done && b == sim.bsram(a);
+            continue;
+        }
+        // Per-frame halt shape: enable low, pause bit clear, dump
+        // byte pending. No save byte may be served in this window.
+        sim.force_halt_ticks(widths[it % 4]);
+        bool done = sim.s->sv_rack_r != ack0;
+        if (done) {
+            acked_in_halt++;
+            b = sim.s->sv_q_r;
+        } else if (sim.bridge_poll_rack(ack0, &b, 2000)) {
+            acked_running++;                     // completed after resume
+            done = true;
+        }
+        if (!done) {                             // clean up under a pause
+            sim.s->core_config |= 1u << 17;
+            done = sim.bridge_poll_rack(ack0, &b, 20000);
+            sim.s->core_config &= ~(1u << 17);
+        }
+        ok = done && b == sim.bsram(a);
+        if (sim.err_seen) { printf("    churn: error first after iteration %d type %d mode %d\n", it, it % 4, churnmode); break; }
+    }
+    sim.ticks(300000);
+    printf("    churn: %d iterations, dump bytes acked in halt %llu, acked running %llu, writes %llu\n",
+           iters, (unsigned long long)acked_in_halt,
+           (unsigned long long)acked_running, (unsigned long long)sim.writes);
+    check(acked_in_halt == 0 && acked_running == 0,
+          "churn: no save byte is served while the game runs (halt included)");
+    check(ok, "churn: every dumped byte equals the SRAM");
+    if (sim.err_seen)
+        printf("    error flag first written at cycle %llu (write #%llu)\n",
+               (unsigned long long)sim.err_at, (unsigned long long)sim.err_write);
+    check(!sim.err_seen && sim.bsram(0x3F0) != 0xEE,
+          "churn: the game's signature polls were never disturbed");
+    check(sim.writes == 1, "churn: no write but the marker was announced");
 }
 
 int main(int argc, char **argv) {
@@ -270,6 +535,9 @@ int main(int argc, char **argv) {
             rest = false;
     check(rest, "the restored save is otherwise untouched");
     check(b.writes == 1, "only the marker write was announced");
+
+    printf("boot 3: pause/dump/resume churn against the polling loop (issue #71)\n");
+    boot_churn(argc, argv, size, a.sram, RUN);
 
     printf(fails ? "FAILED (%d)\n" : "all passed\n", fails);
     return fails ? 1 : 0;
