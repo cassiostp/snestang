@@ -52,6 +52,39 @@ module tb_snes_scaler_hz120;
     localparam BORDER = 24'h303030;
     localparam R = 2, LINES = 224, TOP = 16, PW = 640, SCREEN = 720;
 
+    // Modes 2/3 (Lottes HI/LO) exact checks: forward table from
+    // bfi_lottes.hex ("HHLL" per input code); the stimulus picture is
+    // static, so adjacent captured frames must be exact complements
+    // through the table and same-parity frames two apart bit-identical.
+    reg [15:0] HEXRAW [0:255];
+    reg [7:0] THI [0:255];
+    reg [7:0] TLO [0:255];
+    reg [23:0] colA [0:479];
+    reg [23:0] colB [0:479];
+    reg [23:0] colC [0:479];
+    initial begin : load_hex
+        integer ci;
+        $readmemh("bfi_lottes.hex", HEXRAW);
+        for (ci = 0; ci < 256; ci = ci + 1) begin
+            THI[ci] = HEXRAW[ci][15:8]; TLO[ci] = HEXRAW[ci][7:0];
+        end
+    end
+
+    // snap_col(dst): wait one frame end, then copy the centre column
+    // (x=360: picture and border rows alike) into dst (0 A, 1 B, 2 C).
+    task snap_col(input integer dst);
+        integer r;
+        begin
+            while (dut.cy != 10'd500) @(posedge clk_pixel);
+            while (dut.cy == 10'd500) @(posedge clk_pixel);
+            for (r = 0; r < 480; r = r + 1) begin
+                if (dst == 0) colA[r] = img[r * 1280 + 360];
+                else if (dst == 1) colB[r] = img[r * 1280 + 360];
+                else colC[r] = img[r * 1280 + 360];
+            end
+        end
+    endtask
+
     // source picture: SNES line l (0..223) has colour src_color(l) (BGR5), or, when
     // by_column is set, column c has colour col_color(c)
     function [14:0] src_color(input integer l);
@@ -147,6 +180,71 @@ module tb_snes_scaler_hz120;
                     $fwrite(fd, "%c%c%c", img[py * 1280 + px][23:16], img[py * 1280 + px][15:8], img[py * 1280 + px][7:0]);
             $fclose(fd);
             $display("dumped %0s", name);
+        end
+    endtask
+
+    // check_lottes(mode): colA/colB must be exact complements through the
+    // hex table on every row, colA/colC bit-identical (same parity).
+    // Mode 2 carries HI on the same frame for every row; mode 3 flips it
+    // per half (top rows cy<240 vs bottom rows).
+    task check_lottes(input [1:0] mode);
+        integer r, k, c, side_top, side_bot, side;
+        reg [23:0] a, b;
+        reg [7:0] ca, cb, mx, mn;
+        reg ok;
+        begin
+            side_top = -1; side_bot = -1;
+            for (r = 0; r < 480; r = r + 1) begin
+                a = colA[r]; b = colB[r];
+                for (k = 0; k < 3; k = k + 1) begin
+                    ca = (a >> (8 * k)) & 8'hff;
+                    cb = (b >> (8 * k)) & 8'hff;
+                    mx = ca > cb ? ca : cb;
+                    mn = ca < cb ? ca : cb;
+                    ok = 0;
+                    for (c = 0; c < 256; c = c + 1)
+                        if (THI[c] == mx && TLO[c] == mn) ok = 1;
+                    if (!ok) begin
+                        $display("FAIL: mode-%0d row %0d ch %0d %h/%h not a table pair", mode, r, k, ca, cb);
+                        $fatal(1, "tb_snes_scaler_hz120: FAIL");
+                    end
+                    if (mx != mn) begin
+                        side = (ca == mx) ? 1 : 0;
+                        if (r < 240) begin
+                            if (side_top < 0) side_top = side;
+                            else if (side_top != side) begin
+                                $display("FAIL: mode-%0d HI side flips mid top half at row %0d", mode, r);
+                                $fatal(1, "tb_snes_scaler_hz120: FAIL");
+                            end
+                        end else begin
+                            if (side_bot < 0) side_bot = side;
+                            else if (side_bot != side) begin
+                                $display("FAIL: mode-%0d HI side flips mid bottom half at row %0d", mode, r);
+                                $fatal(1, "tb_snes_scaler_hz120: FAIL");
+                            end
+                        end
+                    end
+                end
+            end
+            if (side_top < 0 || side_bot < 0) begin
+                $display("FAIL: mode-%0d frames have no discriminating row (all HI==LO)", mode);
+                $fatal(1, "tb_snes_scaler_hz120: FAIL");
+            end
+            if (mode == 2 && side_top != side_bot) begin
+                $display("FAIL: mode-2 top/bottom HI sides differ (%0d/%0d)", side_top, side_bot);
+                $fatal(1, "tb_snes_scaler_hz120: FAIL");
+            end
+            if (mode == 3 && side_top == side_bot) begin
+                $display("FAIL: mode-3 top/bottom HI sides agree (%0d)", side_top);
+                $fatal(1, "tb_snes_scaler_hz120: FAIL");
+            end
+            for (r = 0; r < 480; r = r + 1) begin
+                if (colA[r] !== colC[r]) begin
+                    $display("FAIL: mode-%0d row %0d %h != same-parity frame %h", mode, r, colA[r], colC[r]);
+                    $fatal(1, "tb_snes_scaler_hz120: FAIL");
+                end
+            end
+            $display("snes2hdmi BFI mode %0d bright/beam exact (480 rows, complements + parity): ok", mode);
         end
     endtask
 
@@ -257,8 +355,10 @@ module tb_snes_scaler_hz120;
         sl_out = 1; cur_geom = 0; settle; check_columns(0);
         $display("snes2hdmi columns, output rows: ok");
 
-        // BFI: mode 0 repeats the picture, 1 and 3 are black, 2 is half
-        // brightness, and the overlay is lit on every refresh.
+        // BFI: mode 0 repeats the picture, 1 is black, 2 (bright) and 3
+        // (beam) carry the Lottes HI/LO pair with global or
+        // complementary-half parity (exact per-pixel checks), and the
+        // overlay is lit on every refresh.
         begin : bfi
             reg [23:0] lit, dimc, gotb;
             integer k;
@@ -277,20 +377,12 @@ module tb_snes_scaler_hz120;
                 end else if (gotb !== lit)
                     fail("bfi black lit", 100, gotb, lit);
             end
-            vcfg = 32'd3 << 20;                 // mode 3 is black on this core
-            settle;
-            gotb = img[100 * 1280 + 360];
-            if (dut.bfi_dark) begin
-                if (gotb !== 24'h0) fail("bfi mode3", 100, gotb, 24'h0);
-            end else if (gotb !== lit)
-                fail("bfi mode3 lit", 100, gotb, lit);
-            vcfg = 32'd2 << 20;                 // mode 2, dim
-            settle;
-            gotb = img[100 * 1280 + 360];
-            if (dut.bfi_dark) begin
-                if (gotb !== dimc) fail("bfi dim", 100, gotb, dimc);
-            end else if (gotb !== lit)
-                fail("bfi dim lit", 100, gotb, lit);
+            vcfg = 32'd2 << 20;                 // mode 2, bright
+            settle; snap_col(0); snap_col(1); snap_col(2);
+            check_lottes(2);
+            vcfg = 32'd3 << 20;                 // mode 3, beam
+            settle; snap_col(0); snap_col(1); snap_col(2);
+            check_lottes(3);
             ov = 1; vcfg = 32'd1 << 20; settle; // menu: BFI does not apply
             gotb = img[100 * 1280 + 360];
             if (gotb !== to_rgb(overlay_color)) fail("bfi overlay", 100, gotb, to_rgb(overlay_color));
