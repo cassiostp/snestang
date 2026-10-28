@@ -410,8 +410,8 @@ module snes2hdmi (
     wire audio_full, audio_empty;
     wire [FIFO_ADDRSIZE:0] audio_used;
     wire [31:0] audio_sample;
-    wire [10:0] audio_limit = (audio_used >= FIFO_HI) ? AUDIO_PERIOD - 11'd1 :
-                              (audio_used <= FIFO_LO) ? AUDIO_PERIOD + 11'd1 : AUDIO_PERIOD;
+    // SNESSOUND8 diagnostic, not a candidate: no occupancy servo.
+    wire [10:0] audio_limit = AUDIO_PERIOD;
 
     always @(posedge clk_pixel) begin
         if (!resetn) begin
