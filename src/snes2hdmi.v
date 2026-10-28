@@ -397,7 +397,7 @@ module snes2hdmi (
     // residual (clock tolerance): above FIFO_HI the audio period shortens by
     // one pixel clock, below FIFO_LO it lengthens by one, so the level stays
     // mid-FIFO and samples are neither dropped nor repeated.
-    localparam AUDIO_OUT_RATE = 48000;
+    localparam AUDIO_OUT_RATE = 32000;
     localparam AUDIO_DELAY = CLKFRQ * 1000 / AUDIO_OUT_RATE / 2;
     localparam [10:0] AUDIO_PERIOD = AUDIO_DELAY - 1;    // pixel clocks per half audio clock
     localparam FIFO_ADDRSIZE = 6;       // 64 samples, ~2 ms at 32 kHz
