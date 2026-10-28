@@ -30,3 +30,4 @@ gsu_boot	full	shared	vlt	300	gsu_boot	GSU_ROM={rom} sh run.sh	GSU2BPP256x192Fill
 cx4_boot	full	standard	host	1800	cx4_boot	sh run.sh build && sh run.sh run {rom} 600 {output}	*Mega Man X3*.sfc				cx4_ghdl:1 + verilator/verilator:latest (host wrapper)	""
 sa1_boot	full	standard	host	1800	sa1_boot	sh run.sh build && sh run.sh run {rom} 600 {output}	*Kirby Super Star*.sfc				cx4_ghdl:1 + verilator/verilator:latest (host wrapper)	""
 realsdram	full	standard	vlt	1800	realsdram	sh run.sh build	*Link to the Past*.sfc		DUMP_ALL_FRAMES=1 sh run.sh run zelda {rom} 600 {output}		verilator/verilator:latest	""
+hdmi_audio	full	standard,hz120	host	15	hdmi_audio	sh run.sh {variant}					verilator/verilator:latest (host wrapper)	Synthetic stereo stream decoded from real parallel TMDS; no ROM
